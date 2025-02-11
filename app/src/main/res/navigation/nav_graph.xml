@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/nav_home">
+
+    <fragment
+        android:id="@+id/nav_home"
+        android:name="com.example.allinone.ui.HomeFragment"
+        android:label="Home" />
+
+    <fragment
+        android:id="@+id/nav_investments"
+        android:name="com.example.allinone.ui.InvestmentsFragment"
+        android:label="Investments" />
+
+    <fragment
+        android:id="@+id/nav_history"
+        android:name="com.example.allinone.ui.HistoryFragment"
+        android:label="History" />
+
+</navigation> 
