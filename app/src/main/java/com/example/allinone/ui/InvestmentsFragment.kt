@@ -16,6 +16,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.allinone.adapters.InvestmentAdapter
 import com.example.allinone.data.Investment
 import com.example.allinone.databinding.FragmentInvestmentsBinding
+import com.example.allinone.databinding.DialogEditInvestmentBinding
 import com.example.allinone.viewmodels.InvestmentsViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
@@ -25,28 +26,23 @@ import java.util.Locale
 class InvestmentsFragment : Fragment() {
     private var _binding: FragmentInvestmentsBinding? = null
     private val binding get() = _binding!!
+    private var _dialogBinding: DialogEditInvestmentBinding? = null
+    private val dialogBinding get() = _dialogBinding!!
+    
     private val viewModel: InvestmentsViewModel by viewModels()
     private var selectedImageUri: Uri? = null
     
-    private lateinit var investmentAdapter: InvestmentAdapter
-
-    private val getContent = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            result.data?.data?.let { uri ->
-                selectedImageUri = uri
-                binding.selectedImageView.apply {
-                    setImageURI(uri)
-                    visibility = View.VISIBLE
-                }
-            }
+    private val getContent = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri?.let {
+            selectedImageUri = it
+            dialogBinding.selectedImageView.setImageURI(it)
+            dialogBinding.imageContainer.visibility = View.VISIBLE
         }
     }
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
+    private lateinit var investmentAdapter: InvestmentAdapter
+
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentInvestmentsBinding.inflate(inflater, container, false)
         return binding.root
     }
@@ -54,9 +50,8 @@ class InvestmentsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()
-        setupInvestmentTypeDropdown()
-        setupButtons()
-        observeData()
+        setupAddInvestmentButton()
+        observeInvestments()
     }
 
     private fun setupRecyclerView() {
@@ -74,32 +69,111 @@ class InvestmentsFragment : Fragment() {
         }
     }
 
-    private fun setupInvestmentTypeDropdown() {
-        val types = arrayOf("Stock", "Crypto", "Real Estate", "Gold", "Other")
-        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, types)
-        (binding.typeLayout.editText as? AutoCompleteTextView)?.setAdapter(adapter)
+    private fun setupAddInvestmentButton() {
+        binding.addInvestmentButton.setOnClickListener {
+            showAddInvestmentDialog()
+        }
     }
 
-    private fun setupButtons() {
-        binding.addInvestmentButton.setOnClickListener {
-            binding.addInvestmentCard.visibility = View.VISIBLE
-        }
+    private fun showAddInvestmentDialog() {
+        _dialogBinding = DialogEditInvestmentBinding.inflate(layoutInflater)
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Add Investment")
+            .setView(dialogBinding.root)
+            .create()
 
-        binding.addImageButton.setOnClickListener {
+        setupInvestmentTypeDropdown()
+        
+        dialogBinding.addImageButton.setOnClickListener {
             openImagePicker()
         }
 
-        binding.saveButton.setOnClickListener {
-            saveInvestment()
+        dialogBinding.deleteImageButton.setOnClickListener {
+            selectedImageUri = null
+            dialogBinding.imageContainer.visibility = View.GONE
         }
 
-        binding.cancelButton.setOnClickListener {
-            clearFields()
-            binding.addInvestmentCard.visibility = View.GONE
+        dialogBinding.saveButton.setOnClickListener {
+            if (validateInputs()) {
+                handleAddInvestment()
+                dialog.dismiss()
+            }
+        }
+
+        dialogBinding.cancelButton.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
+    }
+
+    private fun setupInvestmentTypeDropdown() {
+        val types = arrayOf("Stock", "Crypto", "Real Estate", "Gold", "Other")
+        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, types)
+        (dialogBinding.typeLayout.editText as? AutoCompleteTextView)?.setAdapter(adapter)
+    }
+
+    private fun validateInputs(): Boolean {
+        var isValid = true
+        
+        dialogBinding.apply {
+            if (nameInput.text.isNullOrBlank()) {
+                nameLayout.error = "Name is required"
+                isValid = false
+            }
+            
+            if (amountInput.text.isNullOrBlank()) {
+                amountLayout.error = "Amount is required"
+                isValid = false
+            }
+            
+            if ((typeLayout.editText as? AutoCompleteTextView)?.text.isNullOrBlank()) {
+                typeLayout.error = "Type is required"
+                isValid = false
+            }
+        }
+        
+        return isValid
+    }
+
+    private fun handleAddInvestment() {
+        dialogBinding.apply {
+            val name = nameInput.text.toString()
+            val amount = amountInput.text.toString().toDoubleOrNull() ?: 0.0
+            val type = (typeLayout.editText as? AutoCompleteTextView)?.text.toString()
+            val description = descriptionInput.text.toString().takeIf { it.isNotBlank() }
+            
+            viewModel.addInvestment(
+                name = name,
+                amount = amount,
+                type = type,
+                description = description,
+                imageUri = selectedImageUri?.toString()
+            )
+        }
+        clearFields()
+    }
+
+    private fun clearFields() {
+        dialogBinding.apply {
+            nameInput.text?.clear()
+            amountInput.text?.clear()
+            (typeLayout.editText as? AutoCompleteTextView)?.text?.clear()
+            descriptionInput.text?.clear()
+            selectedImageUri = null
+            imageContainer.visibility = View.GONE
+            
+            nameLayout.error = null
+            amountLayout.error = null
+            typeLayout.error = null
         }
     }
 
-    private fun observeData() {
+    private fun openImagePicker() {
+        getContent.launch("image/*")
+    }
+
+    private fun observeInvestments() {
         viewModel.allInvestments.observe(viewLifecycleOwner) { investments ->
             investmentAdapter.submitList(investments)
             binding.emptyStateText.visibility = if (investments.isEmpty()) View.VISIBLE else View.GONE
@@ -121,83 +195,13 @@ class InvestmentsFragment : Fragment() {
         }
     }
 
-    private fun saveInvestment() {
-        val name = binding.nameInput.text.toString()
-        val amountStr = binding.amountInput.text.toString()
-        val currentValueStr = binding.currentValueInput.text.toString()
-        val type = (binding.typeLayout.editText as? AutoCompleteTextView)?.text.toString()
-        val description = binding.descriptionInput.text?.toString()?.takeIf { it.isNotBlank() }
-
-        if (name.isBlank()) {
-            binding.nameLayout.error = "Name is required"
-            return
-        }
-        if (amountStr.isBlank()) {
-            binding.amountLayout.error = "Amount is required"
-            return
-        }
-        if (currentValueStr.isBlank()) {
-            binding.currentValueLayout.error = "Current value is required"
-            return
-        }
-        if (type.isNullOrBlank()) {
-            binding.typeLayout.error = "Type is required"
-            return
-        }
-
-        try {
-            val amount = amountStr.toDouble()
-            val currentValue = currentValueStr.toDouble()
-            
-            viewModel.addInvestment(
-                name = name,
-                amount = amount,
-                type = type,
-                currentValue = currentValue,
-                description = description,
-                imageUri = selectedImageUri?.toString()
-            )
-
-            clearFields()
-            binding.addInvestmentCard.visibility = View.GONE
-            showSnackbar("Investment added successfully")
-        } catch (e: NumberFormatException) {
-            binding.amountLayout.error = "Invalid amount"
-        }
-    }
-
-    private fun clearFields() {
-        binding.nameInput.text?.clear()
-        binding.amountInput.text?.clear()
-        binding.currentValueInput.text?.clear()
-        (binding.typeLayout.editText as? AutoCompleteTextView)?.text?.clear()
-        binding.descriptionInput.text?.clear()
-        selectedImageUri = null
-        binding.selectedImageView.visibility = View.GONE
-        
-        binding.nameLayout.error = null
-        binding.amountLayout.error = null
-        binding.currentValueLayout.error = null
-        binding.typeLayout.error = null
-    }
-
-    private fun openImagePicker() {
-        val intent = Intent().apply {
-            type = "image/*"
-            action = Intent.ACTION_GET_CONTENT
-        }
-        getContent.launch(intent)
-    }
-
     private fun showInvestmentDetails(investment: Investment) {
-        val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(investment.name)
             .setMessage("""
                 Type: ${investment.type}
                 Amount: ₺${investment.amount}
-                Current Value: ₺${investment.currentValue}
-                Profit/Loss: ₺${investment.profitLoss}
                 Date: ${dateFormat.format(investment.date)}
                 ${investment.description?.let { "Description: $it" } ?: ""}
             """.trimIndent())
@@ -231,8 +235,56 @@ class InvestmentsFragment : Fragment() {
     }
 
     private fun showEditInvestmentDialog(investment: Investment) {
-        // Implement edit functionality
-        // This will be similar to adding a new investment but with pre-filled values
+        _dialogBinding = DialogEditInvestmentBinding.inflate(layoutInflater)
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Edit Investment")
+            .setView(dialogBinding.root)
+            .create()
+
+        // Pre-fill the fields with current values
+        dialogBinding.apply {
+            nameInput.setText(investment.name)
+            amountInput.setText(investment.amount.toString())
+            (typeLayout.editText as? AutoCompleteTextView)?.setText(investment.type)
+            descriptionInput.setText(investment.description)
+            
+            // Handle image if it exists
+            investment.imageUri?.let { uri ->
+                selectedImageUri = Uri.parse(uri)
+                selectedImageView.setImageURI(selectedImageUri)
+                imageContainer.visibility = View.VISIBLE
+            }
+
+            saveButton.setOnClickListener {
+                val name = nameInput.text.toString()
+                val amount = amountInput.text.toString().toDoubleOrNull()
+                val type = (typeLayout.editText as? AutoCompleteTextView)?.text.toString()
+                val description = descriptionInput.text.toString().takeIf { it.isNotBlank() }
+
+                if (name.isBlank() || amount == null || type.isBlank()) {
+                    showSnackbar("Please fill all required fields")
+                    return@setOnClickListener
+                }
+
+                val updatedInvestment = investment.copy(
+                    name = name,
+                    amount = amount,
+                    type = type,
+                    description = description,
+                    imageUri = selectedImageUri?.toString()
+                )
+
+                viewModel.updateInvestment(updatedInvestment)
+                dialog.dismiss()
+                showSnackbar("Investment updated successfully")
+            }
+
+            cancelButton.setOnClickListener {
+                dialog.dismiss()
+            }
+        }
+
+        dialog.show()
     }
 
     private fun showSnackbar(message: String) {
@@ -242,5 +294,6 @@ class InvestmentsFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+        _dialogBinding = null
     }
 } 

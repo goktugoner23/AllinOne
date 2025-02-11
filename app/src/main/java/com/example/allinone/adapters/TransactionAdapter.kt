@@ -42,7 +42,7 @@ class TransactionAdapter(
         onItemClick: (Int) -> Unit,
         onItemLongClick: (Int) -> Unit
     ) : RecyclerView.ViewHolder(binding.root) {
-        private val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        private val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
 
         init {
             binding.root.setOnClickListener {
@@ -62,20 +62,19 @@ class TransactionAdapter(
 
         fun bind(transaction: Transaction) {
             binding.apply {
-                typeText.text = transaction.category
+                typeText.text = transaction.type
                 dateText.text = dateFormat.format(transaction.date)
                 amountText.text = String.format("₺%.2f", transaction.amount)
                 amountText.typeface = ResourcesCompat.getFont(root.context, R.font.opensans)
 
-                // Handle description visibility
-                if (!transaction.description.isNullOrBlank()) {
-                    descriptionText.text = transaction.description
+                // Show description if available
+                transaction.description?.let {
+                    descriptionText.text = it
                     descriptionText.visibility = View.VISIBLE
-                } else {
+                } ?: run {
                     descriptionText.visibility = View.GONE
                 }
 
-                // Set text color based on transaction type
                 val textColor = if (transaction.isIncome) {
                     ContextCompat.getColor(root.context, android.R.color.holo_green_dark)
                 } else {

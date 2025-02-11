@@ -38,7 +38,7 @@ class InvestmentAdapter(
         onItemClick: (Int) -> Unit,
         onItemLongClick: (Int) -> Unit
     ) : RecyclerView.ViewHolder(binding.root) {
-        private val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        private val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
 
         init {
             binding.root.setOnClickListener {

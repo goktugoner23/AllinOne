@@ -54,46 +54,42 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <com.google.android.material.chip.ChipGroup
-        android:id="@+id/filterChipGroup"
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        android:id="@+id/filterButtonGroup"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/summaryCard"
+        android:layout_margin="16dp"
         app:singleSelection="true">
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/chipAll"
-            style="@style/Widget.MaterialComponents.Chip.Choice"
+        <Button
+            android:id="@+id/allButton"
+            style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:checked="true"
             android:text="All" />
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/chipIncome"
-            style="@style/Widget.MaterialComponents.Chip.Choice"
+        <Button
+            android:id="@+id/incomeButton"
+            style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Income" />
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/chipExpense"
-            style="@style/Widget.MaterialComponents.Chip.Choice"
+        <Button
+            android:id="@+id/expenseButton"
+            style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Expense" />
-    </com.google.android.material.chip.ChipGroup>
+    </com.google.android.material.button.MaterialButtonToggleGroup>
 
-    <Spinner
-        android:id="@+id/sortSpinner"
+    <Button
+        android:id="@+id/sortButton"
+        style="?attr/materialButtonOutlinedStyle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/summaryCard" />
+        android:text="Sort" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/transactionsRecyclerView"
@@ -102,7 +98,7 @@
         android:clipToPadding="false"
         android:padding="16dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/filterChipGroup" />
+        app:layout_constraintTop_toBottomOf="@id/filterButtonGroup" />
 
     <TextView
         android:id="@+id/emptyStateText"

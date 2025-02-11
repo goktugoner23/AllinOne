@@ -54,13 +54,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             )
             transactionDao.insertTransaction(transaction)
 
-            // If this is an investment return, update the investment
-            if (type == "Investment" && description?.startsWith("Return from") == true) {
-                val investmentName = description.removePrefix("Return from").trim()
+            // If this is an investment return, update the investment's profit/loss
+            if (type == "Investment" && description?.startsWith("Return from ") == true) {
+                val investmentName = description.removePrefix("Return from ")
                 val investments = investmentDao.getAllInvestments().first()
                 investments.find { it.name == investmentName }?.let { investment ->
                     val updatedInvestment = investment.copy(
-                        currentValue = investment.currentValue + amount
+                        profitLoss = investment.profitLoss + amount
                     )
                     investmentDao.updateInvestment(updatedInvestment)
                 }

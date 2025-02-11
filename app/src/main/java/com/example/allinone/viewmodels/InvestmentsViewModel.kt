@@ -31,7 +31,6 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
         name: String,
         amount: Double,
         type: String,
-        currentValue: Double,
         description: String?,
         imageUri: String?
     ) {
@@ -40,7 +39,6 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
                 name = name,
                 amount = amount,
                 type = type,
-                currentValue = currentValue,
                 description = description,
                 imageUri = imageUri,
                 date = Date()

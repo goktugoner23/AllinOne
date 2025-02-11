@@ -8,35 +8,36 @@ import com.example.allinone.data.TransactionRepository
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 
 class HistoryViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository: TransactionRepository
-    private val _filterType = MutableLiveData<TransactionFilter>(TransactionFilter.ALL)
-    private val _sortOrder = MutableLiveData(SortOrder.DATE_DESC)
+    private val database = TransactionDatabase.getDatabase(application)
+    private val transactionDao = database.transactionDao()
+    private val repository = TransactionRepository(transactionDao)
 
-    init {
-        val transactionDao = TransactionDatabase.getDatabase(application).transactionDao()
-        repository = TransactionRepository(transactionDao)
-    }
+    private val _filterType = MutableStateFlow(TransactionFilter.ALL)
+    private val _sortOrder = MutableStateFlow(SortOrder.DATE_DESC)
 
-    val allTransactions: LiveData<List<Transaction>> = combine(
-        _filterType.asFlow(),
-        _sortOrder.asFlow()
-    ) { filter, sort ->
-        Pair(filter, sort)
-    }.map { (filter, sort) ->
-        val transactions = when (filter) {
-            TransactionFilter.ALL -> repository.allTransactions.first()
-            TransactionFilter.INCOME -> repository.getTransactionsByType(true).first()
-            TransactionFilter.EXPENSE -> repository.getTransactionsByType(false).first()
+    val filteredTransactions = combine(
+        _filterType,
+        _sortOrder,
+        transactionDao.getAllTransactions()
+    ) { filter, sort, transactions ->
+        var filtered = when (filter) {
+            TransactionFilter.ALL -> transactions
+            TransactionFilter.INCOME -> transactions.filter { it.isIncome }
+            TransactionFilter.EXPENSE -> transactions.filter { !it.isIncome }
         }
 
-        when (sort) {
-            SortOrder.DATE_DESC -> transactions.sortedByDescending { it.date }
-            SortOrder.DATE_ASC -> transactions.sortedBy { it.date }
-            SortOrder.AMOUNT_DESC -> transactions.sortedByDescending { it.amount }
-            SortOrder.AMOUNT_ASC -> transactions.sortedBy { it.amount }
+        filtered = when (sort) {
+            SortOrder.DATE_DESC -> filtered.sortedByDescending { it.date }
+            SortOrder.DATE_ASC -> filtered.sortedBy { it.date }
+            SortOrder.AMOUNT_DESC -> filtered.sortedByDescending { it.amount }
+            SortOrder.AMOUNT_ASC -> filtered.sortedBy { it.amount }
         }
+        
+        filtered
     }.asLiveData()
 
     val totalIncome: LiveData<Double> = repository.getTotalByType(true)
@@ -60,6 +61,18 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
 
     fun setSortOrder(order: SortOrder) {
         _sortOrder.value = order
+    }
+
+    fun updateTransaction(transaction: Transaction) {
+        viewModelScope.launch {
+            repository.updateTransaction(transaction)
+        }
+    }
+
+    fun deleteTransaction(transaction: Transaction) {
+        viewModelScope.launch {
+            transactionDao.deleteTransaction(transaction)
+        }
     }
 
     enum class TransactionFilter {

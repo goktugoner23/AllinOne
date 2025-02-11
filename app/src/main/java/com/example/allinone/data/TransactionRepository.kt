@@ -31,4 +31,8 @@ class TransactionRepository(private val transactionDao: TransactionDao) {
     fun getTotalByType(isIncome: Boolean): Flow<Double?> {
         return transactionDao.getTotalByType(isIncome)
     }
+
+    suspend fun updateTransaction(transaction: Transaction) {
+        transactionDao.updateTransaction(transaction)
+    }
 } 

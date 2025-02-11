@@ -1,4 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AllInOne</string>
+    <string name="amount">Amount</string>
+    <string name="type">Type</string>
+    <string name="description">Description</string>
+    <string name="save_changes">Save Changes</string>
+    <string name="type_input_description">Select transaction type</string>
+    <string name="select_type">Select transaction type</string>
+    <string name="investment_name">Investment Name</string>
+    <string name="investment_type">Investment Type</string>
+    <string name="add_image">Add Image</string>
+    <string name="delete_image">Delete Image</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
 </resources>
