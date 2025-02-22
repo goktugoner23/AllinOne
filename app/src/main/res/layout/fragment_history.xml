@@ -29,17 +29,25 @@
                     android:padding="16dp">
 
                     <TextView
-                        android:id="@+id/totalText"
+                        android:id="@+id/totalIncomeText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textAppearance="?attr/textAppearanceHeadline6" />
+                        android:textAppearance="?attr/textAppearanceBody1" />
 
                     <TextView
-                        android:id="@+id/periodText"
+                        android:id="@+id/totalExpenseText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:textAppearance="?attr/textAppearanceBody2" />
+                        android:textAppearance="?attr/textAppearanceBody1" />
+
+                    <TextView
+                        android:id="@+id/balanceText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textAppearance="?attr/textAppearanceHeadline6"
+                        android:textStyle="bold" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -51,17 +59,17 @@
                 android:clipToPadding="false"
                 android:scrollbars="none">
 
-                <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/filterChipGroup"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    app:singleSelection="true">
+                    android:orientation="horizontal">
 
                     <Button
                         android:id="@+id/allButton"
                         style="?attr/materialButtonOutlinedStyle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
                         android:text="All" />
 
                     <Button
@@ -69,6 +77,7 @@
                         style="?attr/materialButtonOutlinedStyle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
                         android:text="Income" />
 
                     <Button
@@ -76,9 +85,27 @@
                         style="?attr/materialButtonOutlinedStyle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
                         android:text="Expense" />
-                </com.google.android.material.chip.ChipGroup>
+
+                    <Button
+                        android:id="@+id/sortButton"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Sort" />
+                </LinearLayout>
             </HorizontalScrollView>
+
+            <!-- Empty state text -->
+            <TextView
+                android:id="@+id/emptyStateText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:gravity="center"
+                android:text="No transactions yet"
+                android:visibility="gone" />
 
             <!-- RecyclerView -->
             <androidx.recyclerview.widget.RecyclerView
