@@ -2,10 +2,10 @@
 <navigation xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/nav_home">
+    app:startDestination="@id/homeFragment">
 
     <fragment
-        android:id="@+id/nav_home"
+        android:id="@+id/homeFragment"
         android:name="com.example.allinone.ui.HomeFragment"
         android:label="Home" />
 
@@ -15,7 +15,7 @@
         android:label="Investments" />
 
     <fragment
-        android:id="@+id/nav_history"
+        android:id="@+id/historyFragment"
         android:name="com.example.allinone.ui.HistoryFragment"
         android:label="History" />
 
