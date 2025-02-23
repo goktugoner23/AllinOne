@@ -29,11 +29,17 @@ android {
     }
 
     signingConfigs {
-        release {
+        debug {
             storeFile file("../my-release-key.jks")
             storePassword "goktugoner2323"
-            keyAlias "my-alias"
-            keyPassword "goktugoner2323"
+            keyAlias System.getenv("KEY_ALIAS") ?: "my-alias"
+            keyPassword System.getenv("KEY_PASSWORD") ?: "goktugoner2323"
+        }
+        release {
+            storeFile file("../my-release-key.jks")
+            storePassword System.getenv("KEYSTORE_PASSWORD") ?: "goktugoner2323"
+            keyAlias System.getenv("KEY_ALIAS") ?: "my-alias"
+            keyPassword System.getenv("KEY_PASSWORD") ?: "goktugoner2323"
         }
     }
 
@@ -43,6 +49,11 @@ android {
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
+            debuggable false
+        }
+        debug {
+            signingConfig signingConfigs.debug
+            debuggable true
         }
     }
     compileOptions {

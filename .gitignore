@@ -14,3 +14,4 @@
 .cxx
 local.properties
 /.cursor/rules/custom-rule-kotlin.mdc
+.env
