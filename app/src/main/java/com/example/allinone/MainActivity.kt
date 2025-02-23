@@ -57,6 +57,11 @@ class MainActivity : AppCompatActivity() {
                     drawerLayout.closeDrawers()
                     true
                 }
+                R.id.nav_wt_registers -> {
+                    navController.navigate(R.id.nav_wt_registers)
+                    drawerLayout.closeDrawers()
+                    true
+                }
                 else -> false
             }
         }

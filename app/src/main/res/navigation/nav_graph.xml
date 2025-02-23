@@ -19,4 +19,9 @@
         android:name="com.example.allinone.ui.HistoryFragment"
         android:label="History" />
 
+    <fragment
+        android:id="@+id/nav_wt_registers"
+        android:name="com.example.allinone.ui.wt.WTRegistersFragment"
+        android:label="WT Registers" />
+
 </navigation> 
