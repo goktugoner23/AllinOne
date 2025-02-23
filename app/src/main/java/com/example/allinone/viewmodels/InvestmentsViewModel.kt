@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 class InvestmentsViewModel(application: Application) : AndroidViewModel(application) {
     private val database = TransactionDatabase.getDatabase(application)
     private val investmentDao = database.investmentDao()
+    private val transactionDao = database.transactionDao()
 
     val allInvestments: LiveData<List<Investment>> = investmentDao.getAllInvestments().asLiveData()
     
@@ -35,6 +36,36 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
     fun deleteInvestment(investment: Investment) {
         viewModelScope.launch {
             investmentDao.deleteInvestment(investment)
+        }
+    }
+
+    fun updateInvestmentAndTransaction(oldInvestment: Investment, newInvestment: Investment) {
+        viewModelScope.launch {
+            investmentDao.updateInvestment(newInvestment)
+            
+            val transaction = Transaction(
+                amount = newInvestment.amount,
+                type = "Investment",
+                description = "Investment in ${newInvestment.name}",
+                isIncome = false,
+                date = newInvestment.date,
+                category = newInvestment.type
+            )
+            transactionDao.updateTransactionByDescription(
+                oldDescription = "Investment in ${oldInvestment.name} (${oldInvestment.type})",
+                newAmount = newInvestment.amount,
+                newDescription = "Investment in ${newInvestment.name}"
+            )
+        }
+    }
+    
+    fun deleteInvestmentAndTransaction(investment: Investment) {
+        viewModelScope.launch {
+            investmentDao.deleteInvestment(investment)
+            
+            transactionDao.deleteTransactionByDescription(
+                "Investment in ${investment.name} (${investment.type})"
+            )
         }
     }
 } 

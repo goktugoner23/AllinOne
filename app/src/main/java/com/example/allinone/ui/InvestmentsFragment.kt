@@ -60,6 +60,16 @@ class InvestmentsFragment : Fragment() {
 
     private var dialogBinding: DialogEditInvestmentBinding? = null
 
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            observeViewModel()
+        } else {
+            Toast.makeText(context, "Permission required to show images", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -79,21 +89,9 @@ class InvestmentsFragment : Fragment() {
 
     private fun checkAndRequestPermissions() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            if (requireContext().checkSelfPermission(android.Manifest.permission.READ_MEDIA_IMAGES) 
-                != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(
-                    arrayOf(android.Manifest.permission.READ_MEDIA_IMAGES),
-                    PERMISSION_REQUEST_CODE
-                )
-            }
+            requestPermissionLauncher.launch(android.Manifest.permission.READ_MEDIA_IMAGES)
         } else {
-            if (requireContext().checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) 
-                != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(
-                    arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE),
-                    PERMISSION_REQUEST_CODE
-                )
-            }
+            requestPermissionLauncher.launch(android.Manifest.permission.READ_EXTERNAL_STORAGE)
         }
     }
 
@@ -125,7 +123,7 @@ class InvestmentsFragment : Fragment() {
         // Setup investment type dropdown
         val investmentTypes = arrayOf("Stocks", "Crypto", "Real Estate", "Gold", "Other")
         val arrayAdapter = ArrayAdapter(requireContext(), R.layout.dropdown_item, investmentTypes)
-        (dialogBinding.typeInput as? AutoCompleteTextView)?.setAdapter(arrayAdapter)
+        dialogBinding.typeInput.setAdapter(arrayAdapter)
 
         // Setup image adapter
         imageAdapter = InvestmentImageAdapter(
@@ -188,9 +186,9 @@ class InvestmentsFragment : Fragment() {
                 homeViewModel.addTransaction(
                     amount = amount,
                     type = "Investment",
-                    description = "Investment in $name ($type)",
+                    description = "Investment in $name",
                     isIncome = false,
-                    category = "Investment"
+                    category = type
                 )
 
                 // Show confirmation
@@ -200,19 +198,25 @@ class InvestmentsFragment : Fragment() {
             .show()
     }
 
-    private fun showInvestmentDetails(investment: Investment) {
-        // Show investment details in a dialog with images
-        val dialogBinding = DialogEditInvestmentBinding.inflate(layoutInflater)
+    private fun showInvestmentDetails(investment: Investment? = null) {
+        dialogBinding = DialogEditInvestmentBinding.inflate(layoutInflater)
+        
+        // Setup investment type dropdown
+        val types = arrayOf("Crypto", "Stock", "Real Estate", "Gold", "Other")
+        val typeAdapter = ArrayAdapter(requireContext(), R.layout.dropdown_item, types)
+        dialogBinding?.typeInput?.apply {
+            setAdapter(typeAdapter)
+            setText(investment?.type, false)  // false prevents filtering the dropdown list
+        }
         
         // Populate fields
-        dialogBinding.nameInput.setText(investment.name)
-        dialogBinding.amountInput.setText(investment.amount.toString())
-        dialogBinding.typeInput.setText(investment.type)
-        dialogBinding.descriptionInput.setText(investment.description)
+        dialogBinding?.nameInput?.setText(investment?.name)
+        dialogBinding?.amountInput?.setText(investment?.amount?.toString())
+        dialogBinding?.descriptionInput?.setText(investment?.description)
 
         // Setup images
         selectedImages.clear()
-        investment.imageUri?.split(",")?.forEach { uriString ->
+        investment?.imageUri?.split(",")?.forEach { uriString ->
             selectedImages.add(Uri.parse(uriString))
         }
 
@@ -226,7 +230,7 @@ class InvestmentsFragment : Fragment() {
             }
         )
 
-        dialogBinding.imagesRecyclerView.apply {
+        dialogBinding?.imagesRecyclerView?.apply {
             layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
             adapter = imageAdapter
             visibility = if (selectedImages.isNotEmpty()) View.VISIBLE else View.GONE
@@ -236,17 +240,18 @@ class InvestmentsFragment : Fragment() {
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Investment Details")
-            .setView(dialogBinding.root)
+            .setView(dialogBinding?.root)
             .setPositiveButton("Update") { _, _ ->
-                // Handle update
-                val updatedInvestment = investment.copy(
-                    name = dialogBinding.nameInput.text.toString(),
-                    amount = dialogBinding.amountInput.text.toString().toDoubleOrNull() ?: 0.0,
-                    type = dialogBinding.typeInput.text.toString(),
-                    description = dialogBinding.descriptionInput.text.toString(),
-                    imageUri = selectedImages.joinToString(",") { it.toString() }
-                )
-                viewModel.updateInvestment(updatedInvestment)
+                investment?.let { currentInvestment ->  // Safely unwrap the nullable investment
+                    val updatedInvestment = currentInvestment.copy(
+                        name = dialogBinding?.nameInput?.text?.toString() ?: "",
+                        amount = dialogBinding?.amountInput?.text?.toString()?.toDoubleOrNull() ?: 0.0,
+                        type = dialogBinding?.typeInput?.text?.toString() ?: "",
+                        description = dialogBinding?.descriptionInput?.text?.toString(),
+                        imageUri = selectedImages.joinToString(",") { it.toString() }
+                    )
+                    viewModel.updateInvestmentAndTransaction(currentInvestment, updatedInvestment)
+                }
             }
             .setNegativeButton("Close", null)
             .show()
@@ -274,7 +279,7 @@ class InvestmentsFragment : Fragment() {
             .setTitle("Delete Investment")
             .setMessage("Are you sure you want to delete this investment?")
             .setPositiveButton("Delete") { _, _ ->
-                viewModel.deleteInvestment(investment)
+                viewModel.deleteInvestmentAndTransaction(investment)
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -291,23 +296,5 @@ class InvestmentsFragment : Fragment() {
         super.onDestroyView()
         _binding = null
         dialogBinding = null
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        when (requestCode) {
-            PERMISSION_REQUEST_CODE -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    // Permission granted, refresh the view
-                    observeViewModel()
-                } else {
-                    Toast.makeText(context, "Permission required to show images", Toast.LENGTH_SHORT).show()
-                }
-            }
-            else -> super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        }
     }
 }

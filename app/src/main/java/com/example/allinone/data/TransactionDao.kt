@@ -31,4 +31,10 @@ interface TransactionDao {
 
     @Query("SELECT COALESCE(SUM(CASE WHEN isIncome = 1 THEN amount ELSE -amount END), 0.0) FROM transactions")
     fun getBalance(): Flow<Double>
+
+    @Query("UPDATE transactions SET amount = :newAmount, description = :newDescription WHERE description = :oldDescription")
+    suspend fun updateTransactionByDescription(oldDescription: String, newAmount: Double, newDescription: String)
+    
+    @Query("DELETE FROM transactions WHERE description = :description")
+    suspend fun deleteTransactionByDescription(description: String)
 } 
