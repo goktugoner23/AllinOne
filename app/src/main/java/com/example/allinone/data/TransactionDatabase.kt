@@ -9,15 +9,17 @@ import androidx.room.TypeConverters
 @Database(
     entities = [
         Transaction::class,
-        WTStudent::class
+        WTStudent::class,
+        Investment::class
     ],
-    version = 2,
+    version = 1,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class TransactionDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
     abstract fun wtStudentDao(): WTStudentDao
+    abstract fun investmentDao(): InvestmentDao
 
     companion object {
         @Volatile

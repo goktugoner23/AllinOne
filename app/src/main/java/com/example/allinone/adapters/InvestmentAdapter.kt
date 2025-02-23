@@ -1,7 +1,10 @@
 package com.example.allinone.adapters
 
+import android.net.Uri
+import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.ImageView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -10,10 +13,13 @@ import com.example.allinone.data.Investment
 import com.example.allinone.databinding.ItemInvestmentBinding
 import java.text.SimpleDateFormat
 import java.util.Locale
+import android.graphics.ImageDecoder
+import com.bumptech.glide.Glide
 
 class InvestmentAdapter(
     private val onItemClick: (Investment) -> Unit,
-    private val onItemLongClick: (Investment) -> Unit
+    private val onItemLongClick: (Investment) -> Unit,
+    private val onImageClick: (Uri) -> Unit
 ) : ListAdapter<Investment, InvestmentAdapter.InvestmentViewHolder>(InvestmentDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): InvestmentViewHolder {
@@ -22,11 +28,7 @@ class InvestmentAdapter(
             parent,
             false
         )
-        return InvestmentViewHolder(
-            binding,
-            { position -> onItemClick(getItem(position)) },
-            { position -> onItemLongClick(getItem(position)) }
-        )
+        return InvestmentViewHolder(binding)
     }
 
     override fun onBindViewHolder(holder: InvestmentViewHolder, position: Int) {
@@ -34,9 +36,7 @@ class InvestmentAdapter(
     }
 
     inner class InvestmentViewHolder(
-        private val binding: ItemInvestmentBinding,
-        onItemClick: (Int) -> Unit,
-        onItemLongClick: (Int) -> Unit
+        private val binding: ItemInvestmentBinding
     ) : RecyclerView.ViewHolder(binding.root) {
         private val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
 
@@ -44,13 +44,14 @@ class InvestmentAdapter(
             binding.root.setOnClickListener {
                 val position = adapterPosition
                 if (position != RecyclerView.NO_POSITION) {
-                    onItemClick(position)
+                    onItemClick(getItem(position))
                 }
             }
+
             binding.root.setOnLongClickListener {
                 val position = adapterPosition
                 if (position != RecyclerView.NO_POSITION) {
-                    onItemLongClick(position)
+                    onItemLongClick(getItem(position))
                 }
                 true
             }
@@ -58,23 +59,34 @@ class InvestmentAdapter(
 
         fun bind(investment: Investment) {
             binding.apply {
-                root.setOnClickListener { onItemClick(investment) }
-                nameText.text = investment.name
-                typeText.text = investment.type
-                dateText.text = dateFormat.format(investment.date)
-                amountText.text = String.format("₺%.2f", investment.amount)
-                profitLossText.text = String.format("₺%.2f", investment.profitLoss)
+                investmentName.text = investment.name
+                investmentType.text = investment.type
+                investmentAmount.text = String.format("₺%.2f", investment.amount)
+                investmentDate.text = dateFormat.format(investment.date)
+                investmentDescription.text = investment.description
                 
-                profitLossText.setTextColor(
-                    if (investment.profitLoss >= 0) {
-                        ContextCompat.getColor(root.context, android.R.color.holo_green_dark)
-                    } else {
-                        ContextCompat.getColor(root.context, android.R.color.holo_red_dark)
+                // Clear previous images
+                imageContainer.removeAllViews()
+                
+                // Safely load images
+                investment.imageUri?.split(",")?.forEach { uriString ->
+                    try {
+                        val uri = Uri.parse(uriString)
+                        val imageView = ImageView(itemView.context).apply {
+                            layoutParams = ViewGroup.LayoutParams(200, 200)
+                            scaleType = ImageView.ScaleType.CENTER_CROP
+                            setPadding(4, 4, 4, 4)
+                            setOnClickListener { onImageClick(uri) }
+                        }
+                        
+                        Glide.with(itemView.context)
+                            .load(uri)
+                            .into(imageView)
+                            
+                        imageContainer.addView(imageView)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
-                )
-
-                investment.imageUri?.let { uri ->
-                    investmentImage.setImageURI(android.net.Uri.parse(uri))
                 }
             }
         }
