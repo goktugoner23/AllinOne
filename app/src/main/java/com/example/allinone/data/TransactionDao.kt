@@ -37,4 +37,7 @@ interface TransactionDao {
     
     @Query("DELETE FROM transactions WHERE description = :description")
     suspend fun deleteTransactionByDescription(description: String)
+
+    @Query("DELETE FROM transactions WHERE description = :description AND type = :type")
+    suspend fun deleteTransactionByDescriptionAndType(description: String, type: String)
 } 

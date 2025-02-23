@@ -63,8 +63,9 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             investmentDao.deleteInvestment(investment)
             
-            transactionDao.deleteTransactionByDescription(
-                "Investment in ${investment.name} (${investment.type})"
+            transactionDao.deleteTransactionByDescriptionAndType(
+                description = "Investment in ${investment.name}",
+                type = "Investment"
             )
         }
     }
