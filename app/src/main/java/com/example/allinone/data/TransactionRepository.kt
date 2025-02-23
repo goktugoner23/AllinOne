@@ -7,19 +7,19 @@ class TransactionRepository(private val transactionDao: TransactionDao) {
     val allTransactions: Flow<List<Transaction>> = transactionDao.getAllTransactions()
 
     suspend fun insertTransaction(
-        type: String,
-        category: String,
         amount: Double,
+        type: String,
         description: String?,
-        isIncome: Boolean
+        isIncome: Boolean,
+        category: String
     ) {
         val transaction = Transaction(
-            type = type,
-            category = category,
             amount = amount,
-            description = description,
+            type = type,
+            description = description ?: "",
+            isIncome = isIncome,
             date = Date(),
-            isIncome = isIncome
+            category = category
         )
         transactionDao.insertTransaction(transaction)
     }

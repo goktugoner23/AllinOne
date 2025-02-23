@@ -182,8 +182,9 @@ class HistoryFragment : Fragment() {
 
         // Pre-fill the fields
         amountInput.setText(transaction.amount.toString())
-        typeInput.setText(transaction.type)
-        descriptionInput.setText(transaction.description)
+        val transactionType = transaction.type.orEmpty()
+        typeInput.setText(transactionType)
+        descriptionInput.setText(transaction.description.orEmpty())
 
         // Setup type dropdown
         val types = arrayOf("Food", "Transport", "Bills", "Shopping", "Investment", "Other")
@@ -202,8 +203,8 @@ class HistoryFragment : Fragment() {
 
             val updatedTransaction = transaction.copy(
                 amount = amount,
-                type = type,
-                description = description
+                type = type.orEmpty(),
+                description = description.orEmpty()
             )
 
             viewModel.updateTransaction(updatedTransaction)
@@ -220,10 +221,10 @@ class HistoryFragment : Fragment() {
             .setTitle("Transaction Details")
             .setMessage("""
                 Amount: ₺${transaction.amount}
-                Type: ${transaction.type}
+                Type: ${transaction.type.orEmpty()}
                 Category: ${transaction.category}
                 Date: ${dateFormat.format(transaction.date)}
-                ${transaction.description?.let { "Description: $it" } ?: ""}
+                ${transaction.description.let { "Description: $it" }.orEmpty()}
             """.trimIndent())
             .setPositiveButton("OK", null)
             .show()

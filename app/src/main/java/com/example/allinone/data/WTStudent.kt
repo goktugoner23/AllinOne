@@ -4,14 +4,14 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.Date
 
-@Entity(tableName = "transactions")
-data class Transaction(
+@Entity(tableName = "wt_students")
+data class WTStudent(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+    val name: String,
+    val startDate: Date,
+    val endDate: Date,
     val amount: Double,
-    val type: String,
-    val description: String,
-    val isIncome: Boolean,
-    val date: Date,
-    val category: String
+    val isPaid: Boolean = false,
+    val paymentDate: Date? = null
 ) 

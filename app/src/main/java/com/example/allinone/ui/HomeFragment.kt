@@ -10,19 +10,15 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import com.example.allinone.databinding.FragmentHomeBinding
 import com.example.allinone.viewmodels.HomeViewModel
-import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 
 class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
     private val viewModel: HomeViewModel by viewModels()
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
         return binding.root
     }
@@ -31,8 +27,15 @@ class HomeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         setupTypeDropdowns()
         setupButtons()
-        
-        viewModel.balance.observe(viewLifecycleOwner) { balance ->
+        observeTransactions()
+    }
+
+    private fun observeTransactions() {
+        viewModel.allTransactions.observe(viewLifecycleOwner) { transactions ->
+            val totalIncome = transactions.filter { it.isIncome }.sumOf { it.amount }
+            val totalExpense = transactions.filter { !it.isIncome }.sumOf { it.amount }
+            val balance = totalIncome - totalExpense
+            
             binding.balanceText.text = String.format("₺%.2f", balance)
             binding.balanceText.setTextColor(
                 if (balance >= 0) {
@@ -45,34 +48,13 @@ class HomeFragment : Fragment() {
     }
 
     private fun setupTypeDropdowns() {
-        val categories = arrayOf("Salary", "Wing Chun", "General", "Food", "Investment")
+        val categories = arrayOf("Salary", "Wing Tzun", "General", "Food", "Investment")
         val adapter = ArrayAdapter(
             requireContext(),
             android.R.layout.simple_dropdown_item_1line,
             categories
         )
         (binding.typeLayout.editText as? AutoCompleteTextView)?.setAdapter(adapter)
-
-        // Add investment selection when "Investment" type is selected
-        (binding.typeLayout.editText as? AutoCompleteTextView)?.setOnItemClickListener { _, _, _, _ ->
-            val selectedType = (binding.typeLayout.editText as? AutoCompleteTextView)?.text.toString()
-            if (selectedType == "Investment") {
-                showInvestmentSelector()
-            }
-        }
-    }
-
-    private fun showInvestmentSelector() {
-        viewModel.getAllInvestments().observe(viewLifecycleOwner) { investments ->
-            val investmentNames = investments.map { it.name }.toTypedArray()
-            MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Select Investment")
-                .setItems(investmentNames) { _, which ->
-                    val selectedInvestment = investments[which]
-                    binding.descriptionInput.setText("Return from ${selectedInvestment.name}")
-                }
-                .show()
-        }
     }
 
     private fun setupButtons() {
@@ -90,39 +72,37 @@ class HomeFragment : Fragment() {
         val type = (binding.typeLayout.editText as? AutoCompleteTextView)?.text.toString()
         val description = binding.descriptionInput.text?.toString()?.takeIf { it.isNotBlank() }
 
-        if (amountStr.isBlank()) {
-            binding.amountLayout.error = "Amount is required"
-            return
-        }
-        if (type.isNullOrBlank()) {
-            binding.typeLayout.error = "Please select a category"
+        if (amountStr.isBlank() || type.isBlank()) {
+            showSnackbar("Please fill in all required fields")
             return
         }
 
-        try {
-            val amount = amountStr.toDouble()
-            if (isIncome) {
-                viewModel.addIncome(amount, type, description)
-            } else {
-                viewModel.addExpense(amount, type, description)
-            }
-            clearFields()
-            showSnackbar(if (isIncome) "Income added successfully" else "Expense added successfully")
-        } catch (e: NumberFormatException) {
-            binding.amountLayout.error = "Invalid amount"
+        val amount = amountStr.toDoubleOrNull()
+        if (amount == null || amount <= 0) {
+            showSnackbar("Please enter a valid amount")
+            return
         }
-    }
 
-    private fun showSnackbar(message: String) {
-        Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT).show()
+        viewModel.addTransaction(
+            amount = amount,
+            type = type,
+            description = description,
+            isIncome = isIncome,
+            category = type
+        )
+
+        clearFields()
+        showSnackbar(if (isIncome) "Income added" else "Expense added")
     }
 
     private fun clearFields() {
         binding.amountInput.text?.clear()
         (binding.typeLayout.editText as? AutoCompleteTextView)?.text?.clear()
         binding.descriptionInput.text?.clear()
-        binding.amountLayout.error = null
-        binding.typeLayout.error = null
+    }
+
+    private fun showSnackbar(message: String) {
+        Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT).show()
     }
 
     override fun onDestroyView() {
