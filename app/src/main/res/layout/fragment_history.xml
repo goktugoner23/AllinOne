@@ -49,21 +49,30 @@
             style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="All" />
+            android:text="All"
+            android:textColor="@color/button_text_color_selector"
+            app:strokeColor="@color/black"
+            app:backgroundTint="@color/button_background_color_selector" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/incomeButton"
             style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Income" />
+            android:text="Income"
+            android:textColor="@color/button_text_color_selector"
+            app:strokeColor="@color/black"
+            app:backgroundTint="@color/button_background_color_selector" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/expenseButton"
             style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Expense" />
+            android:text="Expense"
+            android:textColor="@color/button_text_color_selector"
+            app:strokeColor="@color/black"
+            app:backgroundTint="@color/button_background_color_selector" />
     </com.google.android.material.button.MaterialButtonToggleGroup>
 
     <com.google.android.material.button.MaterialButton
