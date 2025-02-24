@@ -10,6 +10,7 @@ data class Note(
     val title: String,
     val content: String,
     val date: Date = Date(),
+    val imageUri: String? = null,  // Single image URI
     val imageUris: String? = null,  // Comma-separated list of image URIs
     val lastEdited: Date = Date(),
     val isRichText: Boolean = true  // Flag to indicate if content has rich formatting

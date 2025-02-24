@@ -128,5 +128,5 @@ dependencies {
     implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
 
     // KnifeText for rich text editing
-    implementation 'io.github.mthli:knife:1.1'
+    implementation 'com.github.mthli:Knife:v1.1'
 }

@@ -26,12 +26,17 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.github.mthli.knife.KnifeText
 import java.util.Date
 
+// Extension property to get HTML content from KnifeText
+val KnifeText.html: String
+    get() = this.toHtml()
+
 class NotesFragment : Fragment() {
 
     private var _binding: FragmentNotesBinding? = null
     private val binding get() = _binding!!
     private val viewModel: NotesViewModel by viewModels()
     private lateinit var notesAdapter: NotesAdapter
+    private lateinit var imageAdapter: NoteImageAdapter
     private val selectedImages = mutableListOf<Uri>()
     
     private val getContent = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
@@ -113,7 +118,7 @@ class NotesFragment : Fragment() {
         this.dialogBinding = dialogBinding
         
         // Setup image recycler view
-        val imageAdapter = NoteImageAdapter(
+        imageAdapter = NoteImageAdapter(
             onDeleteClick = { uri -> 
                 selectedImages.remove(uri)
                 imageAdapter.submitList(selectedImages.toList())
@@ -186,7 +191,7 @@ class NotesFragment : Fragment() {
         dialogBinding.editNoteContent.fromHtml(note.content)
         
         // Setup image recycler view
-        val imageAdapter = NoteImageAdapter(
+        imageAdapter = NoteImageAdapter(
             onDeleteClick = { uri -> 
                 selectedImages.remove(uri)
                 imageAdapter.submitList(selectedImages.toList())

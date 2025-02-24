@@ -43,12 +43,14 @@ class WTRegisterFragment : Fragment() {
                 )
                 
                 // Save the URI to your student object
-                selectedAttachmentUri = uri.toString()
+                selectedAttachmentUri = uri
                 
                 // Update UI to show the selected file
-                binding.attachmentName.text = getFileNameFromUri(uri)
-                binding.attachmentName.visibility = View.VISIBLE
-                binding.removeAttachmentButton.visibility = View.VISIBLE
+                dialogBinding?.let { binding ->
+                    binding.attachmentNameText.text = getFileNameFromUri(uri)
+                    binding.attachmentNameText.visibility = View.VISIBLE
+                    binding.attachmentPreview.visibility = View.VISIBLE
+                }
             } catch (e: Exception) {
                 // Handle the permission error
                 Toast.makeText(
@@ -252,52 +254,40 @@ class WTRegisterFragment : Fragment() {
     }
 
     private fun updateAttachmentPreview(dialogBinding: DialogEditWtStudentBinding, uri: Uri) {
-        dialogBinding.apply {
-            attachmentNameText.text = "Attachment added"
-            
-            // Check if it's an image
-            val mimeType = context?.contentResolver?.getType(uri)
-            if (mimeType?.startsWith("image/") == true) {
-                attachmentPreview.setImageURI(uri)
-                attachmentPreview.visibility = View.VISIBLE
-            } else {
-                // For non-image files (like PDF), just show the name
-                attachmentPreview.visibility = View.GONE
-                val fileName = uri.lastPathSegment ?: "File"
-                attachmentNameText.text = "Attachment: $fileName"
-            }
-        }
+        dialogBinding.attachmentNameText.text = getFileNameFromUri(uri)
+        dialogBinding.attachmentNameText.visibility = View.VISIBLE
+        dialogBinding.attachmentPreview.visibility = View.VISIBLE
     }
 
     private fun showPaymentConfirmation(student: WTStudent) {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Confirm Payment")
-            .setMessage("Mark ${student.name}'s registration as paid?")
+            .setMessage("Mark ${student.name} as paid?")
             .setPositiveButton("Yes") { _, _ ->
                 val updatedStudent = student.copy(
                     isPaid = true,
                     paymentDate = Date()
                 )
                 viewModel.updateStudent(updatedStudent)
-                showSnackbar("Payment marked as received")
+                showSnackbar("Payment status updated")
             }
-            .setNegativeButton("No", null)
+            .setNegativeButton("Cancel", null)
             .show()
     }
 
     private fun showUnpaidConfirmation(student: WTStudent) {
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Mark as Unpaid")
-            .setMessage("Mark ${student.name}'s registration as unpaid?")
+            .setTitle("Change Payment Status")
+            .setMessage("Mark ${student.name} as unpaid?")
             .setPositiveButton("Yes") { _, _ ->
                 val updatedStudent = student.copy(
                     isPaid = false,
                     paymentDate = null
                 )
                 viewModel.updateStudent(updatedStudent)
-                showSnackbar("Payment marked as not received")
+                showSnackbar("Payment status updated")
             }
-            .setNegativeButton("No", null)
+            .setNegativeButton("Cancel", null)
             .show()
     }
 
@@ -305,32 +295,30 @@ class WTRegisterFragment : Fragment() {
         Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT).show()
     }
 
-    private fun shareStudentInfo(student: WTStudent) {
-        val shareText = """
-            Student: ${student.name}
-            Start Date: ${dateFormat.format(student.startDate)}
-            End Date: ${dateFormat.format(student.endDate)}
-            Amount: ${student.amount}
-            Paid: ${if (student.isPaid) "Yes" else "No"}
-        """.trimIndent()
-        
-        val sendIntent = Intent().apply {
-            action = Intent.ACTION_SEND
-            putExtra(Intent.EXTRA_TEXT, shareText)
-            type = "text/plain"
-        }
-        
-        val shareIntent = Intent.createChooser(sendIntent, "Share Student Info")
-        startActivity(shareIntent)
-    }
-
     private fun getFileNameFromUri(uri: Uri): String {
         val cursor = requireContext().contentResolver.query(uri, null, null, null, null)
         return cursor?.use {
             val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
             it.moveToFirst()
-            it.getString(nameIndex)
-        } ?: "Attachment"
+            if (nameIndex >= 0) it.getString(nameIndex) else "Unknown file"
+        } ?: "Unknown file"
+    }
+
+    private fun shareStudentInfo(student: WTStudent) {
+        val message = """
+            Student: ${student.name}
+            Period: ${dateFormat.format(student.startDate)} - ${dateFormat.format(student.endDate)}
+            Amount: $${student.amount}
+            Payment Status: ${if (student.isPaid) "Paid" else "Unpaid"}
+        """.trimIndent()
+        
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "Student Information: ${student.name}")
+            putExtra(Intent.EXTRA_TEXT, message)
+        }
+        
+        startActivity(Intent.createChooser(intent, "Share via"))
     }
 
     override fun onDestroyView() {

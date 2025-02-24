@@ -15,3 +15,6 @@
 local.properties
 /.cursor/rules/custom-rule-kotlin.mdc
 .env
+my-release-key.jks
+my-release-key.keystore
+google-services.json

@@ -3,8 +3,10 @@ package com.example.allinone.workers
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.allinone.R
@@ -13,6 +15,7 @@ import com.example.allinone.data.WTStudent
 import kotlinx.coroutines.flow.first
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
+import android.Manifest
 
 class ExpirationNotificationWorker(
     context: Context,
@@ -39,31 +42,43 @@ class ExpirationNotificationWorker(
         }
         
         if (expiringStudents.isNotEmpty()) {
-            // Create notification
-            val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            
-            // Create the notification channel (required for Android 8.0+)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val channel = NotificationChannel(
-                    CHANNEL_ID,
-                    "Expiration Notifications",
-                    NotificationManager.IMPORTANCE_DEFAULT
-                ).apply {
-                    description = "Notifications for WT student registration expirations"
-                }
-                notificationManager.createNotificationChannel(channel)
+            // Check for notification permission on Android 13+
+            val hasNotificationPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(
+                    applicationContext,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true // Permission not required for Android 12 and below
             }
             
-            // Build the notification
-            val notificationBuilder = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle("Registration Expiration")
-                .setContentText("${expiringStudents.size} registrations are expiring soon")
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                .setAutoCancel(true)
-            
-            // Show the notification
-            notificationManager.notify(NOTIFICATION_ID, notificationBuilder.build())
+            if (hasNotificationPermission) {
+                // Create notification
+                val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                
+                // Create the notification channel (required for Android 8.0+)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val channel = NotificationChannel(
+                        CHANNEL_ID,
+                        "Expiration Notifications",
+                        NotificationManager.IMPORTANCE_DEFAULT
+                    ).apply {
+                        description = "Notifications for WT student registration expirations"
+                    }
+                    notificationManager.createNotificationChannel(channel)
+                }
+                
+                // Build the notification
+                val notificationBuilder = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_notification)
+                    .setContentTitle("Registration Expiration")
+                    .setContentText("${expiringStudents.size} registrations are expiring soon")
+                    .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                    .setAutoCancel(true)
+                
+                // Show the notification
+                notificationManager.notify(NOTIFICATION_ID, notificationBuilder.build())
+            }
         }
         
         return Result.success()

@@ -1,10 +1,15 @@
 package com.example.allinone
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.MenuItem
 import android.view.View
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.ContextCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
@@ -13,7 +18,6 @@ import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination
 import com.example.allinone.databinding.ActivityMainBinding
-import com.google.android.material.appbar.MaterialToolbar
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -26,6 +30,16 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
     private lateinit var navigationView: NavigationView
     private lateinit var toggle: ActionBarDrawerToggle
     private lateinit var navController: NavController
+
+    // Permission request launcher
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            // Permission granted, schedule notifications
+            scheduleExpirationNotifications()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -88,7 +102,8 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             }
         }
 
-        scheduleExpirationNotifications()
+        // Check and request notification permission
+        checkNotificationPermission()
     }
     
     override fun onDestinationChanged(
@@ -112,6 +127,32 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             return true
         }
         return super.onOptionsItemSelected(item)
+    }
+
+    private fun checkNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            when {
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED -> {
+                    // Permission already granted, schedule notifications
+                    scheduleExpirationNotifications()
+                }
+                shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
+                    // Explain why the app needs this permission
+                    // For simplicity, we're just requesting directly here
+                    requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+                else -> {
+                    // Request the permission directly
+                    requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+        } else {
+            // For Android 12 and below, no runtime permission needed
+            scheduleExpirationNotifications()
+        }
     }
 
     private fun scheduleExpirationNotifications() {
