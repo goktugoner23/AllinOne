@@ -1,10 +1,13 @@
 package com.example.allinone.ui.wt
 
 import android.app.DatePickerDialog
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -26,6 +29,26 @@ class WTRegisterFragment : Fragment() {
     private val viewModel: WTRegisterViewModel by viewModels()
     private lateinit var adapter: WTStudentAdapter
     private val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+    private var selectedAttachmentUri: Uri? = null
+    
+    private val getContent = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            try {
+                // Take persistable permission for the URI
+                requireContext().contentResolver.takePersistableUriPermission(
+                    it,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                selectedAttachmentUri = it
+                dialogBinding?.let { binding -> updateAttachmentPreview(binding, it) }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                showSnackbar("Failed to save attachment permission")
+            }
+        }
+    }
+    
+    private var dialogBinding: DialogEditWtStudentBinding? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentWtRegisterBinding.inflate(inflater, container, false)
@@ -45,6 +68,8 @@ class WTRegisterFragment : Fragment() {
             onPaymentStatusClick = { student -> 
                 if (!student.isPaid) {
                     showPaymentConfirmation(student)
+                } else {
+                    showUnpaidConfirmation(student)
                 }
             }
         )
@@ -69,32 +94,50 @@ class WTRegisterFragment : Fragment() {
 
     private fun showAddDialog() {
         val dialogBinding = DialogEditWtStudentBinding.inflate(layoutInflater)
+        this.dialogBinding = dialogBinding
         setupDatePickers(dialogBinding)
 
-        MaterialAlertDialogBuilder(requireContext())
+        val dialog = MaterialAlertDialogBuilder(requireContext())
             .setTitle("Add New Student")
             .setView(dialogBinding.root)
-            .setPositiveButton("Save") { _, _ ->
-                val name = dialogBinding.nameInput.text.toString()
-                val startDate = dialogBinding.startDateInput.tag as? Date
-                val endDate = dialogBinding.endDateInput.tag as? Date
-                val amount = dialogBinding.amountInput.text.toString().toDoubleOrNull()
+            .create()
+            
+        dialogBinding.saveButton.setOnClickListener {
+            val name = dialogBinding.nameInput.text.toString()
+            val startDate = dialogBinding.startDateInput.tag as? Date
+            val endDate = dialogBinding.endDateInput.tag as? Date
+            val amount = dialogBinding.amountInput.text.toString().toDoubleOrNull() ?: 0.0
 
-                if (name.isNotBlank() && startDate != null && endDate != null && amount != null) {
+            when {
+                name.isBlank() -> showSnackbar("Please enter student name")
+                startDate == null -> showSnackbar("Please select start date")
+                endDate == null -> showSnackbar("Please select end date")
+                else -> {
                     viewModel.addStudent(name, startDate, endDate, amount)
+                    dialog.dismiss()
+                    showSnackbar("Student added successfully")
                 }
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+        }
+        
+        dialogBinding.cancelButton.setOnClickListener {
+            dialog.dismiss()
+        }
+        
+        dialog.show()
     }
 
     private fun showEditDialog(student: WTStudent) {
         val dialogBinding = DialogEditWtStudentBinding.inflate(layoutInflater)
+        this.dialogBinding = dialogBinding
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setView(dialogBinding.root)
             .create()
 
         setupDatePickers(dialogBinding)
+        
+        // Reset attachment
+        selectedAttachmentUri = student.attachmentUri?.let { Uri.parse(it) }
 
         // Pre-fill the form
         dialogBinding.apply {
@@ -105,6 +148,24 @@ class WTRegisterFragment : Fragment() {
             endDateInput.tag = student.endDate
             amountInput.setText(student.amount.toString())
             paidSwitch.isChecked = student.isPaid
+            
+            // Setup attachment
+            if (student.attachmentUri != null) {
+                updateAttachmentPreview(dialogBinding, Uri.parse(student.attachmentUri))
+            }
+            
+            addAttachmentButton.setOnClickListener {
+                if (student.isPaid || paidSwitch.isChecked) {
+                    getContent.launch("*/*")
+                } else {
+                    showSnackbar("Attachments can only be added for paid registrations")
+                }
+            }
+            
+            // Setup share button
+            shareButton.setOnClickListener {
+                shareStudentInfo(student)
+            }
             
             saveButton.setOnClickListener {
                 val name = nameInput.text.toString()
@@ -125,7 +186,8 @@ class WTRegisterFragment : Fragment() {
                             endDate = endDate,
                             amount = amount,
                             isPaid = isPaid,
-                            paymentDate = if (isPaid && !student.isPaid) Date() else student.paymentDate
+                            paymentDate = if (isPaid && !student.isPaid) Date() else student.paymentDate,
+                            attachmentUri = selectedAttachmentUri?.toString() ?: student.attachmentUri
                         )
                         viewModel.updateStudent(updatedStudent)
                         dialog.dismiss()
@@ -176,13 +238,51 @@ class WTRegisterFragment : Fragment() {
         }
     }
 
+    private fun updateAttachmentPreview(dialogBinding: DialogEditWtStudentBinding, uri: Uri) {
+        dialogBinding.apply {
+            attachmentNameText.text = "Attachment added"
+            
+            // Check if it's an image
+            val mimeType = context?.contentResolver?.getType(uri)
+            if (mimeType?.startsWith("image/") == true) {
+                attachmentPreview.setImageURI(uri)
+                attachmentPreview.visibility = View.VISIBLE
+            } else {
+                // For non-image files (like PDF), just show the name
+                attachmentPreview.visibility = View.GONE
+                val fileName = uri.lastPathSegment ?: "File"
+                attachmentNameText.text = "Attachment: $fileName"
+            }
+        }
+    }
+
     private fun showPaymentConfirmation(student: WTStudent) {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Confirm Payment")
-            .setMessage("Mark payment as received for ${student.name}?")
+            .setMessage("Mark ${student.name}'s registration as paid?")
             .setPositiveButton("Yes") { _, _ ->
-                viewModel.markAsPaid(student)
+                val updatedStudent = student.copy(
+                    isPaid = true,
+                    paymentDate = Date()
+                )
+                viewModel.updateStudent(updatedStudent)
                 showSnackbar("Payment marked as received")
+            }
+            .setNegativeButton("No", null)
+            .show()
+    }
+
+    private fun showUnpaidConfirmation(student: WTStudent) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Mark as Unpaid")
+            .setMessage("Mark ${student.name}'s registration as unpaid?")
+            .setPositiveButton("Yes") { _, _ ->
+                val updatedStudent = student.copy(
+                    isPaid = false,
+                    paymentDate = null
+                )
+                viewModel.updateStudent(updatedStudent)
+                showSnackbar("Payment marked as not received")
             }
             .setNegativeButton("No", null)
             .show()
@@ -192,8 +292,28 @@ class WTRegisterFragment : Fragment() {
         Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT).show()
     }
 
+    private fun shareStudentInfo(student: WTStudent) {
+        val shareText = """
+            Student: ${student.name}
+            Start Date: ${dateFormat.format(student.startDate)}
+            End Date: ${dateFormat.format(student.endDate)}
+            Amount: ${student.amount}
+            Paid: ${if (student.isPaid) "Yes" else "No"}
+        """.trimIndent()
+        
+        val sendIntent = Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_TEXT, shareText)
+            type = "text/plain"
+        }
+        
+        val shareIntent = Intent.createChooser(sendIntent, "Share Student Info")
+        startActivity(shareIntent)
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+        dialogBinding = null
     }
 } 

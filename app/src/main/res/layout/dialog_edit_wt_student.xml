@@ -69,25 +69,78 @@
         android:layout_marginTop="16dp"
         android:text="Payment Received" />
 
-    <LinearLayout
+    <!-- Attachment section -->
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:gravity="end"
-        android:orientation="horizontal">
+        android:text="Attachment"
+        android:textAppearance="?attr/textAppearanceSubtitle1" />
+        
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp">
+        
+        <TextView
+            android:id="@+id/attachmentNameText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="No attachment"
+            android:layout_gravity="center_vertical" />
+            
+        <Button
+            android:id="@+id/addAttachmentButton"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Add" />
+    </LinearLayout>
+    
+    <ImageView
+        android:id="@+id/attachmentPreview"
+        android:layout_width="match_parent"
+        android:layout_height="150dp"
+        android:layout_marginTop="8dp"
+        android:scaleType="centerInside"
+        android:visibility="gone"
+        android:background="#EEEEEE" />
+
+    <Button
+        android:id="@+id/shareButton"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Share Student Info"
+        android:drawableStart="@android:drawable/ic_menu_share"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp" />
+
+    <!-- Action buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="16dp">
 
         <Button
             android:id="@+id/cancelButton"
             style="@style/Widget.MaterialComponents.Button.TextButton"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
             android:text="Cancel" />
 
         <Button
             android:id="@+id/saveButton"
-            android:layout_width="wrap_content"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:text="Save" />
     </LinearLayout>
+
 </LinearLayout> 

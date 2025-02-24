@@ -13,5 +13,6 @@ data class WTStudent(
     val endDate: Date,
     val amount: Double,
     val isPaid: Boolean = false,
-    val paymentDate: Date? = null
+    val paymentDate: Date? = null,
+    val attachmentUri: String? = null
 ) 

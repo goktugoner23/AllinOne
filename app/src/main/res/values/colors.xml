@@ -5,4 +5,7 @@
     <color name="gray_dark">#FF333333</color>
     <color name="gray_light">#FFCCCCCC</color>
     <color name="colorPrimary">@color/black</color>
+    <color name="expiration_color">#FFEBEE</color>
+    <color name="start_color">#E8F5E9</color>
+    <color name="default_event_color">#FFFFFF</color>
 </resources>

@@ -9,5 +9,9 @@
             android:id="@+id/nav_wt_registers"
             android:icon="@drawable/ic_wt"
             android:title="WT Registers" />
+        <item
+            android:id="@+id/nav_notes"
+            android:icon="@drawable/ic_note"
+            android:title="Notes" />
     </group>
 </menu> 

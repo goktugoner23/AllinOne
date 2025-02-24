@@ -119,6 +119,13 @@ class InvestmentsFragment : Fragment() {
         selectedImages.clear()
         val dialogBinding = DialogEditInvestmentBinding.inflate(layoutInflater)
         this.dialogBinding = dialogBinding
+        
+        // Create dialog
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Add Investment")
+            .setView(dialogBinding.root)
+            .setNegativeButton("Cancel", null)
+            .create()
 
         // Setup investment type dropdown
         val investmentTypes = arrayOf("Stocks", "Crypto", "Real Estate", "Gold", "Other")
@@ -147,55 +154,54 @@ class InvestmentsFragment : Fragment() {
         dialogBinding.addImageButton.setOnClickListener {
             getContent.launch("image/*")
         }
+        
+        // Add custom positive button with validation
+        dialog.setButton(Dialog.BUTTON_POSITIVE, "Save") { _, _ ->
+            val name = dialogBinding.nameInput.text?.toString()
+            val amountText = dialogBinding.amountInput.text?.toString()
+            val type = (dialogBinding.typeInput as? AutoCompleteTextView)?.text?.toString()
+            val description = dialogBinding.descriptionInput.text?.toString()
 
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Add Investment")
-            .setView(dialogBinding.root)
-            .setPositiveButton("Save") { _, _ ->
-                val name = dialogBinding.nameInput.text?.toString()
-                val amountText = dialogBinding.amountInput.text?.toString()
-                val type = (dialogBinding.typeInput as? AutoCompleteTextView)?.text?.toString()
-                val description = dialogBinding.descriptionInput.text?.toString()
-
-                if (name.isNullOrBlank() || amountText.isNullOrBlank() || type.isNullOrBlank()) {
-                    Toast.makeText(context, "Please fill in all required fields", Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
-                }
-
-                val amount = amountText.toDoubleOrNull()
-                if (amount == null) {
-                    Toast.makeText(context, "Please enter a valid amount", Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
-                }
-
-                // Save investment with images
-                val imageUris = selectedImages.joinToString(",") { it.toString() }
-                
-                val investment = Investment(
-                    name = name,
-                    amount = amount,
-                    type = type,
-                    description = description,
-                    imageUri = if (imageUris.isNotEmpty()) imageUris else null,
-                    date = Date()
-                )
-                
-                viewModel.addInvestment(investment)
-
-                // Add as expense in the main app
-                homeViewModel.addTransaction(
-                    amount = amount,
-                    type = "Investment",
-                    description = "Investment in $name",
-                    isIncome = false,
-                    category = type
-                )
-
-                // Show confirmation
-                Toast.makeText(context, "Investment added", Toast.LENGTH_SHORT).show()
+            if (name.isNullOrBlank() || amountText.isNullOrBlank() || type.isNullOrBlank()) {
+                Toast.makeText(context, "Please fill in all required fields", Toast.LENGTH_SHORT).show()
+                return@setButton
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+
+            val amount = amountText.toDoubleOrNull()
+            if (amount == null) {
+                Toast.makeText(context, "Please enter a valid amount", Toast.LENGTH_SHORT).show()
+                return@setButton
+            }
+
+            // Save investment with images
+            val imageUris = selectedImages.joinToString(",") { it.toString() }
+            
+            val investment = Investment(
+                name = name,
+                amount = amount,
+                type = type,
+                description = description,
+                imageUri = if (imageUris.isNotEmpty()) imageUris else null,
+                date = Date()
+            )
+            
+            viewModel.addInvestment(investment)
+
+            // Add as expense in the main app
+            homeViewModel.addTransaction(
+                amount = amount,
+                type = "Investment",
+                description = "Investment in $name",
+                isIncome = false,
+                category = type
+            )
+
+            // Show confirmation
+            Toast.makeText(context, "Investment added", Toast.LENGTH_SHORT).show()
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 
     private fun showInvestmentDetails(investment: Investment? = null) {
@@ -224,6 +230,9 @@ class InvestmentsFragment : Fragment() {
             onDeleteClick = { uri ->
                 selectedImages.remove(uri)
                 imageAdapter.submitList(selectedImages.toList())
+                if (selectedImages.isEmpty()) {
+                    dialogBinding?.imagesRecyclerView?.visibility = View.GONE
+                }
             },
             onImageClick = { uri ->
                 showFullscreenImage(uri)
@@ -237,6 +246,11 @@ class InvestmentsFragment : Fragment() {
         }
 
         imageAdapter.submitList(selectedImages.toList())
+        
+        // Add click listener for the add image button
+        dialogBinding?.addImageButton?.setOnClickListener {
+            getContent.launch("image/*")
+        }
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Investment Details")
@@ -289,6 +303,11 @@ class InvestmentsFragment : Fragment() {
         viewModel.allInvestments.observe(viewLifecycleOwner) { investments ->
             adapter.submitList(investments)
             binding.emptyStateText.visibility = if (investments.isEmpty()) View.VISIBLE else View.GONE
+            
+            // Update summary card
+            val totalAmount = investments.sumOf { it.amount }
+            binding.totalInvestmentsText.text = String.format("Total Investments: ₺%.2f", totalAmount)
+            binding.investmentCountText.text = "Number of Investments: ${investments.size}"
         }
     }
 

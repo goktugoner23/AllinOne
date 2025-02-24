@@ -60,6 +60,13 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun markAsUnpaid(student: WTStudent) {
+        viewModelScope.launch {
+            val updatedStudent = student.copy(isPaid = false, paymentDate = null)
+            wtStudentDao.updateStudent(updatedStudent)
+        }
+    }
+
     fun deleteStudent(student: WTStudent) {
         viewModelScope.launch {
             wtStudentDao.deleteStudent(student)
