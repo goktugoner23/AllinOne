@@ -50,8 +50,6 @@ class WTRegistersFragment : Fragment() {
     }
 
     override fun onDestroyView() {
-        // Show main bottom navigation when leaving
-        requireActivity().findViewById<View>(R.id.bottomNavigation).visibility = View.VISIBLE
         super.onDestroyView()
         _binding = null
     }

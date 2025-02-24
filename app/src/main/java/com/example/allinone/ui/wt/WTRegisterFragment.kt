@@ -4,9 +4,11 @@ import android.app.DatePickerDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -36,14 +38,25 @@ class WTRegisterFragment : Fragment() {
             try {
                 // Take persistable permission for the URI
                 requireContext().contentResolver.takePersistableUriPermission(
-                    it,
+                    uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
-                selectedAttachmentUri = it
-                dialogBinding?.let { binding -> updateAttachmentPreview(binding, it) }
+                
+                // Save the URI to your student object
+                selectedAttachmentUri = uri.toString()
+                
+                // Update UI to show the selected file
+                binding.attachmentName.text = getFileNameFromUri(uri)
+                binding.attachmentName.visibility = View.VISIBLE
+                binding.removeAttachmentButton.visibility = View.VISIBLE
             } catch (e: Exception) {
+                // Handle the permission error
+                Toast.makeText(
+                    requireContext(),
+                    "Failed to save attachment permission: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
                 e.printStackTrace()
-                showSnackbar("Failed to save attachment permission")
             }
         }
     }
@@ -309,6 +322,15 @@ class WTRegisterFragment : Fragment() {
         
         val shareIntent = Intent.createChooser(sendIntent, "Share Student Info")
         startActivity(shareIntent)
+    }
+
+    private fun getFileNameFromUri(uri: Uri): String {
+        val cursor = requireContext().contentResolver.query(uri, null, null, null, null)
+        return cursor?.use {
+            val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            it.moveToFirst()
+            it.getString(nameIndex)
+        } ?: "Attachment"
     }
 
     override fun onDestroyView() {
