@@ -1,60 +1,143 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="16dp">
-
-    <com.google.android.material.textfield.TextInputLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        android:hint="Title">
-
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/editNoteTitle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="text"
-            android:maxLines="1" />
-    </com.google.android.material.textfield.TextInputLayout>
-
-    <com.google.android.material.textfield.TextInputLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="16dp"
-        android:hint="Content">
-
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/editNoteContent"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="top"
-            android:inputType="textMultiLine"
-            android:minLines="5" />
-    </com.google.android.material.textfield.TextInputLayout>
+    android:layout_height="wrap_content">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:hint="Title">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/editNoteTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:maxLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Rich Text Editor Toolbar -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <ImageButton
+                    android:id="@+id/boldButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Bold"
+                    android:src="@drawable/ic_format_bold" />
+
+                <ImageButton
+                    android:id="@+id/italicButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Italic"
+                    android:src="@drawable/ic_format_italic" />
+
+                <ImageButton
+                    android:id="@+id/underlineButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Underline"
+                    android:src="@drawable/ic_format_underline" />
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginHorizontal="8dp"
+                    android:background="?android:attr/listDivider" />
+
+                <ImageButton
+                    android:id="@+id/bulletListButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Bullet List"
+                    android:src="@drawable/ic_format_list_bulleted" />
+
+                <ImageButton
+                    android:id="@+id/numberedListButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Numbered List"
+                    android:src="@drawable/ic_format_list_numbered" />
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginHorizontal="8dp"
+                    android:background="?android:attr/listDivider" />
+
+                <ImageButton
+                    android:id="@+id/addImageButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Add Image"
+                    android:src="@drawable/ic_image" />
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- Rich Text Editor -->
+        <io.github.mthli.knife.KnifeText
+            android:id="@+id/editNoteContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="@android:color/transparent"
+            android:gravity="top|start"
+            android:hint="Note content"
+            android:inputType="textMultiLine"
+            android:minHeight="200dp"
+            android:padding="8dp"
+            android:scrollbars="vertical"
+            android:textSize="16sp" />
+
+        <!-- Image Attachments -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Attached Images"
+            android:textAppearance="?attr/textAppearanceSubtitle1"
+            android:visibility="visible" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/imagesRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal"
+            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
         <Button
-            android:id="@+id/btnAddImage"
+            android:id="@+id/addAttachmentButton"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:layout_weight="1"
-            android:text="Add Image" />
+            android:layout_marginTop="8dp"
+            android:text="Add Image"
+            android:drawableStart="@drawable/ic_add_photo"
+            android:drawablePadding="8dp" />
 
-        <ImageView
-            android:id="@+id/noteImagePreview"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:contentDescription="Note Image Preview"
-            android:scaleType="centerCrop"
-            android:visibility="gone" />
     </LinearLayout>
-
-</LinearLayout> 
+</androidx.core.widget.NestedScrollView> 

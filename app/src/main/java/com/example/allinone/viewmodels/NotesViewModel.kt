@@ -16,13 +16,15 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
 
     val allNotes: LiveData<List<Note>> = noteDao.getAllNotes().asLiveData()
 
-    fun addNote(title: String, content: String, imageUri: String? = null) {
+    fun addNote(title: String, content: String, imageUris: String? = null) {
         viewModelScope.launch {
             val note = Note(
                 title = title,
                 content = content,
                 date = Date(),
-                imageUri = imageUri
+                imageUris = imageUris,
+                lastEdited = Date(),
+                isRichText = true
             )
             noteDao.insertNote(note)
         }
