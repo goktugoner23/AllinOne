@@ -33,12 +33,6 @@ class WTRegistersFragment : Fragment() {
                         .commit()
                     true
                 }
-                R.id.wtHistoryFragment -> {
-                    childFragmentManager.beginTransaction()
-                        .replace(R.id.wtFragmentContainer, WTHistoryFragment())
-                        .commit()
-                    true
-                }
                 else -> false
             }
         }

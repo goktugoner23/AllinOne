@@ -9,7 +9,6 @@ class WTPagerAdapter(fragment: Fragment) : FragmentStateAdapter(fragment) {
     override fun createFragment(position: Int): Fragment {
         return when (position) {
             0 -> WTRegisterFragment()
-            1 -> WTHistoryFragment()
             else -> throw IllegalArgumentException("Invalid position $position")
         }
     }

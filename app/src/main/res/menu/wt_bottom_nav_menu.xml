@@ -4,8 +4,4 @@
         android:id="@+id/wtRegisterFragment"
         android:icon="@drawable/ic_wt"
         android:title="Register" />
-    <item
-        android:id="@+id/wtHistoryFragment"
-        android:icon="@drawable/ic_history"
-        android:title="History" />
 </menu> 
