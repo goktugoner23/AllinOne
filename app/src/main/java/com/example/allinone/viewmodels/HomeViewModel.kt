@@ -3,14 +3,24 @@ package com.example.allinone.viewmodels
 import android.app.Application
 import androidx.lifecycle.*
 import com.example.allinone.data.*
+import com.example.allinone.firebase.FirebaseRepository
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
-    private val database = TransactionDatabase.getDatabase(application)
-    private val transactionDao = database.transactionDao()
-    private val repository = TransactionRepository(transactionDao)
-
-    val allTransactions: LiveData<List<Transaction>> = repository.allTransactions.asLiveData()
+    private val repository = FirebaseRepository(application)
+    
+    private val _allTransactions = MutableLiveData<List<Transaction>>(emptyList())
+    val allTransactions: LiveData<List<Transaction>> = _allTransactions
+    
+    init {
+        // Collect transactions from the repository flow
+        viewModelScope.launch {
+            repository.transactions.collect { transactions ->
+                _allTransactions.value = transactions
+            }
+        }
+    }
 
     fun addTransaction(
         amount: Double,
@@ -30,7 +40,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Remove or fix investment-related code if not needed
+    // Investment-related code
     private val _selectedInvestment = MutableLiveData<Investment?>()
     val selectedInvestment: LiveData<Investment?> = _selectedInvestment
 
@@ -40,7 +50,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteTransaction(transaction: Transaction) {
         viewModelScope.launch {
-            transactionDao.deleteTransaction(transaction)
+            repository.deleteTransaction(transaction)
+        }
+    }
+    
+    fun refreshData() {
+        viewModelScope.launch {
+            repository.refreshAllData()
         }
     }
 } 

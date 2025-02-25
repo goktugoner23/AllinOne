@@ -10,7 +10,7 @@ import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.allinone.R
-import com.example.allinone.data.TransactionDatabase
+import com.example.allinone.firebase.FirebaseRepository
 import com.example.allinone.data.WTStudent
 import kotlinx.coroutines.flow.first
 import java.util.Calendar
@@ -29,11 +29,11 @@ class ExpirationNotificationWorker(
     }
 
     override suspend fun doWork(): Result {
-        val database = TransactionDatabase.getDatabase(applicationContext)
-        val wtStudentDao = database.wtStudentDao()
+        val repository = FirebaseRepository(applicationContext)
         
         val today = Calendar.getInstance().time
-        val students = wtStudentDao.getAllStudents().first()
+        // Use first() to get the current value from the StateFlow
+        val students = repository.students.first()
         
         // Find students with expiring registrations (within 7 days)
         val expiringStudents = students.filter { student ->

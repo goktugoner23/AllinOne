@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Offline status view IDs -->
+    <item name="offline_status_card" type="id" />
+    <item name="offline_status_message" type="id" />
+    <item name="pending_operations_count" type="id" />
+</resources> 

@@ -3,15 +3,26 @@
     <group android:checkableBehavior="single">
         <item
             android:id="@+id/nav_transactions"
-            android:icon="@drawable/ic_history"
+            android:icon="@android:drawable/ic_menu_recent_history"
             android:title="Transactions" />
         <item
             android:id="@+id/nav_wt_registers"
-            android:icon="@drawable/ic_wt"
+            android:icon="@android:drawable/ic_menu_my_calendar"
             android:title="WT Registers" />
         <item
             android:id="@+id/nav_notes"
-            android:icon="@drawable/ic_note"
+            android:icon="@android:drawable/ic_menu_edit"
             android:title="Notes" />
+    </group>
+    
+    <group android:id="@+id/group_settings">
+        <item
+            android:id="@+id/nav_backup"
+            android:icon="@android:drawable/ic_menu_save"
+            android:title="Backup and Restore" />
+        <item
+            android:id="@+id/nav_clear_data"
+            android:icon="@android:drawable/ic_menu_delete"
+            android:title="Clear App Data" />
     </group>
 </menu> 

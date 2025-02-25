@@ -32,38 +32,73 @@ class WTRegisterFragment : Fragment() {
     private lateinit var adapter: WTStudentAdapter
     private val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
     private var selectedAttachmentUri: Uri? = null
+    private var currentDialogBinding: DialogEditWtStudentBinding? = null
     
     private val getContent = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
             try {
-                // Take persistable permission for the URI
-                requireContext().contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
+                // For non-picker URIs, try to take persistable permission
+                if (!uri.toString().contains("picker_get_content")) {
+                    try {
+                        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        requireContext().contentResolver.takePersistableUriPermission(uri, flags)
+                    } catch (e: SecurityException) {
+                        // Log but continue - we'll still have temporary access
+                        e.printStackTrace()
+                    }
+                }
                 
                 // Save the URI to your student object
                 selectedAttachmentUri = uri
                 
                 // Update UI to show the selected file
-                dialogBinding?.let { binding ->
+                currentDialogBinding?.let { binding ->
                     binding.attachmentNameText.text = getFileNameFromUri(uri)
                     binding.attachmentNameText.visibility = View.VISIBLE
-                    binding.attachmentPreview.visibility = View.VISIBLE
+                    
+                    // Check if it's an image
+                    val mimeType = context?.contentResolver?.getType(uri)
+                    if (mimeType?.startsWith("image/") == true) {
+                        try {
+                            binding.attachmentPreview.setImageURI(uri)
+                            binding.attachmentPreview.visibility = View.VISIBLE
+                        } catch (e: SecurityException) {
+                            // If we can't load the image, just show the name
+                            binding.attachmentPreview.visibility = View.GONE
+                            Toast.makeText(
+                                requireContext(),
+                                "Cannot preview this image: ${e.message}",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    } else {
+                        binding.attachmentPreview.visibility = View.GONE
+                    }
+                    
+                    // Add long press listener to remove attachment
+                    binding.attachmentNameText.setOnLongClickListener {
+                        selectedAttachmentUri = null
+                        binding.attachmentNameText.text = "No attachment"
+                        binding.attachmentPreview.visibility = View.GONE
+                        true
+                    }
+                    
+                    // Add tooltip to inform user about removal option
+                    binding.attachmentNameText.setOnClickListener {
+                        Toast.makeText(context, "Long press to remove attachment", Toast.LENGTH_SHORT).show()
+                    }
                 }
             } catch (e: Exception) {
                 // Handle the permission error
                 Toast.makeText(
                     requireContext(),
-                    "Failed to save attachment permission: ${e.message}",
+                    "Failed to handle attachment: ${e.message}",
                     Toast.LENGTH_LONG
                 ).show()
                 e.printStackTrace()
             }
         }
     }
-    
-    private var dialogBinding: DialogEditWtStudentBinding? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentWtRegisterBinding.inflate(inflater, container, false)
@@ -109,7 +144,7 @@ class WTRegisterFragment : Fragment() {
 
     private fun showAddDialog() {
         val dialogBinding = DialogEditWtStudentBinding.inflate(layoutInflater)
-        this.dialogBinding = dialogBinding
+        currentDialogBinding = dialogBinding
         setupDatePickers(dialogBinding)
 
         val dialog = MaterialAlertDialogBuilder(requireContext())
@@ -144,7 +179,7 @@ class WTRegisterFragment : Fragment() {
 
     private fun showEditDialog(student: WTStudent) {
         val dialogBinding = DialogEditWtStudentBinding.inflate(layoutInflater)
-        this.dialogBinding = dialogBinding
+        currentDialogBinding = dialogBinding
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setView(dialogBinding.root)
             .create()
@@ -166,7 +201,18 @@ class WTRegisterFragment : Fragment() {
             
             // Setup attachment
             if (student.attachmentUri != null) {
-                updateAttachmentPreview(dialogBinding, Uri.parse(student.attachmentUri))
+                try {
+                    updateAttachmentPreview(dialogBinding, Uri.parse(student.attachmentUri))
+                } catch (e: Exception) {
+                    // If we can't load the attachment, just show an error
+                    Toast.makeText(
+                        requireContext(),
+                        "Failed to load attachment: ${e.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    attachmentNameText.text = "Attachment unavailable"
+                    attachmentPreview.visibility = View.GONE
+                }
             }
             
             addAttachmentButton.setOnClickListener {
@@ -254,9 +300,43 @@ class WTRegisterFragment : Fragment() {
     }
 
     private fun updateAttachmentPreview(dialogBinding: DialogEditWtStudentBinding, uri: Uri) {
-        dialogBinding.attachmentNameText.text = getFileNameFromUri(uri)
+        val fileName = getFileNameFromUri(uri)
+        dialogBinding.attachmentNameText.text = "Attachment: $fileName"
         dialogBinding.attachmentNameText.visibility = View.VISIBLE
-        dialogBinding.attachmentPreview.visibility = View.VISIBLE
+        
+        // Check if it's an image
+        val mimeType = context?.contentResolver?.getType(uri)
+        if (mimeType?.startsWith("image/") == true) {
+            try {
+                // For images, show the preview
+                dialogBinding.attachmentPreview.setImageURI(uri)
+                dialogBinding.attachmentPreview.visibility = View.VISIBLE
+            } catch (e: SecurityException) {
+                // If we can't load the image, just show the name
+                dialogBinding.attachmentPreview.visibility = View.GONE
+                Toast.makeText(
+                    requireContext(),
+                    "Cannot preview this image: ${e.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        } else {
+            // For non-image files, just show the name
+            dialogBinding.attachmentPreview.visibility = View.GONE
+        }
+        
+        // Add tooltip to inform user about removal option
+        dialogBinding.attachmentNameText.setOnClickListener {
+            Toast.makeText(context, "Long press to remove attachment", Toast.LENGTH_SHORT).show()
+        }
+        
+        // Add long press listener to remove attachment
+        dialogBinding.attachmentNameText.setOnLongClickListener {
+            selectedAttachmentUri = null
+            dialogBinding.attachmentNameText.text = "No attachment"
+            dialogBinding.attachmentPreview.visibility = View.GONE
+            true
+        }
     }
 
     private fun showPaymentConfirmation(student: WTStudent) {
@@ -296,12 +376,17 @@ class WTRegisterFragment : Fragment() {
     }
 
     private fun getFileNameFromUri(uri: Uri): String {
-        val cursor = requireContext().contentResolver.query(uri, null, null, null, null)
-        return cursor?.use {
-            val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            it.moveToFirst()
-            if (nameIndex >= 0) it.getString(nameIndex) else "Unknown file"
-        } ?: "Unknown file"
+        try {
+            val cursor = requireContext().contentResolver.query(uri, null, null, null, null)
+            return cursor?.use {
+                val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                it.moveToFirst()
+                if (nameIndex >= 0) it.getString(nameIndex) else "Unknown file"
+            } ?: uri.lastPathSegment ?: "Unknown file"
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return uri.lastPathSegment ?: "Unknown file"
+        }
     }
 
     private fun shareStudentInfo(student: WTStudent) {
@@ -324,6 +409,6 @@ class WTRegisterFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
-        dialogBinding = null
+        currentDialogBinding = null
     }
 } 

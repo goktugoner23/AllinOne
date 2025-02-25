@@ -3,70 +3,95 @@ package com.example.allinone.viewmodels
 import android.app.Application
 import androidx.lifecycle.*
 import com.example.allinone.data.*
+import com.example.allinone.firebase.FirebaseRepository
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import java.util.Date
 
 class InvestmentsViewModel(application: Application) : AndroidViewModel(application) {
-    private val database = TransactionDatabase.getDatabase(application)
-    private val investmentDao = database.investmentDao()
-    private val transactionDao = database.transactionDao()
-
-    val allInvestments: LiveData<List<Investment>> = investmentDao.getAllInvestments().asLiveData()
+    private val repository = FirebaseRepository(application)
     
-    val totalInvestment: LiveData<Double> = investmentDao.getTotalInvestment()
-        .map { it ?: 0.0 }
-        .asLiveData()
-        
-    val totalProfitLoss: LiveData<Double> = investmentDao.getTotalProfitLoss()
-        .map { it ?: 0.0 }
-        .asLiveData()
+    private val _allInvestments = MutableLiveData<List<Investment>>(emptyList())
+    val allInvestments: LiveData<List<Investment>> = _allInvestments
+    
+    private val _totalInvestment = MutableLiveData<Double>(0.0)
+    val totalInvestment: LiveData<Double> = _totalInvestment
+    
+    private val _totalProfitLoss = MutableLiveData<Double>(0.0)
+    val totalProfitLoss: LiveData<Double> = _totalProfitLoss
+    
+    init {
+        // Collect investments from the repository flow
+        viewModelScope.launch {
+            repository.investments.collect { investments ->
+                _allInvestments.value = investments
+                _totalInvestment.value = investments.sumOf { it.amount }
+                _totalProfitLoss.value = investments.sumOf { it.profitLoss }
+            }
+        }
+    }
 
     fun addInvestment(investment: Investment) {
         viewModelScope.launch {
-            investmentDao.insertInvestment(investment)
+            repository.insertInvestment(investment)
         }
     }
 
     fun updateInvestment(investment: Investment) {
         viewModelScope.launch {
-            investmentDao.updateInvestment(investment)
+            repository.updateInvestment(investment)
         }
     }
 
     fun deleteInvestment(investment: Investment) {
         viewModelScope.launch {
-            investmentDao.deleteInvestment(investment)
+            repository.deleteInvestment(investment)
         }
     }
 
     fun updateInvestmentAndTransaction(oldInvestment: Investment, newInvestment: Investment) {
         viewModelScope.launch {
-            investmentDao.updateInvestment(newInvestment)
+            repository.updateInvestment(newInvestment)
             
-            val transaction = Transaction(
-                amount = newInvestment.amount,
-                type = "Investment",
-                description = "Investment in ${newInvestment.name}",
-                isIncome = false,
-                date = newInvestment.date,
-                category = newInvestment.type
-            )
-            transactionDao.updateTransactionByDescription(
-                oldDescription = "Investment in ${oldInvestment.name} (${oldInvestment.type})",
-                newAmount = newInvestment.amount,
-                newDescription = "Investment in ${newInvestment.name}"
-            )
+            // Find and update the corresponding transaction
+            val transactions = repository.transactions.value
+            val matchingTransaction = transactions.find { 
+                it.description.contains(oldInvestment.name) && 
+                it.type == "Investment" 
+            }
+            
+            if (matchingTransaction != null) {
+                val updatedTransaction = matchingTransaction.copy(
+                    amount = newInvestment.amount,
+                    description = "Investment in ${newInvestment.name}",
+                    category = newInvestment.type
+                )
+                repository.updateTransaction(updatedTransaction)
+            }
         }
     }
     
     fun deleteInvestmentAndTransaction(investment: Investment) {
         viewModelScope.launch {
-            investmentDao.deleteInvestment(investment)
+            repository.deleteInvestment(investment)
             
-            transactionDao.deleteTransactionByDescriptionAndType(
-                description = "Investment in ${investment.name}",
-                type = "Investment"
-            )
+            // Find and delete the corresponding transaction
+            val transactions = repository.transactions.value
+            val matchingTransaction = transactions.find { 
+                it.description.contains(investment.name) && 
+                it.type == "Investment" 
+            }
+            
+            if (matchingTransaction != null) {
+                repository.deleteTransaction(matchingTransaction)
+            }
+        }
+    }
+    
+    fun refreshData() {
+        viewModelScope.launch {
+            repository.refreshAllData()
         }
     }
 } 

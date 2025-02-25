@@ -15,4 +15,10 @@
     <string name="save">Save</string>
     <string name="navigation_drawer_open">Open Navigation Drawer</string>
     <string name="navigation_drawer_close">Close Navigation Drawer</string>
+    
+    <!-- Offline status -->
+    <string name="offline_mode">Offline Mode</string>
+    <string name="offline_message">You are currently offline. Changes will be synchronized when you reconnect.</string>
+    <string name="pending_operations">Pending operations: %1$d</string>
+    <string name="offline_status">Offline status</string>
 </resources>

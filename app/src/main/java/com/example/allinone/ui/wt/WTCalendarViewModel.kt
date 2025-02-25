@@ -5,20 +5,21 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.map
-import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
-import com.example.allinone.data.TransactionDatabase
+import androidx.lifecycle.asLiveData
+import com.example.allinone.firebase.FirebaseRepository
 import com.example.allinone.data.WTEvent
 import com.example.allinone.data.WTStudent
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Date
 
 class WTCalendarViewModel(application: Application) : AndroidViewModel(application) {
-    private val database = TransactionDatabase.getDatabase(application)
-    private val wtStudentDao = database.wtStudentDao()
+    private val repository = FirebaseRepository(application)
     
-    val allStudents: LiveData<List<WTStudent>> = wtStudentDao.getAllStudents().asLiveData()
+    // Convert StateFlow to LiveData
+    val allStudents: LiveData<List<WTStudent>> = repository.students.asLiveData()
     
     private val _selectedDate = MutableLiveData<Date>().apply {
         value = Calendar.getInstance().time
