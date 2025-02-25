@@ -163,9 +163,12 @@ class BackupActivity : AppCompatActivity() {
                     if (success) {
                         Toast.makeText(
                             this@BackupActivity,
-                            "Backup restored successfully",
-                            Toast.LENGTH_SHORT
+                            "Backup restored successfully. Restarting app...",
+                            Toast.LENGTH_LONG
                         ).show()
+                        
+                        // Restart the app to refresh all data
+                        restartApp()
                     } else {
                         Toast.makeText(
                             this@BackupActivity,
@@ -201,9 +204,12 @@ class BackupActivity : AppCompatActivity() {
                     if (success) {
                         Toast.makeText(
                             this@BackupActivity,
-                            "Backup restored successfully",
-                            Toast.LENGTH_SHORT
+                            "Backup restored successfully. Restarting app...",
+                            Toast.LENGTH_LONG
                         ).show()
+                        
+                        // Restart the app to refresh all data
+                        restartApp()
                     } else {
                         Toast.makeText(
                             this@BackupActivity,
@@ -220,6 +226,29 @@ class BackupActivity : AppCompatActivity() {
                         "Error restoring backup: ${e.message}",
                         Toast.LENGTH_SHORT
                     ).show()
+                }
+            }
+        }
+    }
+    
+    /**
+     * Restart the app to refresh all data
+     */
+    private fun restartApp() {
+        // Wait a moment before restarting
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                // Give time for the toast to show
+                kotlinx.coroutines.delay(2000)
+                
+                withContext(Dispatchers.Main) {
+                    // Restart the app
+                    val packageManager = packageManager
+                    val intent = packageManager.getLaunchIntentForPackage(packageName)
+                    intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(intent)
+                    finishAffinity()
                 }
             }
         }

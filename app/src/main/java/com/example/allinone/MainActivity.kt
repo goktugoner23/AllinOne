@@ -185,15 +185,8 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                     .get()
                     .await()
                 
-                val message = snapshot.getString("message") ?: "No message found"
-                
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Firebase connection successful: $message",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
+                // Connection successful, but don't show a toast message
+                // This prevents the repeated notifications
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(

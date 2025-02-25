@@ -280,32 +280,57 @@ class FirebaseRepository(private val context: Context) {
         }
     }
     
-    suspend fun updateTransaction(transaction: Transaction) {
-        try {
-            // Update local cache immediately
-            val currentTransactions = _transactions.value.toMutableList()
-            val index = currentTransactions.indexOfFirst { it.id == transaction.id }
-            if (index != -1) {
-                currentTransactions[index] = transaction
-                _transactions.value = currentTransactions
+    /**
+     * Update a transaction
+     * @param transaction The transaction to update
+     */
+    fun updateTransaction(transaction: Transaction) {
+        // Update local cache
+        val currentList = _transactions.value.toMutableList()
+        val index = currentList.indexOfFirst { it.id == transaction.id }
+        
+        if (index != -1) {
+            currentList[index] = transaction
+        } else {
+            currentList.add(transaction)
+        }
+        
+        _transactions.value = currentList
+        
+        // Save to Firebase if network is available
+        if (networkUtils.isNetworkConnected()) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    firebaseManager.saveTransaction(transaction)
+                } catch (e: Exception) {
+                    // Add to offline queue
+                    offlineQueue.addOperation(
+                        OfflineQueue.OperationType.UPDATE,
+                        OfflineQueue.DataType.TRANSACTION,
+                        transaction.id,
+                        gson.toJson(transaction)
+                    )
+                    
+                    // Update pending operations count
+                    updatePendingOperationsCount()
+                    
+                    // Show error message
+                    _errorMessage.postValue("Failed to save transaction: ${e.message}")
+                }
             }
-            
-            // Then update Firebase if network is available
-            if (networkUtils.isNetworkConnected()) {
-                firebaseManager.saveTransaction(transaction)
-            } else {
-                // Add to offline queue
+        } else {
+            // Add to offline queue
+            CoroutineScope(Dispatchers.IO).launch {
                 offlineQueue.addOperation(
                     OfflineQueue.OperationType.UPDATE,
                     OfflineQueue.DataType.TRANSACTION,
                     transaction.id,
                     gson.toJson(transaction)
                 )
-                _errorMessage.postValue("Transaction updated locally. Will sync when network is available.")
+                
+                // Update pending operations count
                 updatePendingOperationsCount()
             }
-        } catch (e: Exception) {
-            _errorMessage.postValue("Error updating transaction: ${e.message}")
         }
     }
     
@@ -374,32 +399,57 @@ class FirebaseRepository(private val context: Context) {
         }
     }
     
-    suspend fun updateInvestment(investment: Investment) {
-        try {
-            // Update local cache immediately
-            val currentInvestments = _investments.value.toMutableList()
-            val index = currentInvestments.indexOfFirst { it.id == investment.id }
-            if (index != -1) {
-                currentInvestments[index] = investment
-                _investments.value = currentInvestments
+    /**
+     * Update an investment
+     * @param investment The investment to update
+     */
+    fun updateInvestment(investment: Investment) {
+        // Update local cache
+        val currentList = _investments.value.toMutableList()
+        val index = currentList.indexOfFirst { it.id == investment.id }
+        
+        if (index != -1) {
+            currentList[index] = investment
+        } else {
+            currentList.add(investment)
+        }
+        
+        _investments.value = currentList
+        
+        // Save to Firebase if network is available
+        if (networkUtils.isNetworkConnected()) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    firebaseManager.saveInvestment(investment)
+                } catch (e: Exception) {
+                    // Add to offline queue
+                    offlineQueue.addOperation(
+                        OfflineQueue.OperationType.UPDATE,
+                        OfflineQueue.DataType.INVESTMENT,
+                        investment.id,
+                        gson.toJson(investment)
+                    )
+                    
+                    // Update pending operations count
+                    updatePendingOperationsCount()
+                    
+                    // Show error message
+                    _errorMessage.postValue("Failed to save investment: ${e.message}")
+                }
             }
-            
-            // Then update Firebase if network is available
-            if (networkUtils.isNetworkConnected()) {
-                firebaseManager.saveInvestment(investment)
-            } else {
-                // Add to offline queue
+        } else {
+            // Add to offline queue
+            CoroutineScope(Dispatchers.IO).launch {
                 offlineQueue.addOperation(
                     OfflineQueue.OperationType.UPDATE,
                     OfflineQueue.DataType.INVESTMENT,
                     investment.id,
                     gson.toJson(investment)
                 )
-                _errorMessage.postValue("Investment updated locally. Will sync when network is available.")
+                
+                // Update pending operations count
                 updatePendingOperationsCount()
             }
-        } catch (e: Exception) {
-            _errorMessage.postValue("Error updating investment: ${e.message}")
         }
     }
     
@@ -468,32 +518,57 @@ class FirebaseRepository(private val context: Context) {
         }
     }
     
-    suspend fun updateNote(note: Note) {
-        try {
-            // Update local cache immediately
-            val currentNotes = _notes.value.toMutableList()
-            val index = currentNotes.indexOfFirst { it.id == note.id }
-            if (index != -1) {
-                currentNotes[index] = note
-                _notes.value = currentNotes
+    /**
+     * Update a note
+     * @param note The note to update
+     */
+    fun updateNote(note: Note) {
+        // Update local cache
+        val currentList = _notes.value.toMutableList()
+        val index = currentList.indexOfFirst { it.id == note.id }
+        
+        if (index != -1) {
+            currentList[index] = note
+        } else {
+            currentList.add(note)
+        }
+        
+        _notes.value = currentList
+        
+        // Save to Firebase if network is available
+        if (networkUtils.isNetworkConnected()) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    firebaseManager.saveNote(note)
+                } catch (e: Exception) {
+                    // Add to offline queue
+                    offlineQueue.addOperation(
+                        OfflineQueue.OperationType.UPDATE,
+                        OfflineQueue.DataType.NOTE,
+                        note.id,
+                        gson.toJson(note)
+                    )
+                    
+                    // Update pending operations count
+                    updatePendingOperationsCount()
+                    
+                    // Show error message
+                    _errorMessage.postValue("Failed to save note: ${e.message}")
+                }
             }
-            
-            // Then update Firebase if network is available
-            if (networkUtils.isNetworkConnected()) {
-                firebaseManager.saveNote(note)
-            } else {
-                // Add to offline queue
+        } else {
+            // Add to offline queue
+            CoroutineScope(Dispatchers.IO).launch {
                 offlineQueue.addOperation(
                     OfflineQueue.OperationType.UPDATE,
                     OfflineQueue.DataType.NOTE,
                     note.id,
                     gson.toJson(note)
                 )
-                _errorMessage.postValue("Note updated locally. Will sync when network is available.")
+                
+                // Update pending operations count
                 updatePendingOperationsCount()
             }
-        } catch (e: Exception) {
-            _errorMessage.postValue("Error updating note: ${e.message}")
         }
     }
     
@@ -562,32 +637,57 @@ class FirebaseRepository(private val context: Context) {
         }
     }
     
-    suspend fun updateStudent(student: WTStudent) {
-        try {
-            // Update local cache immediately
-            val currentStudents = _students.value.toMutableList()
-            val index = currentStudents.indexOfFirst { it.id == student.id }
-            if (index != -1) {
-                currentStudents[index] = student
-                _students.value = currentStudents
+    /**
+     * Update a student
+     * @param student The student to update
+     */
+    fun updateStudent(student: WTStudent) {
+        // Update local cache
+        val currentList = _students.value.toMutableList()
+        val index = currentList.indexOfFirst { it.id == student.id }
+        
+        if (index != -1) {
+            currentList[index] = student
+        } else {
+            currentList.add(student)
+        }
+        
+        _students.value = currentList
+        
+        // Save to Firebase if network is available
+        if (networkUtils.isNetworkConnected()) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    firebaseManager.saveStudent(student)
+                } catch (e: Exception) {
+                    // Add to offline queue
+                    offlineQueue.addOperation(
+                        OfflineQueue.OperationType.UPDATE,
+                        OfflineQueue.DataType.STUDENT,
+                        student.id,
+                        gson.toJson(student)
+                    )
+                    
+                    // Update pending operations count
+                    updatePendingOperationsCount()
+                    
+                    // Show error message
+                    _errorMessage.postValue("Failed to save student: ${e.message}")
+                }
             }
-            
-            // Then update Firebase if network is available
-            if (networkUtils.isNetworkConnected()) {
-                firebaseManager.saveStudent(student)
-            } else {
-                // Add to offline queue
+        } else {
+            // Add to offline queue
+            CoroutineScope(Dispatchers.IO).launch {
                 offlineQueue.addOperation(
                     OfflineQueue.OperationType.UPDATE,
                     OfflineQueue.DataType.STUDENT,
                     student.id,
                     gson.toJson(student)
                 )
-                _errorMessage.postValue("Student updated locally. Will sync when network is available.")
+                
+                // Update pending operations count
                 updatePendingOperationsCount()
             }
-        } catch (e: Exception) {
-            _errorMessage.postValue("Error updating student: ${e.message}")
         }
     }
     
@@ -656,7 +756,9 @@ class FirebaseRepository(private val context: Context) {
         }
     }
     
-    // Clear error message
+    /**
+     * Clear the error message
+     */
     fun clearErrorMessage() {
         _errorMessage.value = null
     }

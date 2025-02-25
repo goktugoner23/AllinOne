@@ -211,6 +211,9 @@ class BackupHelper(private val context: Context, private val repository: Firebas
             // Clean up temporary files
             tempDir.deleteRecursively()
             
+            // Force a refresh of all data from Firebase
+            repository.refreshAllData()
+            
             true
         } catch (e: Exception) {
             e.printStackTrace()
