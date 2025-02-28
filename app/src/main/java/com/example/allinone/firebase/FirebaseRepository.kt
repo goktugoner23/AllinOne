@@ -54,17 +54,26 @@ class FirebaseRepository(private val context: Context) {
     val wtLessons: StateFlow<List<WTLesson>> = _wtLessons
     
     // Error handling
-    private val _errorMessage = MutableLiveData<String?>(null)
-    val errorMessage: LiveData<String?> = _errorMessage
+    private val _errorMessage = MutableLiveData<String>()
+    val errorMessage: LiveData<String> = _errorMessage
+    
+    // Add this field to track if Google Play Services is available
+    private val _isGooglePlayServicesAvailable = MutableLiveData<Boolean>(true)
+    val isGooglePlayServicesAvailable: LiveData<Boolean> = _isGooglePlayServicesAvailable
     
     // Queue status
     private val _pendingOperations = MutableLiveData<Int>(0)
     val pendingOperations: LiveData<Int> = _pendingOperations
     
     init {
-        // Initialize by loading data from Firebase
+        // Initialize by loading data from Firebase or local cache
         CoroutineScope(Dispatchers.IO).launch {
-            refreshAllData()
+            try {
+                checkGooglePlayServicesAvailability()
+                refreshAllData()
+            } catch (e: Exception) {
+                _errorMessage.postValue("Error loading data: ${e.message}")
+            }
         }
         
         // Listen for network changes
@@ -1059,5 +1068,28 @@ class FirebaseRepository(private val context: Context) {
     private suspend fun refreshWTLessons() {
         val lessons = firebaseManager.getAllWTLessons()
         _wtLessons.value = lessons
+    }
+
+    // Add this method to check Google Play Services availability
+    fun checkGooglePlayServicesAvailability() {
+        try {
+            // Just attempt to access a Firebase operation to see if Google Play Services is responding properly
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    firebaseManager.testConnection()
+                    withContext(Dispatchers.Main) {
+                        _isGooglePlayServicesAvailable.value = true
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        _isGooglePlayServicesAvailable.value = false
+                        _errorMessage.value = "Google Play Services error: ${e.message}"
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            _isGooglePlayServicesAvailable.value = false
+            _errorMessage.value = "Google Play Services error: ${e.message}"
+        }
     }
 } 

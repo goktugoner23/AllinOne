@@ -41,8 +41,8 @@ class WTCalendarFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        setupCalendar()
         setupEventsList()
+        setupCalendar()
         observeEvents()
     }
     
@@ -123,7 +123,9 @@ class WTCalendarFragment : Fragment() {
             eventTime in startOfDay..endOfDay
         } ?: emptyList()
         
-        eventAdapter.submitList(events.sortedBy { it.date })
+        if (::eventAdapter.isInitialized) {
+            eventAdapter.submitList(events.sortedBy { it.date })
+        }
         
         // Update date display and empty state
         binding.selectedDateText.text = dateFormat.format(date)

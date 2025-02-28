@@ -70,7 +70,40 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         // Initialize binding and set content view ONCE
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
+        
+        // Initialize offline status helper
+        offlineStatusHelper.initialize()
+        
+        // Setup navigation
+        setupNavigation()
+        
+        // Check for permissions
+        checkAndRequestPermissions()
+        
+        // Schedule workers
+        scheduleBackup()
+        scheduleExpirationNotifications()
+        
+        // Test Firebase connection
+        testFirebaseConnection()
+        
+        // Observe repository error messages
+        firebaseRepository.errorMessage.observe(this) { message ->
+            if (!message.isNullOrEmpty()) {
+                showErrorMessage(message)
+                firebaseRepository.clearErrorMessage()
+            }
+        }
+        
+        // Observe Google Play Services availability
+        firebaseRepository.isGooglePlayServicesAvailable.observe(this) { isAvailable ->
+            if (!isAvailable) {
+                showGooglePlayServicesError()
+            }
+        }
+    }
+    
+    private fun setupNavigation() {
         // Initialize drawer layout and navigation view
         drawerLayout = binding.drawerLayout
         navigationView = binding.navView
@@ -136,29 +169,35 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                 else -> false
             }
         }
-
-        // Check and request notification permission
-        checkNotificationPermission()
-        
-        // Schedule automatic backups
-        scheduleAutomaticBackups()
-        
-        // Test Firebase connection
-        testFirebaseConnection()
-
-        // Initialize offline status helper
-        offlineStatusHelper.initialize()
-        
-        // Observe error messages
-        firebaseRepository.errorMessage.observe(this) { message ->
-            message?.let {
-                Toast.makeText(this, it, Toast.LENGTH_LONG).show()
-                firebaseRepository.clearErrorMessage()
+    }
+    
+    private fun checkAndRequestPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            when {
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED -> {
+                    // Permission already granted, schedule notifications
+                    scheduleExpirationNotifications()
+                }
+                shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
+                    // Explain why the app needs this permission
+                    // For simplicity, we're just requesting directly here
+                    requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+                else -> {
+                    // Request the permission directly
+                    requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
             }
+        } else {
+            // For Android 12 and below, no runtime permission needed
+            scheduleExpirationNotifications()
         }
     }
     
-    private fun scheduleAutomaticBackups() {
+    private fun scheduleBackup() {
         // Schedule weekly backups
         val backupWorkRequest = PeriodicWorkRequestBuilder<BackupWorker>(
             7, TimeUnit.DAYS
@@ -171,40 +210,66 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         )
     }
     
-    private fun testFirebaseConnection() {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                // Write a test document
-                val testData = hashMapOf(
-                    "timestamp" to System.currentTimeMillis(),
-                    "message" to "Firebase connection test"
-                )
-                
-                firestore.collection("test_connection")
-                    .document("test_document")
-                    .set(testData)
-                    .await()
-                
-                // Read the test document
-                firestore.collection("test_connection")
-                    .document("test_document")
-                    .get()
-                    .await()
-                
-                // Connection successful, but don't show a toast message
-                // This prevents the repeated notifications
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Firebase connection error: ${e.message}",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            }
-        }
+    private fun scheduleExpirationNotifications() {
+        val expirationWorkRequest = PeriodicWorkRequestBuilder<ExpirationNotificationWorker>(
+            1, TimeUnit.DAYS
+        ).build()
+        
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            ExpirationNotificationWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            expirationWorkRequest
+        )
     }
     
+    private fun testFirebaseConnection() {
+        firebaseRepository.checkGooglePlayServicesAvailability()
+    }
+    
+    private fun showGooglePlayServicesError() {
+        AlertDialog.Builder(this)
+            .setTitle("Google Play Services Error")
+            .setMessage("There seems to be an issue with Google Play Services on your device. Some features of the app might not work properly. Would you like to troubleshoot?")
+            .setPositiveButton("Troubleshoot") { _, _ ->
+                // Open Google Play Services help page or settings
+                try {
+                    val intent = Intent("com.google.android.gms.settings.GOOGLE_PLAY_SERVICES_SETTINGS")
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    showErrorMessage("Could not open Google Play Services settings. Please check your device settings manually.")
+                }
+            }
+            .setNegativeButton("Continue Anyway", null)
+            .setCancelable(true)
+            .show()
+    }
+    
+    private fun showErrorMessage(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    }
+
+    private fun clearAppData() {
+        // Show confirmation dialog before clearing data
+        AlertDialog.Builder(this)
+            .setTitle("Clear App Data")
+            .setMessage("Are you sure you want to clear all app data? This action cannot be undone.")
+            .setPositiveButton("Yes, Clear Data") { _, _ ->
+                // Clear shared preferences
+                val sharedPreferences = getSharedPreferences("app_preferences", MODE_PRIVATE)
+                sharedPreferences.edit().clear().apply()
+                
+                // Restart the app to refresh data
+                val packageManager = packageManager
+                val intent = packageManager.getLaunchIntentForPackage(packageName)
+                intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+                finish()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     override fun onDestinationChanged(
         controller: NavController,
         destination: NavDestination,
@@ -236,65 +301,5 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             return true
         }
         return super.onOptionsItemSelected(item)
-    }
-
-    private fun checkNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            when {
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED -> {
-                    // Permission already granted, schedule notifications
-                    scheduleExpirationNotifications()
-                }
-                shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
-                    // Explain why the app needs this permission
-                    // For simplicity, we're just requesting directly here
-                    requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
-                else -> {
-                    // Request the permission directly
-                    requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
-            }
-        } else {
-            // For Android 12 and below, no runtime permission needed
-            scheduleExpirationNotifications()
-        }
-    }
-
-    private fun scheduleExpirationNotifications() {
-        val expirationWorkRequest = PeriodicWorkRequestBuilder<ExpirationNotificationWorker>(
-            1, TimeUnit.DAYS
-        ).build()
-        
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            ExpirationNotificationWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
-            expirationWorkRequest
-        )
-    }
-
-    private fun clearAppData() {
-        // Show confirmation dialog before clearing data
-        AlertDialog.Builder(this)
-            .setTitle("Clear App Data")
-            .setMessage("Are you sure you want to clear all app data? This action cannot be undone.")
-            .setPositiveButton("Yes, Clear Data") { _, _ ->
-                // Clear shared preferences
-                val sharedPreferences = getSharedPreferences("app_preferences", MODE_PRIVATE)
-                sharedPreferences.edit().clear().apply()
-                
-                // Restart the app to refresh data
-                val packageManager = packageManager
-                val intent = packageManager.getLaunchIntentForPackage(packageName)
-                intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(intent)
-                finish()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
     }
 }

@@ -403,4 +403,22 @@ class FirebaseManager(private val context: Context? = null) {
             }
         }
     }
+    
+    /**
+     * Tests the Firebase connection by performing a simple query
+     * This can be used to check if Google Play Services is working properly
+     */
+    suspend fun testConnection() {
+        try {
+            // Just try to get a single document to see if Firebase is responding
+            firestore.collection("test")
+                .document("connectivity_test")
+                .get()
+                .await()
+            
+            // If we reach here, the connection is working
+        } catch (e: Exception) {
+            throw Exception("Firebase connection test failed: ${e.message}", e)
+        }
+    }
 } 
