@@ -114,6 +114,11 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                     drawerLayout.closeDrawers()
                     true
                 }
+                R.id.nav_history -> {
+                    navController.navigate(R.id.nav_history)
+                    drawerLayout.closeDrawers()
+                    true
+                }
                 R.id.nav_backup -> {
                     // Navigate to backup activity
                     val intent = Intent(this, BackupActivity::class.java)
@@ -211,6 +216,16 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             }
             else -> {
                 binding.bottomNavigation.visibility = View.GONE
+            }
+        }
+        
+        // Show/hide toolbar based on destination
+        when (destination.id) {
+            R.id.nav_history -> {
+                binding.toolbar.visibility = View.GONE
+            }
+            else -> {
+                binding.toolbar.visibility = View.VISIBLE
             }
         }
     }

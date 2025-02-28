@@ -26,4 +26,10 @@
         android:label="Notes"
         tools:layout="@layout/fragment_notes" />
 
+    <fragment
+        android:id="@+id/nav_history"
+        android:name="com.example.allinone.ui.HistoryFragment"
+        android:label="History"
+        tools:layout="@layout/fragment_history" />
+
 </navigation> 

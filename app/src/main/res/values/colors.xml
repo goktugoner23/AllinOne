@@ -8,4 +8,9 @@
     <color name="expiration_color">#FFEBEE</color>
     <color name="start_color">#E8F5E9</color>
     <color name="default_event_color">#FFFFFF</color>
+    
+    <!-- History page colors -->
+    <color name="red">#F44336</color>
+    <color name="dark_gray">#555555</color>
+    <color name="medium_gray">#888888</color>
 </resources>

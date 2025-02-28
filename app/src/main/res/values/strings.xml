@@ -21,4 +21,12 @@
     <string name="offline_message">You are currently offline. Changes will be synchronized when you reconnect.</string>
     <string name="pending_operations">Pending operations: %1$d</string>
     <string name="offline_status">Offline status</string>
+    
+    <!-- History page -->
+    <string name="history">History</string>
+    <string name="empty_history">Empty history</string>
+    <string name="no_history_items">No history items found</string>
+    <string name="pull_to_refresh">Pull down to refresh</string>
+    <string name="item_type_icon">Item type icon</string>
+    <string name="delete_item">Delete item</string>
 </resources>
