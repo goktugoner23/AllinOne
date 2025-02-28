@@ -65,6 +65,14 @@ class FirebaseRepository(private val context: Context) {
     private val _pendingOperations = MutableLiveData<Int>(0)
     val pendingOperations: LiveData<Int> = _pendingOperations
     
+    // Add this field to track if Firebase project is properly configured
+    private val _isFirebaseProjectValid = MutableLiveData<Boolean>(true)
+    val isFirebaseProjectValid: LiveData<Boolean> = _isFirebaseProjectValid
+    
+    // Add this field to track if Firestore security rules are properly configured
+    private val _areFirestoreRulesValid = MutableLiveData<Boolean>(true)
+    val areFirestoreRulesValid: LiveData<Boolean> = _areFirestoreRulesValid
+    
     init {
         // Initialize by loading data from Firebase or local cache
         CoroutineScope(Dispatchers.IO).launch {
@@ -1072,24 +1080,69 @@ class FirebaseRepository(private val context: Context) {
 
     // Add this method to check Google Play Services availability
     fun checkGooglePlayServicesAvailability() {
-        try {
-            // Just attempt to access a Firebase operation to see if Google Play Services is responding properly
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
+        // Do a full Firebase configuration check
+        checkFirebaseConfiguration()
+    }
+
+    // Add this method to check Firebase project configuration
+    fun checkFirebaseConfiguration() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Check Google Play Services availability first
+                val isGpsAvailable = try {
                     firebaseManager.testConnection()
-                    withContext(Dispatchers.Main) {
-                        _isGooglePlayServicesAvailable.value = true
-                    }
+                    true
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        _isGooglePlayServicesAvailable.value = false
-                        _errorMessage.value = "Google Play Services error: ${e.message}"
+                    _errorMessage.postValue("Google Play Services error: ${e.message}")
+                    false
+                }
+                
+                withContext(Dispatchers.Main) {
+                    _isGooglePlayServicesAvailable.value = isGpsAvailable
+                }
+                
+                // If GPS is not available, don't bother checking the rest
+                if (!isGpsAvailable) return@launch
+                
+                // Check Firebase project validity
+                val isProjectValid = try {
+                    firebaseManager.validateFirebaseProject()
+                } catch (e: Exception) {
+                    _errorMessage.postValue("Firebase project validation error: ${e.message}")
+                    false
+                }
+                
+                withContext(Dispatchers.Main) {
+                    _isFirebaseProjectValid.value = isProjectValid
+                    
+                    if (!isProjectValid) {
+                        _errorMessage.value = "Firebase project configuration error. Please check google-services.json."
                     }
                 }
+                
+                // If project is not valid, don't bother checking rules
+                if (!isProjectValid) return@launch
+                
+                // Check security rules
+                val areRulesValid = try {
+                    firebaseManager.checkSecurityRules()
+                } catch (e: Exception) {
+                    _errorMessage.postValue("Firestore rules validation error: ${e.message}")
+                    false
+                }
+                
+                withContext(Dispatchers.Main) {
+                    _areFirestoreRulesValid.value = areRulesValid
+                    
+                    if (!areRulesValid) {
+                        _errorMessage.value = "Firestore security rules are not properly configured."
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = "Error checking Firebase configuration: ${e.message}"
+                }
             }
-        } catch (e: Exception) {
-            _isGooglePlayServicesAvailable.value = false
-            _errorMessage.value = "Google Play Services error: ${e.message}"
         }
     }
 } 

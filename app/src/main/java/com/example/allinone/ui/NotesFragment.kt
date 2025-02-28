@@ -106,7 +106,7 @@ class NotesFragment : Fragment() {
     private fun observeNotes() {
         viewModel.allNotes.observe(viewLifecycleOwner) { notes ->
             // Sort notes by last edited date (newest first)
-            val sortedNotes = notes.sortedByDescending { it.lastEdited ?: it.date }
+            val sortedNotes = notes.sortedByDescending { it.lastEdited }
             notesAdapter.submitList(sortedNotes)
             binding.emptyStateText.visibility = if (notes.isEmpty()) View.VISIBLE else View.GONE
         }
@@ -267,7 +267,8 @@ class NotesFragment : Fragment() {
         dialog.show()
     }
     
-    private fun shareNote(note: Note, title: String, content: String) {
+    @Suppress("UNUSED_PARAMETER")
+    private fun shareNote(unused: Note, title: String, content: String) {
         val plainText = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
             Html.fromHtml(content, Html.FROM_HTML_MODE_COMPACT).toString()
         } else {

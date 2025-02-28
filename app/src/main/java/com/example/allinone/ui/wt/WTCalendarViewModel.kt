@@ -154,18 +154,16 @@ class WTCalendarViewModel(application: Application) : AndroidViewModel(applicati
             if (lessons.isEmpty()) return@launch
             
             for (student in students) {
-                // Only update students that have a startDate
-                if (student.startDate != null) {
-                    val startDate = Calendar.getInstance()
-                    startDate.time = student.startDate
-                    
-                    // Calculate end date after 8 lessons
-                    val endDate = calculateEndDateAfterLessons(startDate, 8, lessons)
-                    
-                    // Update student
-                    val updatedStudent = student.copy(endDate = endDate)
-                    repository.updateWTStudent(updatedStudent)
-                }
+                // Calculate lesson schedule for each student
+                val startDate = Calendar.getInstance()
+                startDate.time = student.startDate
+                
+                // Calculate end date after 8 lessons
+                val endDate = calculateEndDateAfterLessons(startDate, 8, lessons)
+                
+                // Update student
+                val updatedStudent = student.copy(endDate = endDate)
+                repository.updateWTStudent(updatedStudent)
             }
         }
     }

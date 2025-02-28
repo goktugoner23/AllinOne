@@ -88,7 +88,7 @@ class WTCalendarFragment : Fragment() {
     }
     
     private fun observeEvents() {
-        viewModel.events.observe(viewLifecycleOwner) { events ->
+        viewModel.events.observe(viewLifecycleOwner) { _ ->
             // Initial load will update for current date
             val selectedDate = Calendar.getInstance().apply {
                 timeInMillis = binding.calendarView.date

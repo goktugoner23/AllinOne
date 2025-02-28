@@ -410,15 +410,75 @@ class FirebaseManager(private val context: Context? = null) {
      */
     suspend fun testConnection() {
         try {
-            // Just try to get a single document to see if Firebase is responding
-            firestore.collection("test")
-                .document("connectivity_test")
+            // Try to write to the test collection which has open security rules
+            val testData = hashMapOf(
+                "timestamp" to System.currentTimeMillis(),
+                "message" to "Firebase connection test",
+                "deviceId" to deviceId
+            )
+            
+            // Try the test_connection collection which should have open rules
+            firestore.collection("test_connection")
+                .document("test_document")
+                .set(testData)
+                .await()
+                
+            // Then try to read it back
+            firestore.collection("test_connection")
+                .document("test_document")
                 .get()
                 .await()
             
             // If we reach here, the connection is working
         } catch (e: Exception) {
             throw Exception("Firebase connection test failed: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Check if we have proper Firestore security rules set up
+     */
+    suspend fun checkSecurityRules(): Boolean {
+        return try {
+            // Try to read from the transactions collection
+            transactionsCollection
+                .limit(1)
+                .get()
+                .await()
+            
+            // If we reach here, we have proper access to the collection
+            true
+        } catch (e: Exception) {
+            if (e.message?.contains("PERMISSION_DENIED") == true) {
+                // Security rules issue
+                return false
+            }
+            // Some other error
+            throw e
+        }
+    }
+    
+    /**
+     * Check if we're using the correct Firebase project
+     */
+    suspend fun validateFirebaseProject(): Boolean {
+        return try {
+            // Try to read from test collection (should have open rules)
+            firestore.collection("test")
+                .document("connectivity_test")
+                .get()
+                .await()
+            
+            // If we get here, we have a valid project connection
+            true
+        } catch (e: Exception) {
+            if (e.message?.contains("project") == true && 
+                e.message?.contains("placeholder") == true) {
+                // We're using a placeholder project
+                return false
+            }
+            // Some other error
+            throw e
         }
     }
 } 

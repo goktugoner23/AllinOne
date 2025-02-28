@@ -39,7 +39,7 @@ class NotesAdapter(private val onNoteClick: (Note) -> Unit) :
 
         fun bind(note: Note) {
             titleTextView.text = note.title
-            dateTextView.text = dateFormat.format(note.lastEdited ?: note.date)
+            dateTextView.text = dateFormat.format(note.lastEdited)
             
             // Always render content as HTML to ensure proper display
             if (note.content.isNotEmpty()) {

@@ -101,6 +101,20 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                 showGooglePlayServicesError()
             }
         }
+        
+        // Observe Firebase project validity
+        firebaseRepository.isFirebaseProjectValid.observe(this) { isValid ->
+            if (!isValid) {
+                showFirebaseProjectError()
+            }
+        }
+        
+        // Observe Firestore security rules validity
+        firebaseRepository.areFirestoreRulesValid.observe(this) { areValid ->
+            if (!areValid) {
+                showFirestoreRulesError()
+            }
+        }
     }
     
     private fun setupNavigation() {
@@ -267,6 +281,24 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                 finish()
             }
             .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showFirebaseProjectError() {
+        AlertDialog.Builder(this)
+            .setTitle("Firebase Project Error")
+            .setMessage("You're using a placeholder Firebase project. Please set up a real Firebase project and update your google-services.json file. See the README in the firebase_rules folder for instructions.")
+            .setPositiveButton("OK", null)
+            .setCancelable(true)
+            .show()
+    }
+    
+    private fun showFirestoreRulesError() {
+        AlertDialog.Builder(this)
+            .setTitle("Firestore Rules Error")
+            .setMessage("Your Firestore security rules are not properly configured. Please update your Firestore security rules in the Firebase Console. See the README in the firebase_rules folder for instructions.")
+            .setPositiveButton("OK", null)
+            .setCancelable(true)
             .show()
     }
 

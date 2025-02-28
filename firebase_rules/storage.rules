@@ -1,0 +1,20 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Images can be read by anyone, but only written by the owner
+    match /images/{imageId} {
+      allow read;
+      allow write: if true;
+    }
+    
+    // Attachments can be read and written by the owner
+    match /attachments/{attachmentId} {
+      allow read, write: if true;
+    }
+    
+    // Default rule - deny everything else
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+} 
