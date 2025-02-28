@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
@@ -11,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.allinone.MainActivity
 import com.example.allinone.R
 import com.example.allinone.databinding.ActivityBackupBinding
 import com.example.allinone.firebase.FirebaseRepository
@@ -170,21 +173,31 @@ class BackupActivity : AppCompatActivity() {
                         // Restart the app to refresh all data
                         restartApp()
                     } else {
-                        Toast.makeText(
-                            this@BackupActivity,
-                            "Failed to restore backup",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        // Show a more detailed error dialog
+                        showErrorDialog(
+                            "Restore Failed",
+                            "The backup could not be restored. This might be due to:\n" +
+                            "• Invalid or corrupted backup file\n" +
+                            "• Google Play Services authentication issue\n" +
+                            "• Network connectivity problems\n\n" +
+                            "Please try again or create a new backup."
+                        )
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     binding.progressBar.visibility = View.GONE
-                    Toast.makeText(
-                        this@BackupActivity,
-                        "Error restoring backup: ${e.message}",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    
+                    // Show a more detailed error dialog with the exception message
+                    showErrorDialog(
+                        "Restore Error",
+                        "An error occurred while restoring the backup:\n${e.message}\n\n" +
+                        "This might be due to:\n" +
+                        "• Google Play Services issues\n" +
+                        "• Network connectivity problems\n" +
+                        "• Insufficient permissions\n\n" +
+                        "Please try again later."
+                    )
                 }
             }
         }
@@ -211,21 +224,31 @@ class BackupActivity : AppCompatActivity() {
                         // Restart the app to refresh all data
                         restartApp()
                     } else {
-                        Toast.makeText(
-                            this@BackupActivity,
-                            "Failed to restore backup",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        // Show a more detailed error dialog
+                        showErrorDialog(
+                            "Restore Failed",
+                            "The backup could not be restored. This might be due to:\n" +
+                            "• Invalid or corrupted backup file\n" +
+                            "• Google Play Services authentication issue\n" +
+                            "• Network connectivity problems\n\n" +
+                            "Please try again or create a new backup."
+                        )
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     binding.progressBar.visibility = View.GONE
-                    Toast.makeText(
-                        this@BackupActivity,
-                        "Error restoring backup: ${e.message}",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    
+                    // Show a more detailed error dialog with the exception message
+                    showErrorDialog(
+                        "Restore Error",
+                        "An error occurred while restoring the backup:\n${e.message}\n\n" +
+                        "This might be due to:\n" +
+                        "• Google Play Services issues\n" +
+                        "• Network connectivity problems\n" +
+                        "• Insufficient permissions\n\n" +
+                        "Please try again later."
+                    )
                 }
             }
         }
@@ -242,13 +265,31 @@ class BackupActivity : AppCompatActivity() {
                 kotlinx.coroutines.delay(2000)
                 
                 withContext(Dispatchers.Main) {
-                    // Restart the app
-                    val packageManager = packageManager
-                    val intent = packageManager.getLaunchIntentForPackage(packageName)
-                    intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    startActivity(intent)
-                    finishAffinity()
+                    try {
+                        // Use a safer approach to restart the app
+                        val intent = Intent(applicationContext, MainActivity::class.java)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK) // Clear all existing tasks
+                        startActivity(intent)
+                        
+                        // Finish this activity without using finishAffinity which can cause issues
+                        finish()
+                        
+                        // Optional: Add a slight delay before process exit to ensure clean activity finish
+                        Handler(Looper.getMainLooper()).postDelayed({
+                            // Force a clean process restart if needed
+                            // Process.killProcess(Process.myPid())
+                        }, 500)
+                    } catch (e: Exception) {
+                        // If restarting fails, just finish the activity
+                        Toast.makeText(
+                            this@BackupActivity,
+                            "Backup restored. Please restart the app manually.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        finish()
+                    }
                 }
             }
         }
@@ -282,5 +323,16 @@ class BackupActivity : AppCompatActivity() {
                 Toast.LENGTH_SHORT
             ).show()
         }
+    }
+    
+    /**
+     * Show an error dialog with the given title and message
+     */
+    private fun showErrorDialog(title: String, message: String) {
+        val builder = androidx.appcompat.app.AlertDialog.Builder(this)
+        builder.setTitle(title)
+        builder.setMessage(message)
+        builder.setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
+        builder.show()
     }
 } 

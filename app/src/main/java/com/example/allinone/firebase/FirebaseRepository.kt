@@ -213,11 +213,49 @@ class FirebaseRepository(private val context: Context) {
         
         withContext(Dispatchers.IO) {
             try {
-                launch { refreshTransactions() }
-                launch { refreshInvestments() }
-                launch { refreshNotes() }
-                launch { refreshStudents() }
-                _errorMessage.postValue(null) // Clear any previous errors
+                launch { 
+                    try {
+                        refreshTransactions() 
+                    } catch (e: SecurityException) {
+                        // Handle Google Play Services security exception
+                        _errorMessage.postValue("Google Play Services error: ${e.message}")
+                    } catch (e: Exception) {
+                        _errorMessage.postValue("Error refreshing transactions: ${e.message}")
+                    }
+                }
+                launch { 
+                    try {
+                        refreshInvestments() 
+                    } catch (e: SecurityException) {
+                        // Handle Google Play Services security exception
+                        _errorMessage.postValue("Google Play Services error: ${e.message}")
+                    } catch (e: Exception) {
+                        _errorMessage.postValue("Error refreshing investments: ${e.message}")
+                    }
+                }
+                launch { 
+                    try {
+                        refreshNotes() 
+                    } catch (e: SecurityException) {
+                        // Handle Google Play Services security exception
+                        _errorMessage.postValue("Google Play Services error: ${e.message}")
+                    } catch (e: Exception) {
+                        _errorMessage.postValue("Error refreshing notes: ${e.message}")
+                    }
+                }
+                launch { 
+                    try {
+                        refreshStudents() 
+                    } catch (e: SecurityException) {
+                        // Handle Google Play Services security exception
+                        _errorMessage.postValue("Google Play Services error: ${e.message}")
+                    } catch (e: Exception) {
+                        _errorMessage.postValue("Error refreshing students: ${e.message}")
+                    }
+                }
+            } catch (e: SecurityException) {
+                // Handle Google Play Services security exception
+                _errorMessage.postValue("Google Play Services error: ${e.message}")
             } catch (e: Exception) {
                 _errorMessage.postValue("Error refreshing data: ${e.message}")
             }

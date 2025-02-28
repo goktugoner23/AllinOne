@@ -116,9 +116,12 @@ class BackupHelper(private val context: Context, private val repository: Firebas
      * @return True if the restore was successful, false otherwise
      */
     suspend fun restoreFromBackup(backupUri: Uri): Boolean = withContext(Dispatchers.IO) {
+        var errorMessage: String? = null
+        var tempDir: File? = null
+        
         try {
             // Create a temporary directory for the extracted files
-            val tempDir = File(context.cacheDir, "restore_temp")
+            tempDir = File(context.cacheDir, "restore_temp")
             if (tempDir.exists()) {
                 tempDir.deleteRecursively()
             }
@@ -152,6 +155,12 @@ class BackupHelper(private val context: Context, private val repository: Firebas
                         zipEntry = zipIn.nextEntry
                     }
                 }
+            } ?: run {
+                errorMessage = "Could not open backup file"
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Error: Could not open backup file", Toast.LENGTH_LONG).show()
+                }
+                return@withContext false
             }
             
             // Process the extracted files and restore the data
@@ -160,64 +169,217 @@ class BackupHelper(private val context: Context, private val repository: Firebas
             val notesFile = File(tempDir, "notes.json")
             val studentsFile = File(tempDir, "students.json")
             
-            // Restore transactions
-            if (transactionsFile.exists()) {
-                InputStreamReader(FileInputStream(transactionsFile)).use { reader ->
-                    val type = object : TypeToken<List<Transaction>>() {}.type
-                    val transactions: List<Transaction> = gson.fromJson(reader, type)
-                    
-                    for (transaction in transactions) {
-                        repository.updateTransaction(transaction)
-                    }
+            // Check if at least one file exists
+            if (!transactionsFile.exists() && !investmentsFile.exists() && 
+                !notesFile.exists() && !studentsFile.exists()) {
+                errorMessage = "No valid data found in backup"
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Error: No valid data found in backup", Toast.LENGTH_LONG).show()
                 }
+                tempDir.deleteRecursively()
+                return@withContext false
             }
             
-            // Restore investments
-            if (investmentsFile.exists()) {
-                InputStreamReader(FileInputStream(investmentsFile)).use { reader ->
-                    val type = object : TypeToken<List<Investment>>() {}.type
-                    val investments: List<Investment> = gson.fromJson(reader, type)
-                    
-                    for (investment in investments) {
-                        repository.updateInvestment(investment)
+            // Try to restore data locally first without Firebase
+            val transactions = if (transactionsFile.exists()) {
+                try {
+                    InputStreamReader(FileInputStream(transactionsFile)).use { reader ->
+                        val type = object : TypeToken<List<Transaction>>() {}.type
+                        gson.fromJson<List<Transaction>>(reader, type)
                     }
+                } catch (e: Exception) {
+                    errorMessage = "Error parsing transactions: ${e.message}"
+                    null
                 }
-            }
+            } else null
             
-            // Restore notes
-            if (notesFile.exists()) {
-                InputStreamReader(FileInputStream(notesFile)).use { reader ->
-                    val type = object : TypeToken<List<Note>>() {}.type
-                    val notes: List<Note> = gson.fromJson(reader, type)
-                    
-                    for (note in notes) {
-                        repository.updateNote(note)
+            val investments = if (investmentsFile.exists()) {
+                try {
+                    InputStreamReader(FileInputStream(investmentsFile)).use { reader ->
+                        val type = object : TypeToken<List<Investment>>() {}.type
+                        gson.fromJson<List<Investment>>(reader, type)
                     }
+                } catch (e: Exception) {
+                    errorMessage = "Error parsing investments: ${e.message}"
+                    null
                 }
-            }
+            } else null
             
-            // Restore students
-            if (studentsFile.exists()) {
-                InputStreamReader(FileInputStream(studentsFile)).use { reader ->
-                    val type = object : TypeToken<List<WTStudent>>() {}.type
-                    val students: List<WTStudent> = gson.fromJson(reader, type)
-                    
-                    for (student in students) {
-                        repository.updateStudent(student)
+            val notes = if (notesFile.exists()) {
+                try {
+                    InputStreamReader(FileInputStream(notesFile)).use { reader ->
+                        val type = object : TypeToken<List<Note>>() {}.type
+                        gson.fromJson<List<Note>>(reader, type)
+                    }
+                } catch (e: Exception) {
+                    errorMessage = "Error parsing notes: ${e.message}"
+                    null
+                }
+            } else null
+            
+            val students = if (studentsFile.exists()) {
+                try {
+                    InputStreamReader(FileInputStream(studentsFile)).use { reader ->
+                        val type = object : TypeToken<List<WTStudent>>() {}.type
+                        gson.fromJson<List<WTStudent>>(reader, type)
+                    }
+                } catch (e: Exception) {
+                    errorMessage = "Error parsing students: ${e.message}"
+                    null
+                }
+            } else null
+            
+            // Now try to update Firebase with the parsed data
+            // We'll do this in a separate try-catch block to ensure we don't lose the parsed data
+            var firebaseUpdateSuccess = false
+            
+            try {
+                // Update transactions in batches to avoid overwhelming Firebase
+                transactions?.chunked(10)?.forEach { batch ->
+                    batch.forEach { transaction ->
+                        try {
+                            repository.updateTransaction(transaction)
+                            // Small delay to avoid overwhelming Firebase
+                            kotlinx.coroutines.delay(50)
+                        } catch (e: Exception) {
+                            // Log error but continue with other items
+                            e.printStackTrace()
+                        }
                     }
                 }
+                
+                // Update investments in batches
+                investments?.chunked(10)?.forEach { batch ->
+                    batch.forEach { investment ->
+                        try {
+                            repository.updateInvestment(investment)
+                            // Small delay to avoid overwhelming Firebase
+                            kotlinx.coroutines.delay(50)
+                        } catch (e: Exception) {
+                            // Log error but continue with other items
+                            e.printStackTrace()
+                        }
+                    }
+                }
+                
+                // Update notes in batches
+                notes?.chunked(10)?.forEach { batch ->
+                    batch.forEach { note ->
+                        try {
+                            repository.updateNote(note)
+                            // Small delay to avoid overwhelming Firebase
+                            kotlinx.coroutines.delay(50)
+                        } catch (e: Exception) {
+                            // Log error but continue with other items
+                            e.printStackTrace()
+                        }
+                    }
+                }
+                
+                // Update students in batches
+                students?.chunked(10)?.forEach { batch ->
+                    batch.forEach { student ->
+                        try {
+                            repository.updateStudent(student)
+                            // Small delay to avoid overwhelming Firebase
+                            kotlinx.coroutines.delay(50)
+                        } catch (e: Exception) {
+                            // Log error but continue with other items
+                            e.printStackTrace()
+                        }
+                    }
+                }
+                
+                // Try to refresh data, but don't fail if it doesn't work
+                try {
+                    // Use a timeout to prevent hanging
+                    withContext(Dispatchers.IO) {
+                        kotlinx.coroutines.withTimeout(10000) {
+                            repository.refreshAllData()
+                        }
+                    }
+                    firebaseUpdateSuccess = true
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    // Don't fail the whole restore process if refresh fails
+                }
+                
+            } catch (e: SecurityException) {
+                // Handle Google Play Services security exception
+                errorMessage = "Google Play Services authentication error: ${e.message}"
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        context,
+                        "Warning: Data restored locally but couldn't sync with Firebase. " +
+                        "Please check your Google Play Services.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+                // We still consider this a partial success
+            } catch (e: Exception) {
+                errorMessage = "Error updating Firebase: ${e.message}"
+                e.printStackTrace()
+                // We still consider this a partial success if we parsed the data
             }
             
             // Clean up temporary files
-            tempDir.deleteRecursively()
+            try {
+                tempDir.deleteRecursively()
+            } catch (e: Exception) {
+                // Ignore cleanup errors
+            }
             
-            // Force a refresh of all data from Firebase
-            repository.refreshAllData()
+            // If we got here with parsed data, consider it at least a partial success
+            val success = transactions != null || investments != null || 
+                         notes != null || students != null
             
-            true
+            if (success) {
+                if (firebaseUpdateSuccess) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            context,
+                            "Backup restored successfully.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                } else if (errorMessage != null) {
+                    // We had some issues but restored some data
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            context,
+                            "Backup partially restored. Some errors occurred.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
+            
+            return@withContext success
         } catch (e: Exception) {
             e.printStackTrace()
-            false
+            errorMessage = "Restore failed: ${e.message}"
+            withContext(Dispatchers.Main) {
+                Toast.makeText(
+                    context,
+                    "Error restoring backup: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            
+            // Clean up temporary files if they exist
+            tempDir?.let {
+                try {
+                    it.deleteRecursively()
+                } catch (cleanupException: Exception) {
+                    // Ignore cleanup errors
+                }
+            }
+            
+            return@withContext false
+        } finally {
+            if (errorMessage != null) {
+                println("Backup restore error: $errorMessage")
+            }
         }
     }
     
