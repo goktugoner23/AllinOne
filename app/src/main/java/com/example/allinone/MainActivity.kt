@@ -185,7 +185,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                     .await()
                 
                 // Read the test document
-                val snapshot = firestore.collection("test_connection")
+                firestore.collection("test_connection")
                     .document("test_document")
                     .get()
                     .await()

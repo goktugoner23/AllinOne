@@ -89,7 +89,9 @@ class HomeFragment : Fragment() {
         
         // Group transactions by category and calculate total amount
         val categorySummaries = transactions
-            .groupBy { it.category ?: "Uncategorized" }
+            .groupBy { 
+                if (it.category.isNullOrEmpty()) "Uncategorized" else it.category 
+            }
             .map { (category, txns) ->
                 val total = txns.sumOf { it.amount }
                 category to total

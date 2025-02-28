@@ -68,11 +68,11 @@ class TransactionAdapter(
                 amountText.typeface = ResourcesCompat.getFont(root.context, R.font.opensans)
 
                 // Show description if available
-                transaction.description?.let {
-                    descriptionText.text = it
-                    descriptionText.visibility = View.VISIBLE
-                } ?: run {
+                if (transaction.description.isNullOrEmpty()) {
                     descriptionText.visibility = View.GONE
+                } else {
+                    descriptionText.text = transaction.description
+                    descriptionText.visibility = View.VISIBLE
                 }
 
                 val textColor = if (transaction.isIncome) {

@@ -94,7 +94,7 @@ class FirebaseManager(private val context: Context? = null) {
             try {
                 val uri = Uri.parse(imageUri)
                 val imageRef = imagesRef.child("${UUID.randomUUID()}")
-                val uploadTask = imageRef.putFile(uri).await()
+                imageRef.putFile(uri).await()
                 uploadedImageUrl = imageRef.downloadUrl.await().toString()
             } catch (e: Exception) {
                 // Skip failed upload
@@ -150,7 +150,7 @@ class FirebaseManager(private val context: Context? = null) {
                 try {
                     val uri = Uri.parse(uriString)
                     val imageRef = imagesRef.child("${UUID.randomUUID()}")
-                    val uploadTask = imageRef.putFile(uri).await()
+                    imageRef.putFile(uri).await()
                     val downloadUrl = imageRef.downloadUrl.await().toString()
                     uploadedImageUrls.add(downloadUrl)
                 } catch (e: Exception) {
@@ -205,7 +205,7 @@ class FirebaseManager(private val context: Context? = null) {
             try {
                 val uri = Uri.parse(student.attachmentUri)
                 val attachmentRef = attachmentsRef.child("${UUID.randomUUID()}")
-                val uploadTask = attachmentRef.putFile(uri).await()
+                attachmentRef.putFile(uri).await()
                 attachmentUrl = attachmentRef.downloadUrl.await().toString()
             } catch (e: Exception) {
                 // Skip failed upload
@@ -253,7 +253,7 @@ class FirebaseManager(private val context: Context? = null) {
     suspend fun uploadImage(uri: Uri): String? {
         return try {
             val imageRef = imagesRef.child("${UUID.randomUUID()}")
-            val uploadTask = imageRef.putFile(uri).await()
+            imageRef.putFile(uri).await()
             imageRef.downloadUrl.await().toString()
         } catch (e: Exception) {
             null
@@ -263,7 +263,7 @@ class FirebaseManager(private val context: Context? = null) {
     suspend fun uploadAttachment(uri: Uri): String? {
         return try {
             val attachmentRef = attachmentsRef.child("${UUID.randomUUID()}")
-            val uploadTask = attachmentRef.putFile(uri).await()
+            attachmentRef.putFile(uri).await()
             attachmentRef.downloadUrl.await().toString()
         } catch (e: Exception) {
             null
