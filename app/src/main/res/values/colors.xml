@@ -8,6 +8,7 @@
     <color name="expiration_color">#FFEBEE</color>
     <color name="start_color">#E8F5E9</color>
     <color name="default_event_color">#FFFFFF</color>
+    <color name="lesson_event_color">#E3F2FD</color>
     
     <!-- History page colors -->
     <color name="red">#F44336</color>

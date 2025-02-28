@@ -6,9 +6,9 @@
             android:icon="@drawable/ic_transactions"
             android:title="Transactions" />
         <item
-            android:id="@+id/nav_wt_registers"
+            android:id="@+id/nav_wt_registry"
             android:icon="@drawable/ic_wt_registers"
-            android:title="WT Registers" />
+            android:title="WT Registry" />
         <item
             android:id="@+id/nav_notes"
             android:icon="@drawable/ic_notes"

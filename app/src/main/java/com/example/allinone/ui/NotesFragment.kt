@@ -105,7 +105,9 @@ class NotesFragment : Fragment() {
     
     private fun observeNotes() {
         viewModel.allNotes.observe(viewLifecycleOwner) { notes ->
-            notesAdapter.submitList(notes)
+            // Sort notes by last edited date (newest first)
+            val sortedNotes = notes.sortedByDescending { it.lastEdited ?: it.date }
+            notesAdapter.submitList(sortedNotes)
             binding.emptyStateText.visibility = if (notes.isEmpty()) View.VISIBLE else View.GONE
         }
     }
@@ -135,6 +137,9 @@ class NotesFragment : Fragment() {
         dialogBinding.addAttachmentButton.setOnClickListener {
             getContent.launch("image/*")
         }
+        
+        // Setup share button - disabled for new notes
+        dialogBinding.shareNoteButton.visibility = View.GONE
         
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setTitle("Add New Note")
@@ -210,6 +215,11 @@ class NotesFragment : Fragment() {
             getContent.launch("image/*")
         }
         
+        // Setup share button
+        dialogBinding.shareNoteButton.setOnClickListener {
+            shareNote(note, dialogBinding.editNoteTitle.text.toString(), dialogBinding.editNoteContent.html)
+        }
+        
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setTitle("Edit Note")
             .setView(dialogBinding.root)
@@ -257,6 +267,25 @@ class NotesFragment : Fragment() {
         dialog.show()
     }
     
+    private fun shareNote(note: Note, title: String, content: String) {
+        val plainText = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            Html.fromHtml(content, Html.FROM_HTML_MODE_COMPACT).toString()
+        } else {
+            @Suppress("DEPRECATION")
+            Html.fromHtml(content).toString()
+        }
+        
+        val shareIntent = Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_TITLE, title)
+            putExtra(Intent.EXTRA_SUBJECT, title)
+            putExtra(Intent.EXTRA_TEXT, plainText)
+            type = "text/plain"
+        }
+        
+        startActivity(Intent.createChooser(shareIntent, "Share Note"))
+    }
+    
     private fun setupRichTextEditor(dialogBinding: DialogEditNoteBinding) {
         // Setup formatting buttons
         dialogBinding.boldButton.setOnClickListener {
@@ -276,15 +305,93 @@ class NotesFragment : Fragment() {
         }
         
         dialogBinding.numberedListButton.setOnClickListener {
-            // KnifeText doesn't directly support numbered lists, but you could implement this
-            // with custom HTML handling
-            Toast.makeText(requireContext(), "Numbered lists not supported yet", Toast.LENGTH_SHORT).show()
+            // Apply ordered list formatting
+            applyOrderedList(dialogBinding.editNoteContent)
         }
         
         dialogBinding.addImageButton.setOnClickListener {
             // This inserts an image directly into the text content
             // Different from attachments which are shown separately
             getContent.launch("image/*")
+        }
+    }
+    
+    private fun applyOrderedList(editor: KnifeText) {
+        // Check if there's already an ordered list at the cursor position
+        val currentText = editor.html
+        val isOrderedList = currentText.contains("<ol>") && currentText.contains("</ol>")
+        
+        if (isOrderedList) {
+            // Remove ordered list formatting
+            val processedText = currentText
+                .replace("<ol>", "")
+                .replace("</ol>", "")
+                .replace("<li>", "")
+                .replace("</li>", "\n")
+            
+            editor.fromHtml(processedText)
+        } else {
+            // Get cursor position to apply ordered list formatting
+            val selectionStart = editor.selectionStart
+            val selectionEnd = editor.selectionEnd
+            val text = editor.text.toString()
+            
+            // Check if there's text selected
+            if (selectionStart != selectionEnd) {
+                // Get the selected text lines
+                val selectedText = text.substring(selectionStart, selectionEnd)
+                val lines = selectedText.split("\n")
+                
+                // Create ordered list HTML
+                val orderedListHtml = StringBuilder("<ol>")
+                for (line in lines) {
+                    if (line.isNotEmpty()) {
+                        orderedListHtml.append("<li>").append(line).append("</li>")
+                    }
+                }
+                orderedListHtml.append("</ol>")
+                
+                // Replace selected text with ordered list HTML
+                editor.fromHtml(
+                    text.substring(0, selectionStart) + 
+                    orderedListHtml.toString() + 
+                    text.substring(selectionEnd)
+                )
+            } else {
+                // If no text is selected, insert an empty ordered list at the current line
+                
+                // Find the beginning of the current line
+                var lineStart = selectionStart
+                while (lineStart > 0 && text[lineStart - 1] != '\n') {
+                    lineStart--
+                }
+                
+                // Find the end of the current line
+                var lineEnd = selectionStart
+                while (lineEnd < text.length && text[lineEnd] != '\n') {
+                    lineEnd++
+                }
+                
+                // Get the current line text
+                val currentLine = text.substring(lineStart, lineEnd).trim()
+                
+                // Create HTML for the ordered list
+                val htmlToInsert = if (currentLine.isEmpty()) {
+                    "<ol><li></li></ol>"
+                } else {
+                    "<ol><li>$currentLine</li></ol>"
+                }
+                
+                // Replace the current line with the ordered list HTML
+                editor.fromHtml(
+                    text.substring(0, lineStart) + 
+                    htmlToInsert + 
+                    text.substring(lineEnd)
+                )
+                
+                // Set cursor inside the list item
+                editor.setSelection(lineStart + htmlToInsert.length - 5)  // Position inside <li></li>
+            }
         }
     }
     

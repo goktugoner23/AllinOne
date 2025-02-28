@@ -1,6 +1,7 @@
 package com.example.allinone.adapters
 
 import android.net.Uri
+import android.text.Html
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -38,11 +39,36 @@ class NotesAdapter(private val onNoteClick: (Note) -> Unit) :
 
         fun bind(note: Note) {
             titleTextView.text = note.title
-            dateTextView.text = dateFormat.format(note.date)
-            contentTextView.text = note.content
+            dateTextView.text = dateFormat.format(note.lastEdited ?: note.date)
+            
+            // Always render content as HTML to ensure proper display
+            if (note.content.isNotEmpty()) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                    contentTextView.text = Html.fromHtml(note.content, Html.FROM_HTML_MODE_COMPACT)
+                } else {
+                    @Suppress("DEPRECATION")
+                    contentTextView.text = Html.fromHtml(note.content)
+                }
+            } else {
+                contentTextView.text = ""
+            }
 
             // Handle image if present
-            if (note.imageUri != null) {
+            if (!note.imageUris.isNullOrEmpty()) {
+                // Use the first image from the list for preview
+                val firstImageUri = note.imageUris.split(",").firstOrNull()
+                if (firstImageUri != null) {
+                    imageView.visibility = View.VISIBLE
+                    try {
+                        imageView.setImageURI(Uri.parse(firstImageUri))
+                    } catch (e: Exception) {
+                        imageView.visibility = View.GONE
+                    }
+                } else {
+                    imageView.visibility = View.GONE
+                }
+            } else if (note.imageUri != null) {
+                // For backward compatibility with older notes
                 imageView.visibility = View.VISIBLE
                 try {
                     imageView.setImageURI(Uri.parse(note.imageUri))

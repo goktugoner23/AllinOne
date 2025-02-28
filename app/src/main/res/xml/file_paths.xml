@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- For backups stored in app's external files directory -->
+    <external-files-path name="backups" path="backups" />
+    
+    <!-- For temporary files that might be shared -->
+    <cache-path name="cache" path="." />
+</paths> 

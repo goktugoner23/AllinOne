@@ -10,6 +10,8 @@ import com.example.allinone.data.Transaction
 import com.example.allinone.data.Investment
 import com.example.allinone.data.Note
 import com.example.allinone.data.WTStudent
+import com.example.allinone.data.WTEvent
+import com.example.allinone.data.WTLesson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.UUID
@@ -27,6 +29,8 @@ class FirebaseManager(private val context: Context? = null) {
     private val investmentsCollection = firestore.collection("investments")
     private val notesCollection = firestore.collection("notes")
     private val studentsCollection = firestore.collection("students")
+    private val wtEventsCollection = firestore.collection("wtEvents")
+    private val wtLessonsCollection = firestore.collection("wtLessons")
     
     // Storage references
     private val imagesRef: StorageReference = storage.reference.child("images")
@@ -300,6 +304,103 @@ class FirebaseManager(private val context: Context? = null) {
             studentsCollection.document(student.id.toString()).delete().await()
         } catch (e: Exception) {
             // Handle error
+        }
+    }
+    
+    // WT Events
+    suspend fun saveWTEvent(event: WTEvent) = withContext(Dispatchers.IO) {
+        val eventMap = mapOf(
+            "id" to event.id,
+            "title" to event.title,
+            "description" to event.description,
+            "date" to event.date,
+            "type" to event.type,
+            "deviceId" to deviceId
+        )
+        
+        wtEventsCollection.document(event.id.toString())
+            .set(eventMap)
+    }
+    
+    suspend fun deleteWTEvent(eventId: Long) = withContext(Dispatchers.IO) {
+        wtEventsCollection.document(eventId.toString())
+            .delete()
+    }
+    
+    suspend fun getAllWTEvents() = withContext(Dispatchers.IO) {
+        val snapshot = wtEventsCollection
+            .whereEqualTo("deviceId", deviceId)
+            .get()
+            .await()
+        
+        snapshot.documents.mapNotNull { doc ->
+            try {
+                val id = doc.getLong("id") ?: return@mapNotNull null
+                val title = doc.getString("title") ?: return@mapNotNull null
+                val description = doc.getString("description")
+                val date = doc.getDate("date") ?: return@mapNotNull null
+                val type = doc.getString("type") ?: "Event"
+                
+                WTEvent(
+                    id = id,
+                    title = title,
+                    description = description,
+                    date = date,
+                    type = type
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+    
+    // WT Lessons
+    suspend fun saveWTLesson(lesson: WTLesson) = withContext(Dispatchers.IO) {
+        val lessonMap = mapOf(
+            "id" to lesson.id,
+            "dayOfWeek" to lesson.dayOfWeek,
+            "startHour" to lesson.startHour,
+            "startMinute" to lesson.startMinute,
+            "endHour" to lesson.endHour,
+            "endMinute" to lesson.endMinute,
+            "deviceId" to deviceId
+        )
+        
+        wtLessonsCollection.document(lesson.id.toString())
+            .set(lessonMap)
+    }
+    
+    suspend fun deleteWTLesson(lessonId: Long) = withContext(Dispatchers.IO) {
+        wtLessonsCollection.document(lessonId.toString())
+            .delete()
+    }
+    
+    suspend fun getAllWTLessons() = withContext(Dispatchers.IO) {
+        val snapshot = wtLessonsCollection
+            .whereEqualTo("deviceId", deviceId)
+            .get()
+            .await()
+        
+        snapshot.documents.mapNotNull { doc ->
+            try {
+                val id = doc.getLong("id") ?: return@mapNotNull null
+                val dayOfWeek = doc.getLong("dayOfWeek")?.toInt() ?: return@mapNotNull null
+                val startHour = doc.getLong("startHour")?.toInt() ?: return@mapNotNull null
+                val startMinute = doc.getLong("startMinute")?.toInt() ?: return@mapNotNull null
+                val endHour = doc.getLong("endHour")?.toInt() ?: return@mapNotNull null
+                val endMinute = doc.getLong("endMinute")?.toInt() ?: return@mapNotNull null
+                
+                WTLesson(
+                    id = id,
+                    dayOfWeek = dayOfWeek,
+                    startHour = startHour,
+                    startMinute = startMinute,
+                    endHour = endHour,
+                    endMinute = endMinute
+                )
+            } catch (e: Exception) {
+                null
+            }
         }
     }
 } 

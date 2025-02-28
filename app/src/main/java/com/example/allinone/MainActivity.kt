@@ -37,6 +37,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
+import android.app.AlertDialog
 
 class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedListener {
     private lateinit var binding: ActivityMainBinding
@@ -104,8 +105,8 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                     drawerLayout.closeDrawers()
                     true
                 }
-                R.id.nav_wt_registers -> {
-                    navController.navigate(R.id.nav_wt_registers)
+                R.id.nav_wt_registry -> {
+                    navController.navigate(R.id.nav_wt_registry)
                     drawerLayout.closeDrawers()
                     true
                 }
@@ -276,16 +277,24 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
     }
 
     private fun clearAppData() {
-        // Clear shared preferences
-        val sharedPreferences = getSharedPreferences("app_preferences", MODE_PRIVATE)
-        sharedPreferences.edit().clear().apply()
-        
-        // Restart the app to refresh data
-        val packageManager = packageManager
-        val intent = packageManager.getLaunchIntentForPackage(packageName)
-        intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        startActivity(intent)
-        finish()
+        // Show confirmation dialog before clearing data
+        AlertDialog.Builder(this)
+            .setTitle("Clear App Data")
+            .setMessage("Are you sure you want to clear all app data? This action cannot be undone.")
+            .setPositiveButton("Yes, Clear Data") { _, _ ->
+                // Clear shared preferences
+                val sharedPreferences = getSharedPreferences("app_preferences", MODE_PRIVATE)
+                sharedPreferences.edit().clear().apply()
+                
+                // Restart the app to refresh data
+                val packageManager = packageManager
+                val intent = packageManager.getLaunchIntentForPackage(packageName)
+                intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+                finish()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 }

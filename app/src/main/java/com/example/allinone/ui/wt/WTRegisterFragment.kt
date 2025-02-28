@@ -138,7 +138,9 @@ class WTRegisterFragment : Fragment() {
 
     private fun observeStudents() {
         viewModel.allStudents.observe(viewLifecycleOwner) { students ->
-            adapter.submitList(students)
+            // Sort students by start date, with most recent first
+            val sortedStudents = students.sortedByDescending { it.startDate }
+            adapter.submitList(sortedStudents)
         }
     }
 

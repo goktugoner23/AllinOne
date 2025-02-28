@@ -6,14 +6,14 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import com.example.allinone.R
-import com.example.allinone.databinding.FragmentWtRegistersBinding
+import com.example.allinone.databinding.FragmentWtRegistryBinding
 
-class WTRegistersFragment : Fragment() {
-    private var _binding: FragmentWtRegistersBinding? = null
+class WTRegistryFragment : Fragment() {
+    private var _binding: FragmentWtRegistryBinding? = null
     private val binding get() = _binding!!
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
-        _binding = FragmentWtRegistersBinding.inflate(inflater, container, false)
+        _binding = FragmentWtRegistryBinding.inflate(inflater, container, false)
         return binding.root
     }
 

@@ -74,10 +74,6 @@ class BackupActivity : AppCompatActivity() {
             createBackup()
         }
         
-        binding.restoreBackupButton.setOnClickListener {
-            openFilePicker()
-        }
-        
         // Load available backups
         loadBackups()
     }
@@ -296,33 +292,51 @@ class BackupActivity : AppCompatActivity() {
     }
     
     private fun shareBackup(file: File) {
-        val uri = Uri.fromFile(file)
+        // Create a content URI using FileProvider instead of direct file URI
+        val fileUri = androidx.core.content.FileProvider.getUriForFile(
+            this,
+            "${applicationContext.packageName}.fileprovider",
+            file
+        )
+        
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "application/zip"
-            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_STREAM, fileUri)
             putExtra(Intent.EXTRA_SUBJECT, "AllInOne Backup - ${file.name}")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         
         startActivity(Intent.createChooser(intent, "Share Backup"))
     }
     
     private fun deleteBackup(file: File) {
-        if (backupHelper.deleteBackup(file)) {
-            Toast.makeText(
-                this,
-                "Backup deleted",
-                Toast.LENGTH_SHORT
-            ).show()
-            
-            // Reload backups
-            loadBackups()
-        } else {
-            Toast.makeText(
-                this,
-                "Failed to delete backup",
-                Toast.LENGTH_SHORT
-            ).show()
+        // Show confirmation dialog before deleting
+        val builder = androidx.appcompat.app.AlertDialog.Builder(this)
+        builder.setTitle("Delete Backup")
+        builder.setMessage("Are you sure you want to delete this backup? This action cannot be undone.")
+        builder.setPositiveButton("Delete") { dialog, _ ->
+            if (backupHelper.deleteBackup(file)) {
+                Toast.makeText(
+                    this,
+                    "Backup deleted",
+                    Toast.LENGTH_SHORT
+                ).show()
+                
+                // Reload backups
+                loadBackups()
+            } else {
+                Toast.makeText(
+                    this,
+                    "Failed to delete backup",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            dialog.dismiss()
         }
+        builder.setNegativeButton("Cancel") { dialog, _ ->
+            dialog.dismiss()
+        }
+        builder.show()
     }
     
     /**

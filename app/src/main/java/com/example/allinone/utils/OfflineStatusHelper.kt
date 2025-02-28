@@ -1,6 +1,8 @@
 package com.example.allinone.utils
 
 import android.app.Activity
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
@@ -19,7 +21,17 @@ class OfflineStatusHelper(
 ) {
     
     private var offlineStatusCard: CardView? = null
+    private val handler = Handler(Looper.getMainLooper())
     private var pendingOperationsCount: TextView? = null
+    private var isNotificationVisible = false
+    
+    // Auto-hide runnable
+    private val hideNotificationRunnable = Runnable {
+        if (repository.isNetworkAvailable.value == true) {
+            offlineStatusCard?.visibility = View.GONE
+            isNotificationVisible = false
+        }
+    }
     
     /**
      * Initialize the offline status view
@@ -42,7 +54,15 @@ class OfflineStatusHelper(
         
         // Observe network status
         repository.isNetworkAvailable.observe(lifecycleOwner) { isAvailable ->
-            offlineStatusCard?.visibility = if (isAvailable) View.GONE else View.VISIBLE
+            if (!isAvailable) {
+                // When offline, show notification
+                offlineStatusCard?.visibility = View.VISIBLE
+                isNotificationVisible = true
+            } else if (isNotificationVisible) {
+                // When back online, auto-hide after 2 seconds
+                handler.removeCallbacks(hideNotificationRunnable)
+                handler.postDelayed(hideNotificationRunnable, 2000)
+            }
         }
         
         // Observe pending operations
@@ -51,7 +71,15 @@ class OfflineStatusHelper(
             
             // If there are no pending operations and we're online, hide the card
             if (count == 0 && repository.isNetworkAvailable.value == true) {
-                offlineStatusCard?.visibility = View.GONE
+                if (isNotificationVisible) {
+                    // Auto-hide after 2 seconds
+                    handler.removeCallbacks(hideNotificationRunnable)
+                    handler.postDelayed(hideNotificationRunnable, 2000)
+                }
+            } else if (count > 0) {
+                // If there are pending operations, show the card
+                offlineStatusCard?.visibility = View.VISIBLE
+                isNotificationVisible = true
             }
         }
     }
@@ -63,6 +91,13 @@ class OfflineStatusHelper(
         val messageView = offlineStatusCard?.findViewById<TextView>(R.id.offline_status_message)
         messageView?.text = message
         offlineStatusCard?.visibility = View.VISIBLE
+        isNotificationVisible = true
+        
+        // Auto-hide after 2 seconds if online
+        if (repository.isNetworkAvailable.value == true) {
+            handler.removeCallbacks(hideNotificationRunnable)
+            handler.postDelayed(hideNotificationRunnable, 2000)
+        }
     }
     
     /**
@@ -70,5 +105,7 @@ class OfflineStatusHelper(
      */
     fun hide() {
         offlineStatusCard?.visibility = View.GONE
+        isNotificationVisible = false
+        handler.removeCallbacks(hideNotificationRunnable)
     }
 } 

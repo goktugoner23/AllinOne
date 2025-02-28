@@ -384,11 +384,14 @@ class BackupHelper(private val context: Context, private val repository: Firebas
     }
     
     /**
-     * Get a list of all backup files
+     * Get a list of all backup files, sorted by newest first
      * @return A list of backup files
      */
     fun getBackupFiles(): List<File> {
-        return backupDir.listFiles()?.filter { it.name.endsWith(".zip") } ?: emptyList()
+        return backupDir.listFiles()
+            ?.filter { it.name.endsWith(".zip") }
+            ?.sortedByDescending { it.lastModified() }  // Sort by last modified time (newest first)
+            ?: emptyList()
     }
     
     /**

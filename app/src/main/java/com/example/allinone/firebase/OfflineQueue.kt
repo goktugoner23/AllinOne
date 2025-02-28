@@ -21,12 +21,15 @@ class OfflineQueue(context: Context) {
     
     // Operation types
     enum class OperationType {
-        INSERT, UPDATE, DELETE
+        INSERT, UPDATE, DELETE, 
+        INSERT_WT_EVENT, DELETE_WT_EVENT,
+        INSERT_WT_LESSON, DELETE_WT_LESSON,
+        UPDATE_WT_STUDENT
     }
     
     // Data types
     enum class DataType {
-        TRANSACTION, INVESTMENT, NOTE, STUDENT
+        TRANSACTION, INVESTMENT, NOTE, STUDENT, WT_EVENT, WT_LESSON
     }
     
     // Queue item

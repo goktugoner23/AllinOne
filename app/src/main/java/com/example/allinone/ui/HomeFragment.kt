@@ -38,6 +38,7 @@ class HomeFragment : Fragment() {
         setupTypeDropdowns()
         setupButtons()
         setupPieChart()
+        setupExpensePieChart()
         observeTransactions()
         observeCombinedBalance()
     }
@@ -56,11 +57,28 @@ class HomeFragment : Fragment() {
             animateY(1000)
         }
     }
+    
+    private fun setupExpensePieChart() {
+        binding.expensePieChart.apply {
+            description.isEnabled = false
+            setUsePercentValues(true)
+            setDrawEntryLabels(false)
+            legend.isEnabled = true
+            isDrawHoleEnabled = true
+            holeRadius = 40f
+            setHoleColor(Color.WHITE)
+            setTransparentCircleAlpha(0)
+            setNoDataText("No expenses yet")
+            animateY(1000)
+        }
+    }
 
     private fun observeTransactions() {
         viewModel.allTransactions.observe(viewLifecycleOwner) { transactions ->
             // Update pie chart with category data
             updateCategoryPieChart(transactions)
+            // Update expense pie chart
+            updateExpensePieChart(transactions)
         }
     }
     
@@ -138,6 +156,67 @@ class HomeFragment : Fragment() {
         
         binding.pieChart.data = data
         binding.pieChart.invalidate()
+    }
+
+    private fun updateExpensePieChart(transactions: List<com.example.allinone.data.Transaction>) {
+        // Filter only expense transactions
+        val expenseTransactions = transactions.filter { !it.isIncome }
+        
+        if (expenseTransactions.isEmpty()) {
+            binding.expensePieChart.setNoDataText("No expenses yet")
+            binding.expensePieChart.invalidate()
+            return
+        }
+        
+        // Group expenses by category and calculate total amount
+        val categorySummaries = expenseTransactions
+            .groupBy { 
+                if (it.category.isNullOrEmpty()) "Uncategorized" else it.category 
+            }
+            .map { (category, txns) ->
+                val total = txns.sumOf { it.amount }
+                category to total
+            }
+            .sortedByDescending { it.second }
+        
+        val entries = ArrayList<PieEntry>()
+        val colors = ArrayList<Int>()
+        
+        categorySummaries.forEach { (category, amount) ->
+            entries.add(PieEntry(amount.toFloat(), category))
+            
+            // Assign a consistent color to each category
+            if (!categoryColors.containsKey(category)) {
+                val color = when (category) {
+                    "Salary" -> Color.rgb(76, 175, 80)  // Green
+                    "Wing Tzun" -> Color.rgb(255, 152, 0)  // Orange
+                    "Investment" -> Color.rgb(33, 150, 243)  // Blue
+                    "General" -> Color.rgb(156, 39, 176)  // Purple
+                    "Uncategorized" -> Color.rgb(158, 158, 158)  // Gray
+                    else -> Color.rgb(
+                        random.nextInt(256),
+                        random.nextInt(256),
+                        random.nextInt(256)
+                    )
+                }
+                categoryColors[category] = color
+            }
+            
+            colors.add(categoryColors[category]!!)
+        }
+        
+        val dataSet = PieDataSet(entries, "Expense Categories")
+        dataSet.colors = colors
+        dataSet.sliceSpace = 3f
+        dataSet.selectionShift = 5f
+        
+        val data = PieData(dataSet)
+        data.setValueFormatter(PercentFormatter(binding.expensePieChart))
+        data.setValueTextSize(12f)
+        data.setValueTextColor(Color.WHITE)
+        
+        binding.expensePieChart.data = data
+        binding.expensePieChart.invalidate()
     }
 
     private fun setupTypeDropdowns() {

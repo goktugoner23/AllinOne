@@ -16,9 +16,9 @@
         android:label="Investments" />
 
     <fragment
-        android:id="@+id/nav_wt_registers"
-        android:name="com.example.allinone.ui.wt.WTRegistersFragment"
-        android:label="WT Registers" />
+        android:id="@+id/nav_wt_registry"
+        android:name="com.example.allinone.ui.wt.WTRegistryFragment"
+        android:label="WT Registry" />
 
     <fragment
         android:id="@+id/nav_notes"

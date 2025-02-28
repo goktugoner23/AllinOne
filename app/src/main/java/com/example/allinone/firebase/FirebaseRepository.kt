@@ -9,6 +9,8 @@ import com.example.allinone.data.Investment
 import com.example.allinone.data.Note
 import com.example.allinone.data.Transaction
 import com.example.allinone.data.WTStudent
+import com.example.allinone.data.WTEvent
+import com.example.allinone.data.WTLesson
 import com.example.allinone.utils.NetworkUtils
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
@@ -40,12 +42,16 @@ class FirebaseRepository(private val context: Context) {
     private val _investments = MutableStateFlow<List<Investment>>(emptyList())
     private val _notes = MutableStateFlow<List<Note>>(emptyList())
     private val _students = MutableStateFlow<List<WTStudent>>(emptyList())
+    private val _wtEvents = MutableStateFlow<List<WTEvent>>(emptyList())
+    private val _wtLessons = MutableStateFlow<List<WTLesson>>(emptyList())
     
     // Public flows
     val transactions: StateFlow<List<Transaction>> = _transactions
     val investments: StateFlow<List<Investment>> = _investments
     val notes: StateFlow<List<Note>> = _notes
     val students: StateFlow<List<WTStudent>> = _students
+    val wtEvents: StateFlow<List<WTEvent>> = _wtEvents
+    val wtLessons: StateFlow<List<WTLesson>> = _wtLessons
     
     // Error handling
     private val _errorMessage = MutableLiveData<String?>(null)
@@ -91,6 +97,8 @@ class FirebaseRepository(private val context: Context) {
                     OfflineQueue.DataType.INVESTMENT -> processInvestmentQueueItem(queueItem)
                     OfflineQueue.DataType.NOTE -> processNoteQueueItem(queueItem)
                     OfflineQueue.DataType.STUDENT -> processStudentQueueItem(queueItem)
+                    OfflineQueue.DataType.WT_EVENT -> processWTEventQueueItem(queueItem)
+                    OfflineQueue.DataType.WT_LESSON -> processWTLessonQueueItem(queueItem)
                 }
                 true // Operation succeeded
             } catch (e: Exception) {
@@ -114,15 +122,16 @@ class FirebaseRepository(private val context: Context) {
                 val transaction = Transaction(
                     id = queueItem.dataId,
                     amount = 0.0,
-                    type = "",
-                    description = "",
-                    isIncome = false,
                     date = Date(),
-                    category = ""
+                    description = "",
+                    category = "",
+                    type = "",
+                    isIncome = false
                 )
                 firebaseManager.deleteTransaction(transaction)
                 true
             }
+            else -> false
         }
     }
     
@@ -139,14 +148,15 @@ class FirebaseRepository(private val context: Context) {
                     name = "",
                     amount = 0.0,
                     date = Date(),
+                    description = "",
                     type = "",
-                    description = null,
                     imageUri = null,
                     profitLoss = 0.0
                 )
                 firebaseManager.deleteInvestment(investment)
                 true
             }
+            else -> false
         }
     }
     
@@ -168,12 +178,18 @@ class FirebaseRepository(private val context: Context) {
                 firebaseManager.deleteNote(note)
                 true
             }
+            else -> false
         }
     }
     
     private suspend fun processStudentQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
         return when (queueItem.operationType) {
             OfflineQueue.OperationType.INSERT, OfflineQueue.OperationType.UPDATE -> {
+                val student = gson.fromJson(queueItem.jsonData, WTStudent::class.java)
+                firebaseManager.saveStudent(student)
+                true
+            }
+            OfflineQueue.OperationType.UPDATE_WT_STUDENT -> {
                 val student = gson.fromJson(queueItem.jsonData, WTStudent::class.java)
                 firebaseManager.saveStudent(student)
                 true
@@ -192,6 +208,39 @@ class FirebaseRepository(private val context: Context) {
                 firebaseManager.deleteStudent(student)
                 true
             }
+            else -> false
+        }
+    }
+    
+    private suspend fun processWTEventQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
+        return when (queueItem.operationType) {
+            OfflineQueue.OperationType.INSERT_WT_EVENT -> {
+                val event = gson.fromJson(queueItem.jsonData, WTEvent::class.java)
+                insertWTEvent(event)
+                true
+            }
+            OfflineQueue.OperationType.DELETE_WT_EVENT -> {
+                val event = gson.fromJson(queueItem.jsonData, WTEvent::class.java)
+                deleteWTEvent(event)
+                true
+            }
+            else -> false
+        }
+    }
+    
+    private suspend fun processWTLessonQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
+        return when (queueItem.operationType) {
+            OfflineQueue.OperationType.INSERT_WT_LESSON -> {
+                val lesson = gson.fromJson(queueItem.jsonData, WTLesson::class.java)
+                insertWTLesson(lesson)
+                true
+            }
+            OfflineQueue.OperationType.DELETE_WT_LESSON -> {
+                val lesson = gson.fromJson(queueItem.jsonData, WTLesson::class.java)
+                deleteWTLesson(lesson)
+                true
+            }
+            else -> false
         }
     }
     
@@ -253,9 +302,26 @@ class FirebaseRepository(private val context: Context) {
                         _errorMessage.postValue("Error refreshing students: ${e.message}")
                     }
                 }
-            } catch (e: SecurityException) {
-                // Handle Google Play Services security exception
-                _errorMessage.postValue("Google Play Services error: ${e.message}")
+                launch { 
+                    try {
+                        refreshWTEvents() 
+                    } catch (e: SecurityException) {
+                        // Handle Google Play Services security exception
+                        _errorMessage.postValue("Google Play Services error: ${e.message}")
+                    } catch (e: Exception) {
+                        _errorMessage.postValue("Error refreshing WT events: ${e.message}")
+                    }
+                }
+                launch { 
+                    try {
+                        refreshWTLessons() 
+                    } catch (e: SecurityException) {
+                        // Handle Google Play Services security exception
+                        _errorMessage.postValue("Google Play Services error: ${e.message}")
+                    } catch (e: Exception) {
+                        _errorMessage.postValue("Error refreshing WT lessons: ${e.message}")
+                    }
+                }
             } catch (e: Exception) {
                 _errorMessage.postValue("Error refreshing data: ${e.message}")
             }
@@ -799,5 +865,199 @@ class FirebaseRepository(private val context: Context) {
      */
     fun clearErrorMessage() {
         _errorMessage.value = null
+    }
+    
+    // WT Events
+    suspend fun insertWTEvent(title: String, description: String?, date: Date) {
+        val event = WTEvent(
+            id = 0, // Will be replaced by Firebase
+            title = title,
+            description = description,
+            date = date,
+            type = "Event"
+        )
+        insertWTEvent(event)
+    }
+    
+    suspend fun insertWTEvent(event: WTEvent) {
+        withContext(Dispatchers.IO) {
+            try {
+                if (networkUtils.isNetworkAvailable.value == true) {
+                    // Generate ID if not present
+                    val eventWithId = if (event.id == 0L) {
+                        event.copy(id = UUID.randomUUID().mostSignificantBits and Long.MAX_VALUE)
+                    } else {
+                        event
+                    }
+                    
+                    // Save to Firebase
+                    firebaseManager.saveWTEvent(eventWithId).await()
+                    
+                    // Update local cache
+                    val currentEvents = _wtEvents.value.toMutableList()
+                    val index = currentEvents.indexOfFirst { it.id == eventWithId.id }
+                    if (index >= 0) {
+                        currentEvents[index] = eventWithId
+                    } else {
+                        currentEvents.add(eventWithId)
+                    }
+                    _wtEvents.value = currentEvents
+                } else {
+                    // Queue for later
+                    offlineQueue.addOperation(
+                        OfflineQueue.OperationType.INSERT_WT_EVENT,
+                        OfflineQueue.DataType.WT_EVENT,
+                        event.id,
+                        gson.toJson(event)
+                    )
+                }
+            } catch (e: Exception) {
+                // Handle error
+                _errorMessage.value = "Error inserting WT event: ${e.message}"
+            }
+        }
+    }
+    
+    suspend fun deleteWTEvent(event: WTEvent) {
+        withContext(Dispatchers.IO) {
+            try {
+                if (networkUtils.isNetworkAvailable.value == true) {
+                    // Delete from Firebase
+                    firebaseManager.deleteWTEvent(event.id).await()
+                    
+                    // Update local cache
+                    val currentEvents = _wtEvents.value.toMutableList()
+                    currentEvents.removeAll { it.id == event.id }
+                    _wtEvents.value = currentEvents
+                } else {
+                    // Queue for later
+                    offlineQueue.addOperation(
+                        OfflineQueue.OperationType.DELETE_WT_EVENT,
+                        OfflineQueue.DataType.WT_EVENT,
+                        event.id,
+                        gson.toJson(event)
+                    )
+                }
+            } catch (e: Exception) {
+                // Handle error
+                _errorMessage.value = "Error deleting WT event: ${e.message}"
+            }
+        }
+    }
+    
+    // WT Lessons
+    suspend fun insertWTLesson(lesson: WTLesson) {
+        withContext(Dispatchers.IO) {
+            try {
+                if (networkUtils.isNetworkAvailable.value == true) {
+                    // Generate ID if not present
+                    val lessonWithId = if (lesson.id == 0L) {
+                        lesson.copy(id = UUID.randomUUID().mostSignificantBits and Long.MAX_VALUE)
+                    } else {
+                        lesson
+                    }
+                    
+                    // Save to Firebase
+                    firebaseManager.saveWTLesson(lessonWithId).await()
+                    
+                    // Update local cache
+                    val currentLessons = _wtLessons.value.toMutableList()
+                    val index = currentLessons.indexOfFirst { it.id == lessonWithId.id }
+                    if (index >= 0) {
+                        currentLessons[index] = lessonWithId
+                    } else {
+                        currentLessons.add(lessonWithId)
+                    }
+                    _wtLessons.value = currentLessons
+                } else {
+                    // Queue for later
+                    offlineQueue.addOperation(
+                        OfflineQueue.OperationType.INSERT_WT_LESSON,
+                        OfflineQueue.DataType.WT_LESSON,
+                        lesson.id,
+                        gson.toJson(lesson)
+                    )
+                }
+            } catch (e: Exception) {
+                // Handle error
+                _errorMessage.value = "Error inserting WT lesson: ${e.message}"
+            }
+        }
+    }
+    
+    suspend fun deleteWTLesson(lesson: WTLesson) {
+        withContext(Dispatchers.IO) {
+            try {
+                if (networkUtils.isNetworkAvailable.value == true) {
+                    // Delete from Firebase
+                    firebaseManager.deleteWTLesson(lesson.id).await()
+                    
+                    // Update local cache
+                    val currentLessons = _wtLessons.value.toMutableList()
+                    currentLessons.removeAll { it.id == lesson.id }
+                    _wtLessons.value = currentLessons
+                } else {
+                    // Queue for later
+                    offlineQueue.addOperation(
+                        OfflineQueue.OperationType.DELETE_WT_LESSON,
+                        OfflineQueue.DataType.WT_LESSON,
+                        lesson.id,
+                        gson.toJson(lesson)
+                    )
+                }
+            } catch (e: Exception) {
+                // Handle error
+                _errorMessage.value = "Error deleting WT lesson: ${e.message}"
+            }
+        }
+    }
+    
+    // WT Students
+    suspend fun updateWTStudent(student: WTStudent) {
+        withContext(Dispatchers.IO) {
+            try {
+                if (networkUtils.isNetworkAvailable.value == true) {
+                    // Save to Firebase
+                    firebaseManager.saveStudent(student)
+                    
+                    // Update local cache
+                    val currentStudents = _students.value.toMutableList()
+                    val index = currentStudents.indexOfFirst { it.id == student.id }
+                    if (index >= 0) {
+                        currentStudents[index] = student
+                    } else {
+                        currentStudents.add(student)
+                    }
+                    _students.value = currentStudents
+                } else {
+                    // Queue for later
+                    offlineQueue.addOperation(
+                        OfflineQueue.OperationType.UPDATE_WT_STUDENT,
+                        OfflineQueue.DataType.STUDENT,
+                        student.id,
+                        gson.toJson(student)
+                    )
+                }
+            } catch (e: Exception) {
+                // Handle error
+                _errorMessage.value = "Error updating WT student: ${e.message}"
+            }
+        }
+    }
+    
+    /**
+     * Refreshes WT events from Firebase
+     */
+    private suspend fun refreshWTEvents() {
+        val events = firebaseManager.getAllWTEvents()
+        _wtEvents.value = events
+    }
+    
+    /**
+     * Refreshes WT lessons from Firebase
+     */
+    private suspend fun refreshWTLessons() {
+        val lessons = firebaseManager.getAllWTLessons()
+        _wtLessons.value = lessons
     }
 } 
