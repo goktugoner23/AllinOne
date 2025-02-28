@@ -13,6 +13,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _allTransactions = MutableLiveData<List<Transaction>>(emptyList())
     val allTransactions: LiveData<List<Transaction>> = _allTransactions
     
+    private val _allInvestments = MutableLiveData<List<Investment>>(emptyList())
+    val allInvestments: LiveData<List<Investment>> = _allInvestments
+    
+    // Combined balance that includes both transactions and investments
+    private val _combinedBalance = MediatorLiveData<Triple<Double, Double, Double>>()
+    val combinedBalance: LiveData<Triple<Double, Double, Double>> = _combinedBalance
+    
     init {
         // Collect transactions from the repository flow
         viewModelScope.launch {
@@ -20,6 +27,33 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 _allTransactions.value = transactions
             }
         }
+        
+        // Collect investments from the repository flow
+        viewModelScope.launch {
+            repository.investments.collect { investments ->
+                _allInvestments.value = investments
+            }
+        }
+        
+        // Calculate combined balance whenever transactions or investments change
+        _combinedBalance.addSource(_allTransactions) { updateCombinedBalance() }
+        _combinedBalance.addSource(_allInvestments) { updateCombinedBalance() }
+    }
+    
+    private fun updateCombinedBalance() {
+        val transactions = _allTransactions.value ?: emptyList()
+        val investments = _allInvestments.value ?: emptyList()
+        
+        val totalIncome = transactions.filter { it.isIncome }.sumOf { it.amount }
+        val totalExpense = transactions.filter { !it.isIncome }.sumOf { it.amount }
+        
+        // Include investments in total expense
+        val totalInvestments = investments.sumOf { it.amount }
+        val adjustedTotalExpense = totalExpense + totalInvestments
+        
+        val balance = totalIncome - adjustedTotalExpense
+        
+        _combinedBalance.value = Triple(totalIncome, adjustedTotalExpense, balance)
     }
 
     fun addTransaction(

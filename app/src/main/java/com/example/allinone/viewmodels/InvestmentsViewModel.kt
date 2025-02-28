@@ -54,7 +54,8 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             repository.updateInvestment(newInvestment)
             
-            // Find and update the corresponding transaction
+            // For backward compatibility: find and update any corresponding transaction
+            // This handles investments created before the code change
             val transactions = repository.transactions.value
             val matchingTransaction = transactions.find { 
                 it.description.contains(oldInvestment.name) && 
@@ -76,7 +77,8 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             repository.deleteInvestment(investment)
             
-            // Find and delete the corresponding transaction
+            // For backward compatibility: find and delete any corresponding transaction
+            // This handles investments created before the code change
             val transactions = repository.transactions.value
             val matchingTransaction = transactions.find { 
                 it.description.contains(investment.name) && 

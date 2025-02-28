@@ -19,6 +19,7 @@ import com.github.mikephil.charting.formatter.PercentFormatter
 import com.github.mikephil.charting.utils.ColorTemplate
 import com.google.android.material.snackbar.Snackbar
 import java.util.Random
+import androidx.lifecycle.ViewModelProvider
 
 class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
@@ -38,6 +39,7 @@ class HomeFragment : Fragment() {
         setupButtons()
         setupPieChart()
         observeTransactions()
+        observeCombinedBalance()
     }
 
     private fun setupPieChart() {
@@ -57,10 +59,13 @@ class HomeFragment : Fragment() {
 
     private fun observeTransactions() {
         viewModel.allTransactions.observe(viewLifecycleOwner) { transactions ->
-            val totalIncome = transactions.filter { it.isIncome }.sumOf { it.amount }
-            val totalExpense = transactions.filter { !it.isIncome }.sumOf { it.amount }
-            val balance = totalIncome - totalExpense
-            
+            // Update pie chart with category data
+            updateCategoryPieChart(transactions)
+        }
+    }
+    
+    private fun observeCombinedBalance() {
+        viewModel.combinedBalance.observe(viewLifecycleOwner) { (totalIncome, totalExpense, balance) ->
             // Update balance text
             binding.balanceText.text = String.format("₺%.2f", balance)
             binding.balanceText.setTextColor(
@@ -74,9 +79,6 @@ class HomeFragment : Fragment() {
             // Update income and expense text
             binding.incomeText.text = String.format("Income: ₺%.2f", totalIncome)
             binding.expenseText.text = String.format("Expense: ₺%.2f", totalExpense)
-            
-            // Update pie chart with category data
-            updateCategoryPieChart(transactions)
         }
     }
     

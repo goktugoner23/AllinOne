@@ -187,15 +187,6 @@ class InvestmentsFragment : Fragment() {
             
             viewModel.addInvestment(investment)
 
-            // Add as expense in the main app
-            homeViewModel.addTransaction(
-                amount = amount,
-                type = "Investment",
-                description = "Investment in $name",
-                isIncome = false,
-                category = type
-            )
-
             // Show confirmation
             Toast.makeText(context, "Investment added", Toast.LENGTH_SHORT).show()
             dialog.dismiss()
