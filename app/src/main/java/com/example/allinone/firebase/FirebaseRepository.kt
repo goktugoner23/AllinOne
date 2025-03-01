@@ -33,6 +33,7 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.util.Date
 import java.util.UUID
+import com.google.firebase.firestore.PersistentCacheSettings
 
 /**
  * A repository that uses Firebase for all data operations.
@@ -126,8 +127,11 @@ class FirebaseRepository(private val context: Context) {
         // Safely initialize Firestore settings for offline support
         try {
             val settings = FirebaseFirestoreSettings.Builder()
-                .setPersistenceEnabled(true)
-                .setCacheSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                .setLocalCacheSettings(
+                    PersistentCacheSettings.newBuilder()
+                        .setSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                        .build()
+                )
                 .build()
             db.firestoreSettings = settings
             Log.d(TAG, "Firestore settings applied successfully")

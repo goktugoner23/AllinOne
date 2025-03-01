@@ -10,7 +10,6 @@ import com.example.allinone.data.WTLesson
 import com.example.allinone.data.WTEvent
 import com.example.allinone.data.WTStudent
 import com.example.allinone.firebase.FirebaseRepository
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -52,27 +51,21 @@ class WTCalendarViewModel(application: Application) : AndroidViewModel(applicati
         
         // Start data collection
         viewModelScope.launch {
+            // Events collection
             try {
                 firebaseRepository.wtEvents
-                    .catch { e ->
-                        Log.e(TAG, "Error collecting events: ${e.message}")
-                        _errorMessage.postValue("Error loading events: ${e.message}")
-                    }
                     .collect { eventsList ->
                         Log.d(TAG, "Collected ${eventsList.size} events")
                         _events.postValue(eventsList)
                     }
             } catch (e: Exception) {
-                Log.e(TAG, "Exception in events flow collection: ${e.message}")
-                _errorMessage.postValue("Error in events flow: ${e.message}")
+                Log.e(TAG, "Error collecting events: ${e.message}")
+                _errorMessage.postValue("Error loading events: ${e.message}")
             }
 
+            // Lessons collection
             try {
                 firebaseRepository.wtLessons
-                    .catch { e -> 
-                        Log.e(TAG, "Error collecting lessons: ${e.message}")
-                        _errorMessage.postValue("Error loading lessons: ${e.message}")
-                    }
                     .collect { lessonsList ->
                         Log.d(TAG, "Collected ${lessonsList.size} lessons")
                         
@@ -84,16 +77,13 @@ class WTCalendarViewModel(application: Application) : AndroidViewModel(applicati
                         }
                     }
             } catch (e: Exception) {
-                Log.e(TAG, "Exception in lessons flow collection: ${e.message}")
-                _errorMessage.postValue("Error in lessons flow: ${e.message}")
+                Log.e(TAG, "Error collecting lessons: ${e.message}")
+                _errorMessage.postValue("Error loading lessons: ${e.message}")
             }
 
+            // Students collection
             try {
                 firebaseRepository.students
-                    .catch { e -> 
-                        Log.e(TAG, "Error collecting students: ${e.message}")
-                        _errorMessage.postValue("Error loading students: ${e.message}")
-                    }
                     .collect { studentsList ->
                         Log.d(TAG, "Collected ${studentsList.size} students")
                         // When students change, we might need to update events
@@ -103,7 +93,7 @@ class WTCalendarViewModel(application: Application) : AndroidViewModel(applicati
                         }
                     }
             } catch (e: Exception) {
-                Log.e(TAG, "Exception in students flow collection: ${e.message}")
+                Log.e(TAG, "Error collecting students: ${e.message}")
                 _errorMessage.postValue("Error in students flow: ${e.message}")
             }
         }
