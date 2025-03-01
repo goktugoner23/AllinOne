@@ -41,9 +41,30 @@ class WTCalendarFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        // First initialize the event adapter
         setupEventsList()
-        setupCalendar()
+        // Then observe events (which might call updateEventsForDate)
         observeEvents()
+        // Observe network status
+        observeNetworkStatus()
+        // Finally set up the calendar (which will call updateEventsForDate)
+        setupCalendar()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Check and show network status on resume
+        updateNetworkStatus()
+        
+        // Force reload data when returning to this fragment
+        android.util.Log.d("WTCalendarFragment", "Fragment resumed, forcing data reload")
+        viewModel.forceRefresh()
+        
+        // Refresh the current date's events
+        val selectedDate = Calendar.getInstance().apply {
+            timeInMillis = binding.calendarView.date
+        }.time
+        updateEventsForDate(selectedDate)
     }
     
     private fun setupCalendar() {
@@ -56,6 +77,8 @@ class WTCalendarFragment : Fragment() {
             updateEventsForDate(selectedDate)
         }
         
+        // Fix: Replace the CalendarView long click with a custom solution
+        // CalendarView doesn't natively support long click events well
         binding.calendarView.setOnLongClickListener {
             val selectedDate = Calendar.getInstance().apply {
                 timeInMillis = binding.calendarView.date
@@ -63,6 +86,15 @@ class WTCalendarFragment : Fragment() {
             
             showAddEventDialog(selectedDate)
             true
+        }
+        
+        // Add a separate button to add events
+        binding.fabAddEvent.setOnClickListener {
+            val selectedDate = Calendar.getInstance().apply {
+                timeInMillis = binding.calendarView.date
+            }.time
+            
+            showAddEventDialog(selectedDate)
         }
         
         // Initialize with current date
@@ -81,14 +113,16 @@ class WTCalendarFragment : Fragment() {
             }
         )
         
-        binding.eventsRecyclerView.apply {
+        binding.eventsList.apply {
             layoutManager = LinearLayoutManager(context)
             adapter = eventAdapter
         }
     }
     
     private fun observeEvents() {
-        viewModel.events.observe(viewLifecycleOwner) { _ ->
+        viewModel.events.observe(viewLifecycleOwner) { events ->
+            android.util.Log.d("WTCalendarFragment", "Events updated: ${events.size} events")
+            
             // Initial load will update for current date
             val selectedDate = Calendar.getInstance().apply {
                 timeInMillis = binding.calendarView.date
@@ -96,9 +130,21 @@ class WTCalendarFragment : Fragment() {
             
             updateEventsForDate(selectedDate)
         }
+        
+        // Also observe loading state
+        viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
+            if (!isLoading) {
+                android.util.Log.d("WTCalendarFragment", "Loading completed")
+            }
+        }
     }
     
     private fun updateEventsForDate(date: Date) {
+        // If the adapter is not initialized yet, just return
+        if (!::eventAdapter.isInitialized) {
+            return
+        }
+        
         val calendar = Calendar.getInstance().apply {
             time = date
             set(Calendar.HOUR_OF_DAY, 0)
@@ -123,9 +169,7 @@ class WTCalendarFragment : Fragment() {
             eventTime in startOfDay..endOfDay
         } ?: emptyList()
         
-        if (::eventAdapter.isInitialized) {
-            eventAdapter.submitList(events.sortedBy { it.date })
-        }
+        eventAdapter.submitList(events.sortedBy { it.date })
         
         // Update date display and empty state
         binding.selectedDateText.text = dateFormat.format(date)
@@ -203,16 +247,28 @@ class WTCalendarFragment : Fragment() {
     
     private fun showLessonManagementDialog(event: WTEvent) {
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Wing Tzun Lesson")
-            .setMessage("Date: ${dateFormat.format(event.date)}\nTime: ${timeFormat.format(event.date)}\n\n${event.description ?: ""}")
+            .setTitle("Manage Lesson")
+            .setMessage("Date: ${dateFormat.format(event.date)}\nTime: ${timeFormat.format(event.date)}")
             .setPositiveButton("Close", null)
-            .setNeutralButton("Cancel Lesson") { _, _ ->
-                viewModel.cancelLesson(event.date)
-                Toast.makeText(context, "Lesson canceled", Toast.LENGTH_SHORT).show()
+            .setNegativeButton("Cancel Lesson") { _, _ ->
+                showCancelLessonConfirmation(event)
             }
-            .setNegativeButton("Postpone") { _, _ ->
+            .setNeutralButton("Postpone") { _, _ ->
                 showPostponeLessonDialog(event)
             }
+            .show()
+    }
+    
+    private fun showCancelLessonConfirmation(event: WTEvent) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Cancel Lesson")
+            .setMessage("Are you sure you want to cancel this lesson? This will affect student subscription end dates.")
+            .setPositiveButton("Yes, Cancel Lesson") { _, _ ->
+                viewModel.cancelLesson(event.date)
+                Toast.makeText(context, "Lesson cancelled", Toast.LENGTH_SHORT).show()
+                updateEventsForDate(event.date)
+            }
+            .setNegativeButton("No", null)
             .show()
     }
     
@@ -221,51 +277,80 @@ class WTCalendarFragment : Fragment() {
             time = event.date
         }
         
-        val dialogBinding = DialogAddEventBinding.inflate(layoutInflater)
-        dialogBinding.titleInput.visibility = View.GONE
-        dialogBinding.descriptionInput.visibility = View.GONE
-        
-        // Set default date and time to event date + 1 week
-        calendar.add(Calendar.WEEK_OF_YEAR, 1)
-        
-        dialogBinding.dateInput.setText(dateFormat.format(calendar.time))
-        dialogBinding.timeInput.setText(timeFormat.format(calendar.time))
-        
-        // Setup date picker
-        dialogBinding.dateInput.setOnClickListener {
-            val year = calendar.get(Calendar.YEAR)
-            val month = calendar.get(Calendar.MONTH)
-            val day = calendar.get(Calendar.DAY_OF_MONTH)
-            
-            DatePickerDialog(requireContext(), { _, selectedYear, selectedMonth, selectedDayOfMonth ->
-                calendar.set(selectedYear, selectedMonth, selectedDayOfMonth)
-                dialogBinding.dateInput.setText(dateFormat.format(calendar.time))
-            }, year, month, day).show()
+        // Prepare new date picker (default to 1 week later)
+        val postponeCalendar = Calendar.getInstance().apply {
+            time = event.date
+            add(Calendar.WEEK_OF_YEAR, 1)
         }
         
-        // Setup time picker
-        dialogBinding.timeInput.setOnClickListener {
-            val hour = calendar.get(Calendar.HOUR_OF_DAY)
-            val minute = calendar.get(Calendar.MINUTE)
+        val year = postponeCalendar.get(Calendar.YEAR)
+        val month = postponeCalendar.get(Calendar.MONTH)
+        val day = postponeCalendar.get(Calendar.DAY_OF_MONTH)
+        val hour = calendar.get(Calendar.HOUR_OF_DAY)
+        val minute = calendar.get(Calendar.MINUTE)
+        
+        // Show date picker
+        DatePickerDialog(requireContext(), { _, selectedYear, selectedMonth, selectedDayOfMonth ->
+            postponeCalendar.set(selectedYear, selectedMonth, selectedDayOfMonth)
             
+            // Show time picker after date is selected
             TimePickerDialog(requireContext(), { _, selectedHour, selectedMinute ->
-                calendar.set(Calendar.HOUR_OF_DAY, selectedHour)
-                calendar.set(Calendar.MINUTE, selectedMinute)
-                dialogBinding.timeInput.setText(timeFormat.format(calendar.time))
+                postponeCalendar.set(Calendar.HOUR_OF_DAY, selectedHour)
+                postponeCalendar.set(Calendar.MINUTE, selectedMinute)
+                
+                // Postpone the lesson
+                viewModel.postponeLesson(event.date, postponeCalendar.time)
+                Toast.makeText(context, "Lesson postponed", Toast.LENGTH_SHORT).show()
+                
+                // Update calendar view to show the new date
+                binding.calendarView.date = postponeCalendar.timeInMillis
+                updateEventsForDate(postponeCalendar.time)
+                
             }, hour, minute, true).show()
+            
+        }, year, month, day).show()
+    }
+
+    private fun observeNetworkStatus() {
+        // Observe Firebase repository connection status
+        viewModel.isNetworkAvailable.observe(viewLifecycleOwner) { isAvailable ->
+            android.util.Log.d("WTCalendarFragment", "Network availability changed: $isAvailable")
+            
+            binding.networkStatusText.visibility = if (isAvailable) View.GONE else View.VISIBLE
+            
+            if (!isAvailable) {
+                // If network becomes unavailable, show message
+                Toast.makeText(
+                    context, 
+                    "Network unavailable. Using cached data.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                // When network becomes available, automatically refresh data
+                android.util.Log.d("WTCalendarFragment", "Network available, reloading data")
+                viewModel.forceRefresh()
+            }
         }
         
-        // Show dialog
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Postpone Lesson")
-            .setView(dialogBinding.root)
-            .setPositiveButton("Save") { _, _ ->
-                viewModel.postponeLesson(event.date, calendar.time)
-                Toast.makeText(context, "Lesson postponed", Toast.LENGTH_SHORT).show()
-                updateEventsForDate(calendar.time)
+        // Observe Firebase error messages
+        viewModel.errorMessage.observe(viewLifecycleOwner) { message ->
+            if (message != null && message.isNotEmpty()) {
+                android.util.Log.e("WTCalendarFragment", "Error message: $message")
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                
+                // Clear the error message after showing it
+                viewModel.clearErrorMessage()
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+        }
+    }
+
+    /**
+     * Updates the network status indicator with current connectivity state
+     */
+    private fun updateNetworkStatus() {
+        val isAvailable = viewModel.isNetworkAvailable.value ?: false
+        binding.networkStatusText.visibility = if (isAvailable) View.GONE else View.VISIBLE
+        android.util.Log.d("WTCalendarFragment", "Network status updated: $isAvailable")
     }
 
     override fun onDestroyView() {

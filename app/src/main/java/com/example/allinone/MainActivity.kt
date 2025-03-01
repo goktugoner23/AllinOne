@@ -49,7 +49,6 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
     private val firebaseRepository by lazy { FirebaseRepository(this) }
     private val offlineStatusHelper by lazy { OfflineStatusHelper(this, firebaseRepository, this) }
     private val backupHelper by lazy { BackupHelper(this, firebaseRepository) }
-    private val firestore = FirebaseFirestore.getInstance()
 
     // Permission request launcher
     private val requestPermissionLauncher = registerForActivityResult(

@@ -1,7 +1,11 @@
 package com.example.allinone.firebase
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
 import android.net.Uri
+import android.os.Build
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.example.allinone.AllinOneApplication
@@ -12,6 +16,12 @@ import com.example.allinone.data.WTStudent
 import com.example.allinone.data.WTEvent
 import com.example.allinone.data.WTLesson
 import com.example.allinone.utils.NetworkUtils
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreSettings
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +43,10 @@ class FirebaseRepository(private val context: Context) {
     private val networkUtils = (context.applicationContext as AllinOneApplication).networkUtils
     private val offlineQueue = OfflineQueue(context)
     private val gson = Gson()
+    
+    private val db = Firebase.firestore
+    private val auth = Firebase.auth
+    private val appContext = context.applicationContext
     
     // Network status
     val isNetworkAvailable: LiveData<Boolean> = networkUtils.isNetworkAvailable
@@ -73,6 +87,14 @@ class FirebaseRepository(private val context: Context) {
     private val _areFirestoreRulesValid = MutableLiveData<Boolean>(true)
     val areFirestoreRulesValid: LiveData<Boolean> = _areFirestoreRulesValid
     
+    // Network connectivity status
+    private val _isOnline = MutableLiveData<Boolean>()
+    val isOnline: LiveData<Boolean> = _isOnline
+    
+    // Error handling
+    private val _lastError = MutableLiveData<String>()
+    val lastError: LiveData<String> = _lastError
+    
     init {
         // Initialize by loading data from Firebase or local cache
         CoroutineScope(Dispatchers.IO).launch {
@@ -97,6 +119,49 @@ class FirebaseRepository(private val context: Context) {
             // Update pending operations count
             updatePendingOperationsCount()
         }
+        
+        // Initialize network monitor
+        monitorNetworkConnectivity()
+        
+        // Safely initialize Firestore settings for offline support
+        try {
+            val settings = FirebaseFirestoreSettings.Builder()
+                .setPersistenceEnabled(true)
+                .setCacheSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                .build()
+            db.firestoreSettings = settings
+            Log.d(TAG, "Firestore settings applied successfully")
+        } catch (e: IllegalStateException) {
+            // Firestore already initialized elsewhere, log this but don't crash
+            Log.w(TAG, "Firestore already initialized, skipping settings: ${e.message}")
+        }
+    }
+    
+    /**
+     * Monitors network connectivity and updates the isOnline LiveData
+     */
+    private fun monitorNetworkConnectivity() {
+        val connectivityManager = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        
+        connectivityManager.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                _isOnline.postValue(true)
+                Log.d(TAG, "Network connection available")
+            }
+            
+            override fun onLost(network: Network) {
+                _isOnline.postValue(false)
+                Log.d(TAG, "Network connection lost")
+            }
+            
+            override fun onUnavailable() {
+                _isOnline.postValue(false)
+                Log.d(TAG, "Network unavailable")
+            }
+        })
+        
+        // Initialize with current status using networkUtils
+        _isOnline.postValue(networkUtils.isNetworkConnected())
     }
     
     /**
@@ -269,78 +334,35 @@ class FirebaseRepository(private val context: Context) {
     }
     
     /**
-     * Refreshes all data from Firebase
+     * Refreshes all data from Firebase with robust error handling
      */
-    suspend fun refreshAllData() {
-        if (!networkUtils.isNetworkConnected()) {
-            _errorMessage.postValue("No network connection. Using cached data.")
+    fun refreshAllData() {
+        Log.d(TAG, "Starting data refresh")
+        
+        // Use modern connectivity check instead of deprecated methods
+        val isNetworkAvailable = networkUtils.isNetworkConnected()
+        
+        if (!isNetworkAvailable) {
+            Log.w(TAG, "No network connection available, using cached data")
+            _lastError.postValue("No network connection. Using cached data.")
+            _isOnline.postValue(false)
             return
         }
         
-        withContext(Dispatchers.IO) {
+        _isOnline.postValue(true)
+        
+        // Now refresh each data type with error handling
+        CoroutineScope(Dispatchers.IO).launch {
             try {
-                launch { 
-                    try {
-                        refreshTransactions() 
-                    } catch (e: SecurityException) {
-                        // Handle Google Play Services security exception
-                        _errorMessage.postValue("Google Play Services error: ${e.message}")
-                    } catch (e: Exception) {
-                        _errorMessage.postValue("Error refreshing transactions: ${e.message}")
-                    }
-                }
-                launch { 
-                    try {
-                        refreshInvestments() 
-                    } catch (e: SecurityException) {
-                        // Handle Google Play Services security exception
-                        _errorMessage.postValue("Google Play Services error: ${e.message}")
-                    } catch (e: Exception) {
-                        _errorMessage.postValue("Error refreshing investments: ${e.message}")
-                    }
-                }
-                launch { 
-                    try {
-                        refreshNotes() 
-                    } catch (e: SecurityException) {
-                        // Handle Google Play Services security exception
-                        _errorMessage.postValue("Google Play Services error: ${e.message}")
-                    } catch (e: Exception) {
-                        _errorMessage.postValue("Error refreshing notes: ${e.message}")
-                    }
-                }
-                launch { 
-                    try {
-                        refreshStudents() 
-                    } catch (e: SecurityException) {
-                        // Handle Google Play Services security exception
-                        _errorMessage.postValue("Google Play Services error: ${e.message}")
-                    } catch (e: Exception) {
-                        _errorMessage.postValue("Error refreshing students: ${e.message}")
-                    }
-                }
-                launch { 
-                    try {
-                        refreshWTEvents() 
-                    } catch (e: SecurityException) {
-                        // Handle Google Play Services security exception
-                        _errorMessage.postValue("Google Play Services error: ${e.message}")
-                    } catch (e: Exception) {
-                        _errorMessage.postValue("Error refreshing WT events: ${e.message}")
-                    }
-                }
-                launch { 
-                    try {
-                        refreshWTLessons() 
-                    } catch (e: SecurityException) {
-                        // Handle Google Play Services security exception
-                        _errorMessage.postValue("Google Play Services error: ${e.message}")
-                    } catch (e: Exception) {
-                        _errorMessage.postValue("Error refreshing WT lessons: ${e.message}")
-                    }
-                }
+                refreshWTEvents()
+                refreshWTLessons()
+                refreshStudents()
+                refreshTransactions()
+                refreshInvestments()
+                refreshNotes()
             } catch (e: Exception) {
-                _errorMessage.postValue("Error refreshing data: ${e.message}")
+                Log.e(TAG, "Error during data refresh: ${e.message}", e)
+                _lastError.postValue("Error refreshing data: ${e.message}")
             }
         }
     }
@@ -910,15 +932,17 @@ class FirebaseRepository(private val context: Context) {
                     // Save to Firebase
                     firebaseManager.saveWTEvent(eventWithId).await()
                     
-                    // Update local cache
-                    val currentEvents = _wtEvents.value.toMutableList()
-                    val index = currentEvents.indexOfFirst { it.id == eventWithId.id }
-                    if (index >= 0) {
-                        currentEvents[index] = eventWithId
-                    } else {
-                        currentEvents.add(eventWithId)
+                    // Update local cache - switch to Main thread for LiveData updates
+                    withContext(Dispatchers.Main) {
+                        val currentEvents = _wtEvents.value.toMutableList()
+                        val index = currentEvents.indexOfFirst { it.id == eventWithId.id }
+                        if (index >= 0) {
+                            currentEvents[index] = eventWithId
+                        } else {
+                            currentEvents.add(eventWithId)
+                        }
+                        _wtEvents.value = currentEvents
                     }
-                    _wtEvents.value = currentEvents
                 } else {
                     // Queue for later
                     offlineQueue.addOperation(
@@ -930,7 +954,9 @@ class FirebaseRepository(private val context: Context) {
                 }
             } catch (e: Exception) {
                 // Handle error
-                _errorMessage.value = "Error inserting WT event: ${e.message}"
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = "Error inserting WT event: ${e.message}"
+                }
             }
         }
     }
@@ -942,10 +968,12 @@ class FirebaseRepository(private val context: Context) {
                     // Delete from Firebase
                     firebaseManager.deleteWTEvent(event.id).await()
                     
-                    // Update local cache
-                    val currentEvents = _wtEvents.value.toMutableList()
-                    currentEvents.removeAll { it.id == event.id }
-                    _wtEvents.value = currentEvents
+                    // Update local cache - switch to Main thread for LiveData updates
+                    withContext(Dispatchers.Main) {
+                        val currentEvents = _wtEvents.value.toMutableList()
+                        currentEvents.removeAll { it.id == event.id }
+                        _wtEvents.value = currentEvents
+                    }
                 } else {
                     // Queue for later
                     offlineQueue.addOperation(
@@ -957,7 +985,9 @@ class FirebaseRepository(private val context: Context) {
                 }
             } catch (e: Exception) {
                 // Handle error
-                _errorMessage.value = "Error deleting WT event: ${e.message}"
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = "Error deleting WT event: ${e.message}"
+                }
             }
         }
     }
@@ -977,15 +1007,17 @@ class FirebaseRepository(private val context: Context) {
                     // Save to Firebase
                     firebaseManager.saveWTLesson(lessonWithId).await()
                     
-                    // Update local cache
-                    val currentLessons = _wtLessons.value.toMutableList()
-                    val index = currentLessons.indexOfFirst { it.id == lessonWithId.id }
-                    if (index >= 0) {
-                        currentLessons[index] = lessonWithId
-                    } else {
-                        currentLessons.add(lessonWithId)
+                    // Update local cache - switch to Main thread for LiveData updates
+                    withContext(Dispatchers.Main) {
+                        val currentLessons = _wtLessons.value.toMutableList()
+                        val index = currentLessons.indexOfFirst { it.id == lessonWithId.id }
+                        if (index >= 0) {
+                            currentLessons[index] = lessonWithId
+                        } else {
+                            currentLessons.add(lessonWithId)
+                        }
+                        _wtLessons.value = currentLessons
                     }
-                    _wtLessons.value = currentLessons
                 } else {
                     // Queue for later
                     offlineQueue.addOperation(
@@ -997,7 +1029,9 @@ class FirebaseRepository(private val context: Context) {
                 }
             } catch (e: Exception) {
                 // Handle error
-                _errorMessage.value = "Error inserting WT lesson: ${e.message}"
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = "Error inserting WT lesson: ${e.message}"
+                }
             }
         }
     }
@@ -1009,10 +1043,12 @@ class FirebaseRepository(private val context: Context) {
                     // Delete from Firebase
                     firebaseManager.deleteWTLesson(lesson.id).await()
                     
-                    // Update local cache
-                    val currentLessons = _wtLessons.value.toMutableList()
-                    currentLessons.removeAll { it.id == lesson.id }
-                    _wtLessons.value = currentLessons
+                    // Update local cache - switch to Main thread for LiveData updates
+                    withContext(Dispatchers.Main) {
+                        val currentLessons = _wtLessons.value.toMutableList()
+                        currentLessons.removeAll { it.id == lesson.id }
+                        _wtLessons.value = currentLessons
+                    }
                 } else {
                     // Queue for later
                     offlineQueue.addOperation(
@@ -1024,7 +1060,9 @@ class FirebaseRepository(private val context: Context) {
                 }
             } catch (e: Exception) {
                 // Handle error
-                _errorMessage.value = "Error deleting WT lesson: ${e.message}"
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = "Error deleting WT lesson: ${e.message}"
+                }
             }
         }
     }
@@ -1037,15 +1075,17 @@ class FirebaseRepository(private val context: Context) {
                     // Save to Firebase
                     firebaseManager.saveStudent(student)
                     
-                    // Update local cache
-                    val currentStudents = _students.value.toMutableList()
-                    val index = currentStudents.indexOfFirst { it.id == student.id }
-                    if (index >= 0) {
-                        currentStudents[index] = student
-                    } else {
-                        currentStudents.add(student)
+                    // Update local cache - switch to Main thread for LiveData updates
+                    withContext(Dispatchers.Main) {
+                        val currentStudents = _students.value.toMutableList()
+                        val index = currentStudents.indexOfFirst { it.id == student.id }
+                        if (index >= 0) {
+                            currentStudents[index] = student
+                        } else {
+                            currentStudents.add(student)
+                        }
+                        _students.value = currentStudents
                     }
-                    _students.value = currentStudents
                 } else {
                     // Queue for later
                     offlineQueue.addOperation(
@@ -1057,25 +1097,101 @@ class FirebaseRepository(private val context: Context) {
                 }
             } catch (e: Exception) {
                 // Handle error
-                _errorMessage.value = "Error updating WT student: ${e.message}"
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = "Error updating WT student: ${e.message}"
+                }
             }
         }
     }
     
     /**
-     * Refreshes WT events from Firebase
+     * Refreshes WT events from Firestore with robust error handling
      */
-    private suspend fun refreshWTEvents() {
-        val events = firebaseManager.getAllWTEvents()
-        _wtEvents.value = events
+    fun refreshWTEvents() {
+        Log.d(TAG, "Refreshing WT events")
+        
+        // Check if user is logged in
+        val currentUser = auth.currentUser
+        if (currentUser == null) {
+            Log.w(TAG, "Cannot refresh WT events: User not logged in")
+            _lastError.postValue("User not logged in")
+            return
+        }
+        
+        val userId = currentUser.uid
+        
+        try {
+            db.collection("users").document(userId).collection("wt_events")
+                .get()
+                .addOnSuccessListener { documents ->
+                    Log.d(TAG, "WT events query successful, processing ${documents.size()} documents")
+                    val events = mutableListOf<WTEvent>()
+                    
+                    for (document in documents) {
+                        try {
+                            val event = document.toObject(WTEvent::class.java)
+                            events.add(event)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error converting document to WTEvent: ${e.message}")
+                        }
+                    }
+                    
+                    Log.d(TAG, "Loaded ${events.size} WT events")
+                    _wtEvents.value = events
+                }
+                .addOnFailureListener { e ->
+                    Log.e(TAG, "Error fetching WT events: ${e.message}")
+                    _lastError.postValue("Error loading events: ${e.message}")
+                }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception during WT events refresh: ${e.message}")
+            _lastError.postValue("Error refreshing events: ${e.message}")
+        }
     }
     
     /**
-     * Refreshes WT lessons from Firebase
+     * Refreshes WT lessons from Firestore with robust error handling
      */
-    private suspend fun refreshWTLessons() {
-        val lessons = firebaseManager.getAllWTLessons()
-        _wtLessons.value = lessons
+    fun refreshWTLessons() {
+        Log.d(TAG, "Refreshing WT lessons")
+        
+        // Check if user is logged in
+        val currentUser = auth.currentUser
+        if (currentUser == null) {
+            Log.w(TAG, "Cannot refresh WT lessons: User not logged in")
+            _lastError.postValue("User not logged in")
+            return
+        }
+        
+        val userId = currentUser.uid
+        
+        try {
+            db.collection("users").document(userId).collection("wt_lessons")
+                .get()
+                .addOnSuccessListener { documents ->
+                    Log.d(TAG, "WT lessons query successful, processing ${documents.size()} documents")
+                    val lessons = mutableListOf<WTLesson>()
+                    
+                    for (document in documents) {
+                        try {
+                            val lesson = document.toObject(WTLesson::class.java)
+                            lessons.add(lesson)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error converting document to WTLesson: ${e.message}")
+                        }
+                    }
+                    
+                    Log.d(TAG, "Loaded ${lessons.size} WT lessons")
+                    _wtLessons.value = lessons
+                }
+                .addOnFailureListener { e ->
+                    Log.e(TAG, "Error fetching WT lessons: ${e.message}")
+                    _lastError.postValue("Error loading lessons: ${e.message}")
+                }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception during WT lessons refresh: ${e.message}")
+            _lastError.postValue("Error refreshing lessons: ${e.message}")
+        }
     }
 
     // Add this method to check Google Play Services availability
@@ -1144,5 +1260,10 @@ class FirebaseRepository(private val context: Context) {
                 }
             }
         }
+    }
+
+    // Constants
+    companion object {
+        private const val TAG = "FirebaseRepository"
     }
 } 

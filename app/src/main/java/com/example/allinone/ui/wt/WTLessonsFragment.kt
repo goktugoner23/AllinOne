@@ -36,6 +36,23 @@ class WTLessonsFragment : Fragment() {
         setupTimeButtons()
         setupSaveButton()
         observeScheduledLessons()
+        observeNetworkStatus()
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // Reload data when returning to this fragment
+        updateNetworkStatus()
+        
+        // Force refresh of data
+        android.util.Log.d("WTLessonsFragment", "Fragment resumed, forcing data refresh")
+        viewModel.forceRefresh()
+    }
+    
+    private fun reloadLessons() {
+        // Force reload of lessons data
+        viewModel.forceRefresh()
+        android.util.Log.d("WTLessonsFragment", "Forcing refresh of lessons data")
     }
     
     private fun setupDayChips() {
@@ -156,6 +173,8 @@ class WTLessonsFragment : Fragment() {
     
     private fun observeScheduledLessons() {
         viewModel.lessonSchedule.observe(viewLifecycleOwner) { lessons ->
+            android.util.Log.d("WTLessonsFragment", "Lesson schedule updated with ${lessons.size} lessons")
+            
             // Clear existing scheduled days
             binding.mondayChip.isChecked = false
             binding.tuesdayChip.isChecked = false
@@ -167,7 +186,11 @@ class WTLessonsFragment : Fragment() {
             
             selectedDays.clear()
             
-            if (lessons.isEmpty()) return@observe
+            if (lessons.isEmpty()) {
+                binding.noLessonsText.visibility = View.VISIBLE
+                binding.scheduledLessonsContainer.removeAllViews()
+                return@observe
+            }
             
             // Set the time from the first lesson (assuming all lessons have the same time)
             val firstLesson = lessons.first()
@@ -177,7 +200,7 @@ class WTLessonsFragment : Fragment() {
             endTime.set(Calendar.MINUTE, firstLesson.endMinute)
             updateTimeDisplay()
             
-            // Update chips for scheduled days
+            // Update chips for scheduled days and collect days
             for (lesson in lessons) {
                 when (lesson.dayOfWeek) {
                     Calendar.MONDAY -> binding.mondayChip.isChecked = true
@@ -197,6 +220,8 @@ class WTLessonsFragment : Fragment() {
     }
     
     private fun updateScheduledLessonsDisplay(lessons: List<WTLesson>) {
+        android.util.Log.d("WTLessonsFragment", "Updating scheduled lessons display with ${lessons.size} lessons")
+        
         binding.scheduledLessonsContainer.removeAllViews()
         
         if (lessons.isEmpty()) {
@@ -208,7 +233,20 @@ class WTLessonsFragment : Fragment() {
         
         // Sort lessons by day of week
         val sortedLessons = lessons.sortedBy { it.dayOfWeek }
+        android.util.Log.d("WTLessonsFragment", "Sorted lessons: " + sortedLessons.map {
+            when(it.dayOfWeek) {
+                Calendar.MONDAY -> "Monday"
+                Calendar.TUESDAY -> "Tuesday"
+                Calendar.WEDNESDAY -> "Wednesday"
+                Calendar.THURSDAY -> "Thursday"
+                Calendar.FRIDAY -> "Friday"
+                Calendar.SATURDAY -> "Saturday"
+                Calendar.SUNDAY -> "Sunday"
+                else -> "Unknown"
+            }
+        }.joinToString(", "))
         
+        // Add each lesson day as a chip
         for (lesson in sortedLessons) {
             val dayName = when (lesson.dayOfWeek) {
                 Calendar.MONDAY -> "Monday"
@@ -233,6 +271,7 @@ class WTLessonsFragment : Fragment() {
             }
             
             binding.scheduledLessonsContainer.addView(chip)
+            android.util.Log.d("WTLessonsFragment", "Added chip for $dayName")
         }
     }
     
@@ -247,6 +286,52 @@ class WTLessonsFragment : Fragment() {
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+    
+    private fun observeNetworkStatus() {
+        // Observe Firebase repository connection status
+        viewModel.isNetworkAvailable.observe(viewLifecycleOwner) { isAvailable ->
+            android.util.Log.d("WTLessonsFragment", "Network availability changed: $isAvailable")
+            
+            if (!isAvailable) {
+                // If network becomes unavailable, show message
+                Toast.makeText(
+                    context, 
+                    "Network unavailable. Using cached data.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            } else {
+                // When network becomes available, automatically refresh data
+                android.util.Log.d("WTLessonsFragment", "Network available, reloading data")
+                viewModel.forceRefresh()
+            }
+        }
+        
+        // Observe Firebase error messages
+        viewModel.errorMessage.observe(viewLifecycleOwner) { message ->
+            if (message != null && message.isNotEmpty()) {
+                android.util.Log.e("WTLessonsFragment", "Error message: $message")
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                
+                // Clear the error message after showing it
+                viewModel.clearErrorMessage()
+            }
+        }
+    }
+    
+    /**
+     * Updates the network status with current connectivity state
+     */
+    private fun updateNetworkStatus() {
+        val isAvailable = viewModel.isNetworkAvailable.value ?: false
+        if (!isAvailable) {
+            android.util.Log.d("WTLessonsFragment", "Network unavailable on fragment resume")
+            Toast.makeText(
+                context,
+                "Network unavailable. Using cached data.",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
     }
     
     override fun onDestroyView() {

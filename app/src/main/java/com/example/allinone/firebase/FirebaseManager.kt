@@ -16,12 +16,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.UUID
 import java.util.Date
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 
 /**
  * Manager class for Firebase operations (storage only)
  */
 class FirebaseManager(private val context: Context? = null) {
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
+    private val firestore: FirebaseFirestore = Firebase.firestore
     private val storage: FirebaseStorage = FirebaseStorage.getInstance()
     
     // Collection references

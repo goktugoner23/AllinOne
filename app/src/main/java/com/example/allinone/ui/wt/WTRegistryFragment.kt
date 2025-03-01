@@ -24,12 +24,18 @@ class WTRegistryFragment : Fragment() {
         requireActivity().findViewById<View>(R.id.bottomNavigation).visibility = View.GONE
         binding.wtBottomNavigation.visibility = View.VISIBLE
         
-        // Setup navigation between Register and Calendar
+        // Setup navigation between Register, Lessons and Calendar
         binding.wtBottomNavigation.setOnItemSelectedListener { item ->
             when (item.itemId) {
                 R.id.wtRegisterFragment -> {
                     childFragmentManager.beginTransaction()
                         .replace(R.id.wtFragmentContainer, WTRegisterFragment())
+                        .commit()
+                    true
+                }
+                R.id.wtLessonsFragment -> {
+                    childFragmentManager.beginTransaction()
+                        .replace(R.id.wtFragmentContainer, WTLessonsFragment())
                         .commit()
                     true
                 }

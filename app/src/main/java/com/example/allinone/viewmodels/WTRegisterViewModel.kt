@@ -7,10 +7,13 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.allinone.data.Transaction
+import com.example.allinone.data.WTLesson
 import com.example.allinone.data.WTStudent
 import com.example.allinone.firebase.FirebaseRepository
+import com.example.allinone.ui.wt.WTCalendarViewModel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import java.util.Calendar
 import java.util.Date
 import java.util.UUID
 
@@ -26,6 +29,9 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
     private val _paidStudents = MutableLiveData<List<WTStudent>>(emptyList())
     val paidStudents: LiveData<List<WTStudent>> = _paidStudents
     
+    private val _lessonSchedule = MutableLiveData<List<WTLesson>>(emptyList())
+    private val calendarViewModel: WTCalendarViewModel = WTCalendarViewModel(application)
+    
     init {
         // Collect students from the repository flow
         viewModelScope.launch {
@@ -35,23 +41,59 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                 _paidStudents.value = students.filter { it.isPaid }
             }
         }
+        
+        // Collect lesson schedule
+        viewModelScope.launch {
+            repository.wtLessons.collect { lessons ->
+                _lessonSchedule.value = lessons
+            }
+        }
     }
 
     fun addStudent(name: String, startDate: Date, endDate: Date, amount: Double) {
         viewModelScope.launch {
+            // Calculate accurate end date based on lesson schedule
+            val calculatedEndDate = calculateEndDateBasedOnLessons(startDate)
+            
             val student = WTStudent(
                 id = UUID.randomUUID().mostSignificantBits,
                 name = name,
                 startDate = startDate,
-                endDate = endDate,
+                endDate = calculatedEndDate ?: endDate, // Use calculated date or fallback to provided date
                 amount = amount
             )
             repository.insertStudent(student)
         }
     }
 
+    private fun calculateEndDateBasedOnLessons(startDate: Date): Date? {
+        val lessons = _lessonSchedule.value ?: return null
+        if (lessons.isEmpty()) return null
+        
+        val startCalendar = Calendar.getInstance()
+        startCalendar.time = startDate
+        
+        return calendarViewModel.calculateEndDateAfterLessons(startCalendar, 8, lessons)
+    }
+
     fun updateStudent(student: WTStudent) {
         viewModelScope.launch {
+            // If start date was changed, recalculate the end date
+            val existingStudent = _allStudents.value?.find { it.id == student.id }
+            
+            if (existingStudent != null && existingStudent.startDate != student.startDate) {
+                // Calculate new end date
+                val calculatedEndDate = calculateEndDateBasedOnLessons(student.startDate)
+                
+                if (calculatedEndDate != null) {
+                    // Use the calculated end date
+                    val updatedStudent = student.copy(endDate = calculatedEndDate)
+                    repository.updateStudent(updatedStudent)
+                    return@launch
+                }
+            }
+            
+            // If no recalculation needed or not possible
             repository.updateStudent(student)
         }
     }
