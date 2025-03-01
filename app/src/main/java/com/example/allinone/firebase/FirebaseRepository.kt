@@ -1114,18 +1114,9 @@ class FirebaseRepository(private val context: Context) {
     fun refreshWTEvents() {
         Log.d(TAG, "Refreshing WT events")
         
-        // Check if user is logged in
-        val currentUser = auth.currentUser
-        if (currentUser == null) {
-            Log.w(TAG, "Cannot refresh WT events: User not logged in")
-            _lastError.postValue("User not logged in")
-            return
-        }
-        
-        val userId = currentUser.uid
-        
+        // Skip authentication check since we're not using it
         try {
-            db.collection("users").document(userId).collection("wt_events")
+            db.collection("wtEvents")
                 .get()
                 .addOnSuccessListener { documents ->
                     Log.d(TAG, "WT events query successful, processing ${documents.size()} documents")
@@ -1159,18 +1150,9 @@ class FirebaseRepository(private val context: Context) {
     fun refreshWTLessons() {
         Log.d(TAG, "Refreshing WT lessons")
         
-        // Check if user is logged in
-        val currentUser = auth.currentUser
-        if (currentUser == null) {
-            Log.w(TAG, "Cannot refresh WT lessons: User not logged in")
-            _lastError.postValue("User not logged in")
-            return
-        }
-        
-        val userId = currentUser.uid
-        
+        // Skip authentication check since we're not using it
         try {
-            db.collection("users").document(userId).collection("wt_lessons")
+            db.collection("wtLessons")
                 .get()
                 .addOnSuccessListener { documents ->
                     Log.d(TAG, "WT lessons query successful, processing ${documents.size()} documents")

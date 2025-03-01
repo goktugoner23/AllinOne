@@ -293,6 +293,9 @@ class WTLessonsFragment : Fragment() {
         viewModel.isNetworkAvailable.observe(viewLifecycleOwner) { isAvailable ->
             android.util.Log.d("WTLessonsFragment", "Network availability changed: $isAvailable")
             
+            // Update the network status indicator
+            binding.networkStatusText.visibility = if (isAvailable) View.GONE else View.VISIBLE
+            
             if (!isAvailable) {
                 // If network becomes unavailable, show message
                 Toast.makeText(
@@ -324,6 +327,10 @@ class WTLessonsFragment : Fragment() {
      */
     private fun updateNetworkStatus() {
         val isAvailable = viewModel.isNetworkAvailable.value ?: false
+        // Update the network status indicator
+        binding.networkStatusText.visibility = if (isAvailable) View.GONE else View.VISIBLE
+        android.util.Log.d("WTLessonsFragment", "Network status updated: $isAvailable")
+        
         if (!isAvailable) {
             android.util.Log.d("WTLessonsFragment", "Network unavailable on fragment resume")
             Toast.makeText(

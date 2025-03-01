@@ -13,8 +13,17 @@ import java.util.Date
  */
 data class WTEvent(
     val id: Long = 0,
-    val title: String,
+    val title: String = "",
     val description: String? = null,
-    val date: Date,
+    val date: Date = Date(),
     val type: String = "Event"
-) 
+) {
+    // No-argument constructor required for Firestore
+    constructor() : this(
+        id = 0,
+        title = "",
+        description = null,
+        date = Date(),
+        type = "Event"
+    )
+} 
