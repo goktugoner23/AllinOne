@@ -311,7 +311,7 @@ class FirebaseManager(private val context: Context? = null) {
     
     // WT Events
     suspend fun saveWTEvent(event: WTEvent) = withContext(Dispatchers.IO) {
-        val eventMap = mapOf(
+        val eventMap = hashMapOf(
             "id" to event.id,
             "title" to event.title,
             "description" to event.description,
@@ -320,40 +320,28 @@ class FirebaseManager(private val context: Context? = null) {
             "deviceId" to deviceId
         )
         
-        wtEventsCollection.document(event.id.toString())
-            .set(eventMap)
+        return@withContext wtEventsCollection.document(event.id.toString()).set(eventMap)
+    }
+    
+    suspend fun getWTEvents(): List<WTEvent> = withContext(Dispatchers.IO) {
+        try {
+            val snapshot = wtEventsCollection.whereEqualTo("deviceId", deviceId).get().await()
+            return@withContext snapshot.documents.mapNotNull { doc ->
+                val id = doc.getLong("id") ?: return@mapNotNull null
+                val title = doc.getString("title") ?: ""
+                val description = doc.getString("description")
+                val date = doc.getDate("date") ?: Date()
+                val type = doc.getString("type") ?: ""
+                
+                WTEvent(id, title, description, date, type)
+            }
+        } catch (e: Exception) {
+            return@withContext emptyList<WTEvent>()
+        }
     }
     
     suspend fun deleteWTEvent(eventId: Long) = withContext(Dispatchers.IO) {
-        wtEventsCollection.document(eventId.toString())
-            .delete()
-    }
-    
-    suspend fun getAllWTEvents() = withContext(Dispatchers.IO) {
-        val snapshot = wtEventsCollection
-            .whereEqualTo("deviceId", deviceId)
-            .get()
-            .await()
-        
-        snapshot.documents.mapNotNull { doc ->
-            try {
-                val id = doc.getLong("id") ?: return@mapNotNull null
-                val title = doc.getString("title") ?: return@mapNotNull null
-                val description = doc.getString("description")
-                val date = doc.getDate("date") ?: return@mapNotNull null
-                val type = doc.getString("type") ?: "Event"
-                
-                WTEvent(
-                    id = id,
-                    title = title,
-                    description = description,
-                    date = date,
-                    type = type
-                )
-            } catch (e: Exception) {
-                null
-            }
-        }
+        return@withContext wtEventsCollection.document(eventId.toString()).delete()
     }
     
     // WT Lessons

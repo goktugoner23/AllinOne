@@ -32,6 +32,13 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
     private val _lessonSchedule = MutableLiveData<List<WTLesson>>(emptyList())
     private val calendarViewModel: WTCalendarViewModel = WTCalendarViewModel(application)
     
+    // Add isNetworkAvailable property
+    val isNetworkAvailable = repository.isNetworkAvailable
+    
+    // Error message live data
+    private val _errorMessage = MutableLiveData<String?>(null)
+    val errorMessage: LiveData<String?> = _errorMessage
+    
     init {
         // Collect students from the repository flow
         viewModelScope.launch {
@@ -48,6 +55,11 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                 _lessonSchedule.value = lessons
             }
         }
+    }
+    
+    // Clear error message
+    fun clearErrorMessage() {
+        _errorMessage.value = null
     }
 
     fun addStudent(name: String, startDate: Date, endDate: Date, amount: Double) {

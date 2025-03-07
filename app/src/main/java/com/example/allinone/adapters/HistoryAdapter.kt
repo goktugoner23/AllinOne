@@ -10,6 +10,7 @@ import com.example.allinone.data.HistoryItem
 import com.example.allinone.databinding.ItemHistoryBinding
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.Calendar
 
 class HistoryAdapter(
     private val onDeleteClick: (HistoryItem) -> Unit
@@ -33,12 +34,42 @@ class HistoryAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(item: HistoryItem) {
-            val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+            // Format differently based on how recent the date is
+            val today = Calendar.getInstance()
+            val itemCal = Calendar.getInstance().apply { time = item.date }
+            
+            val formattedDateText = when {
+                // Today
+                isSameDay(today, itemCal) -> {
+                    val timeFormat = SimpleDateFormat("'Today at' HH:mm", Locale.getDefault())
+                    timeFormat.format(item.date)
+                }
+                // Yesterday
+                isYesterday(today, itemCal) -> {
+                    val timeFormat = SimpleDateFormat("'Yesterday at' HH:mm", Locale.getDefault())
+                    timeFormat.format(item.date)
+                }
+                // Within the last 7 days
+                isWithinLastWeek(today, itemCal) -> {
+                    val dayFormat = SimpleDateFormat("EEEE 'at' HH:mm", Locale.getDefault())
+                    dayFormat.format(item.date)
+                }
+                // This year
+                isThisYear(today, itemCal) -> {
+                    val monthDayFormat = SimpleDateFormat("MMM dd 'at' HH:mm", Locale.getDefault())
+                    monthDayFormat.format(item.date)
+                }
+                // Older
+                else -> {
+                    val fullDateFormat = SimpleDateFormat("MMM dd, yyyy 'at' HH:mm", Locale.getDefault())
+                    fullDateFormat.format(item.date)
+                }
+            }
             
             binding.apply {
                 titleText.text = item.title
                 descriptionText.text = item.description
-                dateText.text = dateFormat.format(item.date)
+                dateText.text = formattedDateText
                 
                 // Set type icon based on item type
                 when (item.itemType) {
@@ -71,6 +102,32 @@ class HistoryAdapter(
                     onDeleteClick(item)
                 }
             }
+        }
+        
+        // Helper methods for date comparison
+        private fun isSameDay(cal1: Calendar, cal2: Calendar): Boolean {
+            return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
+                   cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
+        }
+        
+        private fun isYesterday(today: Calendar, other: Calendar): Boolean {
+            val yesterday = Calendar.getInstance().apply { 
+                timeInMillis = today.timeInMillis
+                add(Calendar.DAY_OF_YEAR, -1)
+            }
+            return isSameDay(yesterday, other)
+        }
+        
+        private fun isWithinLastWeek(today: Calendar, other: Calendar): Boolean {
+            val lastWeek = Calendar.getInstance().apply { 
+                timeInMillis = today.timeInMillis
+                add(Calendar.DAY_OF_YEAR, -7)
+            }
+            return other.timeInMillis >= lastWeek.timeInMillis
+        }
+        
+        private fun isThisYear(today: Calendar, other: Calendar): Boolean {
+            return today.get(Calendar.YEAR) == other.get(Calendar.YEAR)
         }
     }
 

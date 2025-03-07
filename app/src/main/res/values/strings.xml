@@ -29,4 +29,12 @@
     <string name="pull_to_refresh">Pull down to refresh</string>
     <string name="item_type_icon">Item type icon</string>
     <string name="delete_item">Delete item</string>
+    
+    <!-- Navigation Titles -->
+    <string name="title_investments">Investments</string>
+    <string name="title_notes">Notes</string>
+    <string name="title_wing_tzun_registry">Wing Tzun Registry</string>
+    <string name="title_history">History</string>
+    <string name="title_lesson_schedule">Lesson Schedule</string>
+    <string name="title_calendar">Calendar</string>
 </resources>

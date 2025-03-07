@@ -325,6 +325,17 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                 binding.toolbar.visibility = View.VISIBLE
             }
         }
+        
+        // Set appropriate title in the toolbar for each destination
+        supportActionBar?.title = when (destination.id) {
+            R.id.homeFragment -> getString(R.string.app_name)
+            R.id.nav_investments -> getString(R.string.title_investments)
+            R.id.nav_notes -> getString(R.string.title_notes)
+            R.id.nav_wt_registry -> getString(R.string.title_wing_tzun_registry)
+            R.id.nav_history -> getString(R.string.title_history)
+            R.id.wtRegisterFragment -> getString(R.string.title_wing_tzun_registry)
+            else -> destination.label?.toString() ?: getString(R.string.app_name)
+        }
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -332,5 +343,14 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             return true
         }
         return super.onOptionsItemSelected(item)
+    }
+
+    /**
+     * Open the navigation drawer
+     */
+    fun openDrawer() {
+        if (::drawerLayout.isInitialized) {
+            drawerLayout.openDrawer(navigationView)
+        }
     }
 }

@@ -3,6 +3,8 @@ package com.example.allinone.ui.wt
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -41,6 +43,7 @@ class WTCalendarFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        
         // First initialize the event adapter
         setupEventsList()
         // Then observe events (which might call updateEventsForDate)
@@ -316,27 +319,34 @@ class WTCalendarFragment : Fragment() {
         viewModel.isNetworkAvailable.observe(viewLifecycleOwner) { isAvailable ->
             android.util.Log.d("WTCalendarFragment", "Network availability changed: $isAvailable")
             
-            binding.networkStatusText.visibility = if (isAvailable) View.GONE else View.VISIBLE
-            
-            if (!isAvailable) {
-                // If network becomes unavailable, show message
-                Toast.makeText(
-                    context, 
-                    "Network unavailable. Using cached data.",
-                    Toast.LENGTH_SHORT
-                ).show()
-            } else {
-                // When network becomes available, automatically refresh data
-                android.util.Log.d("WTCalendarFragment", "Network available, reloading data")
-                viewModel.forceRefresh()
-            }
+            // Update with a slight delay to avoid false network status changes
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (view != null && isAdded) {
+                    binding.networkStatusText.visibility = if (isAvailable) View.GONE else View.VISIBLE
+                    
+                    if (!isAvailable) {
+                        // If network becomes unavailable, show message
+                        Toast.makeText(
+                            context, 
+                            "Network unavailable. Using cached data.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        // When network becomes available, automatically refresh data
+                        android.util.Log.d("WTCalendarFragment", "Network available, reloading data")
+                        viewModel.forceRefresh()
+                    }
+                }
+            }, 1000) // 1-second delay
         }
         
         // Observe Firebase error messages
         viewModel.errorMessage.observe(viewLifecycleOwner) { message ->
             if (message != null && message.isNotEmpty()) {
                 android.util.Log.e("WTCalendarFragment", "Error message: $message")
-                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                if (isAdded) {
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                }
                 
                 // Clear the error message after showing it
                 viewModel.clearErrorMessage()
@@ -348,9 +358,14 @@ class WTCalendarFragment : Fragment() {
      * Updates the network status indicator with current connectivity state
      */
     private fun updateNetworkStatus() {
-        val isAvailable = viewModel.isNetworkAvailable.value ?: false
-        binding.networkStatusText.visibility = if (isAvailable) View.GONE else View.VISIBLE
-        android.util.Log.d("WTCalendarFragment", "Network status updated: $isAvailable")
+        // Add a slight delay to allow network state to stabilize
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (view != null && isAdded) {
+                val isAvailable = viewModel.isNetworkAvailable.value ?: false
+                binding.networkStatusText.visibility = if (isAvailable) View.GONE else View.VISIBLE
+                android.util.Log.d("WTCalendarFragment", "Network status updated: $isAvailable")
+            }
+        }, 500) // Half-second delay
     }
 
     override fun onDestroyView() {

@@ -14,4 +14,7 @@
     <color name="red">#F44336</color>
     <color name="dark_gray">#555555</color>
     <color name="medium_gray">#888888</color>
+    
+    <!-- Network status color -->
+    <color name="colorError">#F44336</color>
 </resources>

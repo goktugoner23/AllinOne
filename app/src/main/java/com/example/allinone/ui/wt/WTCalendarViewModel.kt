@@ -47,54 +47,96 @@ class WTCalendarViewModel(application: Application) : AndroidViewModel(applicati
 
     init {
         Log.d(TAG, "ViewModel initialized")
-        _isLoading.value = false
+        _isLoading.value = true
         
-        // Start data collection
+        // Set current date as selected date
+        _selectedDate.value = Calendar.getInstance().time
+        
+        // Observe repository data
+        observeRepositoryData()
+        
+        // Load data
+        loadAllData()
+    }
+    
+    private fun observeRepositoryData() {
+        // Collect WTEvents from repository
         viewModelScope.launch {
-            // Events collection
-            try {
-                firebaseRepository.wtEvents
-                    .collect { eventsList ->
-                        Log.d(TAG, "Collected ${eventsList.size} events")
-                        _events.postValue(eventsList)
-                    }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error collecting events: ${e.message}")
-                _errorMessage.postValue("Error loading events: ${e.message}")
+            firebaseRepository.wtEvents.collect { newEvents ->
+                Log.d(TAG, "Received ${newEvents.size} events from repository")
+                _events.value = newEvents
+                _isLoading.value = false
             }
-
-            // Lessons collection
-            try {
-                firebaseRepository.wtLessons
-                    .collect { lessonsList ->
-                        Log.d(TAG, "Collected ${lessonsList.size} lessons")
-                        
-                        // Only generate events if we have no lesson events yet
-                        val existingLessonEvents = _events.value?.filter { it.type == "Lesson" } ?: emptyList()
-                        if (existingLessonEvents.isEmpty() && lessonsList.isNotEmpty()) {
-                            Log.d(TAG, "No lesson events found, generating from ${lessonsList.size} lessons")
-                            generateCalendarEvents()
-                        }
-                    }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error collecting lessons: ${e.message}")
-                _errorMessage.postValue("Error loading lessons: ${e.message}")
+        }
+        
+        // Collect WTLessons from repository
+        viewModelScope.launch {
+            firebaseRepository.wtLessons.collect { newLessons ->
+                Log.d(TAG, "Received ${newLessons.size} lessons from repository")
+                _lessonSchedule.value = newLessons
             }
-
-            // Students collection
+        }
+        
+        // Collect students from repository
+        viewModelScope.launch {
+            firebaseRepository.students.collect { newStudents ->
+                Log.d(TAG, "Received ${newStudents.size} students from repository")
+                _students.value = newStudents
+            }
+        }
+        
+        // Observe loading state from repository
+        firebaseRepository.isLoading.observeForever { isLoading ->
+            _isLoading.value = isLoading
+        }
+        
+        // Observe error messages from repository
+        firebaseRepository.errorMessage.observeForever { errorMsg ->
+            if (!errorMsg.isNullOrEmpty()) {
+                _errorMessage.value = errorMsg
+            }
+        }
+    }
+    
+    /**
+     * Load all required data for the calendar
+     */
+    private fun loadAllData() {
+        viewModelScope.launch {
             try {
-                firebaseRepository.students
-                    .collect { studentsList ->
-                        Log.d(TAG, "Collected ${studentsList.size} students")
-                        // When students change, we might need to update events
-                        // as they may contain student information
-                        if (_events.value?.isNotEmpty() == true) {
-                            generateCalendarEvents()
-                        }
-                    }
+                // First check if we have data from cache
+                if (_events.value.isNullOrEmpty()) {
+                    // Set loading state
+                    _isLoading.value = true
+                    
+                    // Load data from repository (which will check cache first)
+                    firebaseRepository.refreshWTEvents()
+                    firebaseRepository.refreshWTLessons()
+                    firebaseRepository.refreshStudents()
+                }
             } catch (e: Exception) {
-                Log.e(TAG, "Error collecting students: ${e.message}")
-                _errorMessage.postValue("Error in students flow: ${e.message}")
+                Log.e(TAG, "Error loading data: ${e.message}", e)
+                _errorMessage.value = "Error loading calendar data: ${e.message}"
+                _isLoading.value = false
+            }
+        }
+    }
+    
+    /**
+     * Force refresh data from network
+     */
+    fun forceRefresh() {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                firebaseRepository.refreshWTEvents()
+                firebaseRepository.refreshWTLessons()
+                firebaseRepository.refreshStudents()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error during force refresh: ${e.message}", e)
+                _errorMessage.value = "Error refreshing data: ${e.message}"
+            } finally {
+                _isLoading.value = false
             }
         }
     }
@@ -131,100 +173,120 @@ class WTCalendarViewModel(application: Application) : AndroidViewModel(applicati
     fun setLessonSchedule(lessons: List<WTLesson>) {
         viewModelScope.launch {
             try {
-                Log.d("WTCalendarViewModel", "Setting lesson schedule with ${lessons.size} lessons")
-                
-                // Log the days being set
-                val daysText = lessons.map { 
-                    when(it.dayOfWeek) {
-                        Calendar.SUNDAY -> "Sunday"
-                        Calendar.MONDAY -> "Monday" 
-                        Calendar.TUESDAY -> "Tuesday"
-                        Calendar.WEDNESDAY -> "Wednesday"
-                        Calendar.THURSDAY -> "Thursday"
-                        Calendar.FRIDAY -> "Friday"
-                        Calendar.SATURDAY -> "Saturday"
-                        else -> "Unknown"
-                    }
-                }.joinToString(", ")
-                Log.d("WTCalendarViewModel", "Setting lessons for days: $daysText")
-                
-                // Delete existing lessons - keep a copy for comparison
-                val existingLessons = _lessonSchedule.value ?: emptyList()
-                
-                // First update memory for immediate UI response
-                _lessonSchedule.postValue(lessons)
-                
-                // Then perform the Firebase operations
-                for (lesson in existingLessons) {
-                    try {
-                        firebaseRepository.deleteWTLesson(lesson)
-                    } catch (e: Exception) {
-                        Log.e("WTCalendarViewModel", "Error deleting lesson: ${e.message}")
-                    }
-                }
-                
-                // Add new lessons - with proper IDs
-                for (lesson in lessons) {
-                    try {
-                        // Ensure each lesson has a unique ID
-                        val lessonWithId = if (lesson.id == 0L) {
-                            lesson.copy(id = UUID.randomUUID().mostSignificantBits)
-                        } else {
-                            lesson
+                Log.d(TAG, "Setting lesson schedule with ${lessons.size} lessons: ${
+                    lessons.joinToString(", ") { 
+                        when(it.dayOfWeek) {
+                            Calendar.SUNDAY -> "Sunday"
+                            Calendar.MONDAY -> "Monday" 
+                            Calendar.TUESDAY -> "Tuesday"
+                            Calendar.WEDNESDAY -> "Wednesday"
+                            Calendar.THURSDAY -> "Thursday"
+                            Calendar.FRIDAY -> "Friday"
+                            Calendar.SATURDAY -> "Saturday"
+                            else -> "Unknown"
                         }
-                        firebaseRepository.insertWTLesson(lessonWithId)
-                    } catch (e: Exception) {
-                        Log.e("WTCalendarViewModel", "Error inserting lesson: ${e.message}")
+                    }
+                }")
+                
+                // Create a map with unique IDs for each lesson day
+                val lessonsWithIds = lessons.map { lesson ->
+                    // Create a stable ID based on day of week to ensure uniqueness
+                    // This helps prevent duplication when re-saving the same days
+                    val id = when (lesson.id) {
+                        0L -> 100000000L + lesson.dayOfWeek // Unique ID pattern based on day
+                        else -> lesson.id
+                    }
+                    
+                    lesson.copy(id = id)
+                }
+                
+                // Update memory immediately for UI responsiveness
+                _lessonSchedule.value = lessonsWithIds
+                
+                // Delete any existing lessons first to prevent duplicates
+                val existingLessons = firebaseRepository.wtLessons.value
+                if (existingLessons.isNotEmpty()) {
+                    Log.d(TAG, "Deleting ${existingLessons.size} existing lessons")
+                    for (lesson in existingLessons) {
+                        Log.d(TAG, "Deleting existing lesson for day ${lesson.dayOfWeek}")
+                        firebaseRepository.deleteWTLesson(lesson)
+                        // Add a small delay between deletions
+                        delay(300)
                     }
                 }
                 
-                // Generate calendar events after a short delay to ensure lessons are properly saved
-                kotlinx.coroutines.delay(500)
-                generateCalendarEvents()
+                // Create a delay to let deletions complete
+                delay(1000)
+                
+                // Save each lesson with its unique ID
+                for (lesson in lessonsWithIds) {
+                    Log.d(TAG, "Saving lesson for day ${lesson.dayOfWeek} with ID ${lesson.id}")
+                    firebaseRepository.insertWTLesson(lesson)
+                    // Add a small delay between insertions
+                    delay(300)
+                }
+                
+                // Ensure changes are reflected in repository
+                delay(1000)
+                firebaseRepository.refreshWTLessons()
+                
+                // Wait for lessons to be saved before generating events
+                delay(1500)
+                
+                // Generate events based on the lesson schedule
+                generateCalendarEvents(true)
                 
                 // Update student subscription end dates
                 updateStudentSubscriptionEndDates()
                 
             } catch (e: Exception) {
-                Log.e("WTCalendarViewModel", "Error setting lesson schedule: ${e.message}")
-                e.printStackTrace()
+                Log.e(TAG, "Error setting lesson schedule: ${e.message}", e)
+                _errorMessage.postValue("Error saving lesson schedule: ${e.message}")
             }
         }
     }
     
     fun removeLesson(lesson: WTLesson) {
         viewModelScope.launch {
-            firebaseRepository.deleteWTLesson(lesson)
-            
-            // Update student subscription end dates
-            updateStudentSubscriptionEndDates()
+            try {
+                // Delete the lesson
+                firebaseRepository.deleteWTLesson(lesson)
+                
+                // Update lesson schedule in memory
+                val currentLessons = _lessonSchedule.value?.toMutableList() ?: mutableListOf()
+                currentLessons.removeIf { it.dayOfWeek == lesson.dayOfWeek }
+                _lessonSchedule.value = currentLessons
+                
+                // Refresh lessons from repository
+                firebaseRepository.refreshWTLessons()
+                
+                // Wait for changes to propagate
+                delay(500)
+                
+                // Update events to reflect lesson removal
+                generateCalendarEvents(true)
+                
+                // Update student subscription end dates
+                updateStudentSubscriptionEndDates()
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error removing lesson: ${e.message}", e)
+                _errorMessage.postValue("Error removing lesson: ${e.message}")
+            }
         }
     }
     
-    fun generateCalendarEvents() {
+    fun generateCalendarEvents(forceRefresh: Boolean = false) {
         viewModelScope.launch {
             try {
                 // Get lesson schedule
-                val lessons = _lessonSchedule.value ?: return@launch
+                val lessons = _lessonSchedule.value ?: emptyList()
                 if (lessons.isEmpty()) {
-                    Log.w("WTCalendarViewModel", "No lessons found, cannot generate events")
+                    Log.w(TAG, "No lessons found, cannot generate events")
                     return@launch
                 }
                 
-                // Debug: Log lesson days that should be scheduled
-                val lessonDaysText = lessons.map { 
-                    when(it.dayOfWeek) {
-                        Calendar.SUNDAY -> "Sunday"
-                        Calendar.MONDAY -> "Monday" 
-                        Calendar.TUESDAY -> "Tuesday"
-                        Calendar.WEDNESDAY -> "Wednesday"
-                        Calendar.THURSDAY -> "Thursday"
-                        Calendar.FRIDAY -> "Friday"
-                        Calendar.SATURDAY -> "Saturday"
-                        else -> "Unknown"
-                    }
-                }.joinToString(", ")
-                Log.d("WTCalendarViewModel", "Generating events for days: $lessonDaysText")
+                Log.d(TAG, "Generating calendar events for ${lessons.size} lesson days")
                 
                 // Generate events for the next 4 months (instead of 4 weeks)
                 val today = Calendar.getInstance()
@@ -238,29 +300,39 @@ class WTCalendarViewModel(application: Application) : AndroidViewModel(applicati
                 endDate.time = today.time
                 endDate.add(Calendar.MONTH, 4)
                 
-                // Get existing events
-                val existingEvents = _events.value ?: emptyList()
+                // Get current events from repository
+                val currentEvents = if (forceRefresh) {
+                    // Force refresh from network
+                    firebaseRepository.refreshWTEvents()
+                    delay(500) // Give time for refresh to complete
+                    firebaseRepository.wtEvents.value
+                } else {
+                    // Use current value
+                    _events.value ?: emptyList()
+                }
                 
-                // Create a new event list with non-lesson events preserved
-                val nonLessonEvents = existingEvents.filter { it.type != "Lesson" }
+                // First delete all existing lesson events
+                val eventsToDelete = currentEvents.filter { it.type == "Lesson" }
+                for (event in eventsToDelete) {
+                    Log.d(TAG, "Deleting event: ${event.id}")
+                    firebaseRepository.deleteWTEvent(event)
+                }
+                
+                // Wait for deletions to complete
+                delay(1000)
+                
+                // Keep non-lesson events
+                val nonLessonEvents = currentEvents.filter { it.type != "Lesson" }
+                
+                // Create new events list with existing non-lesson events
                 val newEvents = mutableListOf<WTEvent>()
                 newEvents.addAll(nonLessonEvents)
                 
-                // Track events to delete for a clean removal
-                val eventsToDelete = mutableListOf<WTEvent>()
-                eventsToDelete.addAll(existingEvents.filter { it.type == "Lesson" })
-                
-                // Generate new lesson events
+                // Generate new lesson events for each lesson day
                 for (lesson in lessons) {
                     // Start from today
                     val currentDate = Calendar.getInstance()
                     currentDate.time = today.time
-                    
-                    // Make sure we're only looking at the date part
-                    currentDate.set(Calendar.HOUR_OF_DAY, 0)
-                    currentDate.set(Calendar.MINUTE, 0)
-                    currentDate.set(Calendar.SECOND, 0)
-                    currentDate.set(Calendar.MILLISECOND, 0)
                     
                     // Find the next occurrence of this day of week
                     while (currentDate.get(Calendar.DAY_OF_WEEK) != lesson.dayOfWeek) {
@@ -278,9 +350,8 @@ class WTCalendarViewModel(application: Application) : AndroidViewModel(applicati
                         else -> "Unknown"
                     }
                     
-                    Log.d("WTCalendarViewModel", "First occurrence of $dayName is ${currentDate.time}")
+                    Log.d(TAG, "Generating events for $dayName")
                     
-                    var eventCount = 0
                     // Generate recurring events until end date
                     while (currentDate.before(endDate)) {
                         // Set the time for this event
@@ -293,63 +364,56 @@ class WTCalendarViewModel(application: Application) : AndroidViewModel(applicati
                         val timeText = "${lesson.startHour}:${lesson.startMinute.toString().padStart(2, '0')} - " +
                                 "${lesson.endHour}:${lesson.endMinute.toString().padStart(2, '0')}"
                         
-                        // Generate a truly unique ID that won't collide
-                        val uniqueId = UUID.randomUUID().mostSignificantBits
+                        // Generate an ID that's consistent for this day and date
+                        // This helps prevent duplicates if we regenerate events
+                        val uniqueId = generateStableEventId(lesson.dayOfWeek, eventDate.timeInMillis)
                         
                         val event = WTEvent(
-                            id = uniqueId, // Using UUID for truly unique IDs
+                            id = uniqueId,
                             title = "Wing Tzun Lesson ($dayName)",
                             description = "Regular Wing Tzun lesson at $timeText",
                             date = eventDate.time,
                             type = "Lesson"
                         )
                         
+                        // Add to our local list
                         newEvents.add(event)
-                        eventCount++
                         
-                        // Log the event being created
-                        Log.d("WTCalendarViewModel", "Created lesson event for $dayName on ${eventDate.time}")
+                        // Save directly to Firebase
+                        try {
+                            firebaseRepository.insertWTEvent(event)
+                            Log.d(TAG, "Created event for $dayName on ${eventDate.time}")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error saving event: ${e.message}")
+                        }
                         
                         // Move to next week
                         currentDate.add(Calendar.WEEK_OF_YEAR, 1)
                     }
-                    
-                    Log.d("WTCalendarViewModel", "Created $eventCount events for $dayName")
                 }
                 
-                Log.d("WTCalendarViewModel", "Total new events: ${newEvents.size}")
-                
-                // First update the local events (for immediate UI update)
+                // Update the local list
                 _events.postValue(newEvents)
                 
-                // Then delete old lesson events from Firebase
-                for (event in eventsToDelete) {
-                    try {
-                        firebaseRepository.deleteWTEvent(event)
-                    } catch (e: Exception) {
-                        Log.e("WTCalendarViewModel", "Error deleting event ${event.id}: ${e.message}")
-                    }
-                }
-                
-                // Then save all new lesson events to Firebase
-                for (event in newEvents) {
-                    if (event.type == "Lesson") {
-                        try {
-                            firebaseRepository.insertWTEvent(event)
-                        } catch (e: Exception) {
-                            Log.e("WTCalendarViewModel", "Error saving event ${event.id}: ${e.message}")
-                        }
-                    }
-                }
-                
-                // Final update after Firebase operations
-                _events.postValue(newEvents)
+                // Force a refresh from Firebase to ensure everything is in sync
+                delay(1000)
+                firebaseRepository.refreshWTEvents()
                 
             } catch (e: Exception) {
-                Log.e("WTCalendarViewModel", "Error generating calendar events: ${e.message}")
-                e.printStackTrace()
+                Log.e(TAG, "Error generating calendar events: ${e.message}", e)
+                _errorMessage.postValue("Error generating calendar events: ${e.message}")
             }
         }
+    }
+    
+    /**
+     * Generate a stable ID for events based on day of week and date
+     * This ensures we get the same ID if we regenerate the same event
+     */
+    private fun generateStableEventId(dayOfWeek: Int, timestamp: Long): Long {
+        // Use day of week and rough date (to day precision) to create a stable ID
+        val roughDate = timestamp / (24 * 60 * 60 * 1000) // Convert to days
+        return (roughDate * 10 + dayOfWeek) // Unique but stable ID
     }
     
     /**
@@ -534,28 +598,6 @@ class WTCalendarViewModel(application: Application) : AndroidViewModel(applicati
                 
                 // Update student subscription end dates
                 updateStudentSubscriptionEndDates()
-            }
-        }
-    }
-    
-    /**
-     * Force a refresh of data from Firebase
-     */
-    fun forceRefresh() {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-                Log.d(TAG, "Starting manual refresh of data")
-                firebaseRepository.refreshAllData()
-                
-                // After data is refreshed, regenerate calendar events
-                Log.d(TAG, "Manual refresh completed, regenerating events")
-                generateCalendarEvents()
-                _isLoading.value = false
-            } catch (e: Exception) {
-                Log.e(TAG, "Error during manual refresh: ${e.message}", e)
-                _errorMessage.value = "Error refreshing data: ${e.message}"
-                _isLoading.value = false
             }
         }
     }

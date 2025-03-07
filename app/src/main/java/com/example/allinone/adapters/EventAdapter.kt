@@ -34,12 +34,12 @@ class EventAdapter(
         private val titleTextView: TextView = itemView.findViewById(R.id.eventTitle)
         private val descriptionTextView: TextView = itemView.findViewById(R.id.eventDescription)
         private val timeTextView: TextView = itemView.findViewById(R.id.eventTime)
-        private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+        private val dateTimeFormat = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
 
         fun bind(event: WTEvent) {
             titleTextView.text = event.title
             descriptionTextView.text = event.description ?: ""
-            timeTextView.text = timeFormat.format(event.date)
+            timeTextView.text = dateTimeFormat.format(event.date)
             
             // Set background color based on event type
             val backgroundColor = when (event.type) {

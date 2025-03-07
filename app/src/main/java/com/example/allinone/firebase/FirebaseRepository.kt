@@ -25,6 +25,7 @@ import com.google.firebase.ktx.Firebase
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +35,7 @@ import kotlinx.coroutines.withContext
 import java.util.Date
 import java.util.UUID
 import com.google.firebase.firestore.PersistentCacheSettings
+import com.example.allinone.cache.CacheManager
 
 /**
  * A repository that uses Firebase for all data operations.
@@ -43,6 +45,7 @@ class FirebaseRepository(private val context: Context) {
     private val firebaseManager = FirebaseManager(context)
     private val networkUtils = (context.applicationContext as AllinOneApplication).networkUtils
     private val offlineQueue = OfflineQueue(context)
+    private val cacheManager = (context.applicationContext as AllinOneApplication).cacheManager
     private val gson = Gson()
     
     private val db = Firebase.firestore
@@ -96,12 +99,23 @@ class FirebaseRepository(private val context: Context) {
     private val _lastError = MutableLiveData<String>()
     val lastError: LiveData<String> = _lastError
     
+    // Loading state
+    private val _isLoading = MutableLiveData<Boolean>(false)
+    val isLoading: LiveData<Boolean> = _isLoading
+    
     init {
         // Initialize by loading data from Firebase or local cache
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 checkGooglePlayServicesAvailability()
-                refreshAllData()
+                
+                // Load initial data from local cache first for immediate display
+                loadFromLocalCache()
+                
+                // Then refresh from network if available
+                if (networkUtils.isActiveNetworkConnected()) {
+                    refreshAllData()
+                }
             } catch (e: Exception) {
                 _errorMessage.postValue("Error loading data: ${e.message}")
             }
@@ -142,37 +156,153 @@ class FirebaseRepository(private val context: Context) {
     }
     
     /**
+     * Load all data from local cache to provide immediate response
+     */
+    private suspend fun loadFromLocalCache() {
+        withContext(Dispatchers.IO) {
+            // Load transactions
+            val cachedTransactions = cacheManager.getCachedTransactions()
+            if (cachedTransactions.isNotEmpty()) {
+                _transactions.value = cachedTransactions
+                Log.d(TAG, "Loaded ${cachedTransactions.size} transactions from cache")
+            }
+            
+            // Load investments
+            val cachedInvestments = cacheManager.getCachedInvestments()
+            if (cachedInvestments.isNotEmpty()) {
+                _investments.value = cachedInvestments
+                Log.d(TAG, "Loaded ${cachedInvestments.size} investments from cache")
+            }
+            
+            // Load notes
+            val cachedNotes = cacheManager.getCachedNotes()
+            if (cachedNotes.isNotEmpty()) {
+                _notes.value = cachedNotes
+                Log.d(TAG, "Loaded ${cachedNotes.size} notes from cache")
+            }
+            
+            // Load students
+            val cachedStudents = cacheManager.getCachedStudents()
+            if (cachedStudents.isNotEmpty()) {
+                _students.value = cachedStudents
+                Log.d(TAG, "Loaded ${cachedStudents.size} students from cache")
+            }
+            
+            // Load events
+            val cachedEvents = cacheManager.getCachedEvents()
+            if (cachedEvents.isNotEmpty()) {
+                _wtEvents.value = cachedEvents
+                Log.d(TAG, "Loaded ${cachedEvents.size} events from cache")
+            }
+            
+            // Load lessons
+            val cachedLessons = cacheManager.getCachedLessons()
+            if (cachedLessons.isNotEmpty()) {
+                _wtLessons.value = cachedLessons
+                Log.d(TAG, "Loaded ${cachedLessons.size} lessons from cache")
+            }
+        }
+    }
+    
+    /**
      * Monitors network connectivity and updates the isOnline LiveData
      */
     private fun monitorNetworkConnectivity() {
         val connectivityManager = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         
+        // Keep track of last network status to prevent flapping
+        var lastNetworkStatus = true // Start assuming we have network
+        var networkStatusChangeTime = System.currentTimeMillis()
+        val debounceTimeMs = 3000L // 3 seconds debounce (was 2 seconds)
+        
         connectivityManager.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                _isOnline.postValue(true)
-                Log.d(TAG, "Network connection available")
+                val currentTime = System.currentTimeMillis()
+                
+                // Add a short delay before confirming network is available
+                CoroutineScope(Dispatchers.IO).launch {
+                    delay(500) // Wait half second to confirm network
+                    
+                    // Double-check that network is still connected
+                    if (networkUtils.isNetworkConnected()) {
+                        // Switch to Main thread only for updating LiveData
+                        withContext(Dispatchers.Main) {
+                            if (!lastNetworkStatus || (currentTime - networkStatusChangeTime) > debounceTimeMs) {
+                                _isOnline.value = true
+                                lastNetworkStatus = true
+                                networkStatusChangeTime = currentTime
+                                Log.d(TAG, "Network connection available (confirmed)")
+                            }
+                        }
+                    }
+                }
             }
             
             override fun onLost(network: Network) {
-                _isOnline.postValue(false)
-                Log.d(TAG, "Network connection lost")
+                // Add a larger delay before reporting network as lost
+                // to prevent brief network transitions from affecting the UI
+                CoroutineScope(Dispatchers.IO).launch {
+                    delay(2000) // Wait 2 seconds (was 1 second)
+                    
+                    // Check if network is still unavailable
+                    if (!networkUtils.isNetworkConnected()) {
+                        val currentTime = System.currentTimeMillis()
+                        
+                        // Switch to Main thread only for updating LiveData
+                        withContext(Dispatchers.Main) {
+                            if (lastNetworkStatus || (currentTime - networkStatusChangeTime) > debounceTimeMs) {
+                                _isOnline.value = false
+                                lastNetworkStatus = false
+                                networkStatusChangeTime = currentTime
+                                Log.d(TAG, "Network connection lost (confirmed)")
+                            }
+                        }
+                    }
+                }
             }
             
             override fun onUnavailable() {
-                _isOnline.postValue(false)
-                Log.d(TAG, "Network unavailable")
+                // Also add a delay for onUnavailable
+                CoroutineScope(Dispatchers.IO).launch {
+                    delay(1000) // Wait 1 second
+                    
+                    // Double check network status
+                    if (!networkUtils.isNetworkConnected()) {
+                        val currentTime = System.currentTimeMillis()
+                        
+                        // Switch to Main thread only for updating LiveData
+                        withContext(Dispatchers.Main) {
+                            if (lastNetworkStatus || (currentTime - networkStatusChangeTime) > debounceTimeMs) {
+                                _isOnline.value = false
+                                lastNetworkStatus = false
+                                networkStatusChangeTime = currentTime
+                                Log.d(TAG, "Network unavailable (confirmed)")
+                            }
+                        }
+                    }
+                }
             }
         })
         
-        // Initialize with current status using networkUtils
-        _isOnline.postValue(networkUtils.isNetworkConnected())
+        // Initialize with current status using networkUtils but with a small delay
+        CoroutineScope(Dispatchers.IO).launch {
+            delay(1000) // Wait 1 second (was 500ms)
+            val isConnected = networkUtils.isNetworkConnected()
+            
+            // Switch to Main thread only for updating LiveData
+            withContext(Dispatchers.Main) {
+                _isOnline.value = isConnected
+                lastNetworkStatus = isConnected
+                Log.d(TAG, "Initial network state: ${if (isConnected) "Connected" else "Disconnected"}")
+            }
+        }
     }
     
     /**
      * Process the offline queue when network is available
      */
     private suspend fun processOfflineQueue() {
-        if (!networkUtils.isNetworkConnected()) {
+        if (!networkUtils.isActiveNetworkConnected()) {
             return
         }
         
@@ -340,46 +470,57 @@ class FirebaseRepository(private val context: Context) {
     /**
      * Refreshes all data from Firebase with robust error handling
      */
-    fun refreshAllData() {
-        Log.d(TAG, "Starting data refresh")
+    suspend fun refreshAllData() {
+        _isLoading.postValue(true)
         
-        // Use modern connectivity check instead of deprecated methods
-        val isNetworkAvailable = networkUtils.isNetworkConnected()
-        
-        if (!isNetworkAvailable) {
-            Log.w(TAG, "No network connection available, using cached data")
-            _lastError.postValue("No network connection. Using cached data.")
-            _isOnline.postValue(false)
-            return
-        }
-        
-        _isOnline.postValue(true)
-        
-        // Now refresh each data type with error handling
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                refreshWTEvents()
-                refreshWTLessons()
-                refreshStudents()
-                refreshTransactions()
-                refreshInvestments()
-                refreshNotes()
-            } catch (e: Exception) {
-                Log.e(TAG, "Error during data refresh: ${e.message}", e)
-                _lastError.postValue("Error refreshing data: ${e.message}")
+        try {
+            // First check if we should refresh from network
+            if (!networkUtils.isActiveNetworkConnected()) {
+                _isLoading.postValue(false)
+                return // Use cached data
             }
+            
+            refreshTransactions()
+            refreshInvestments()
+            refreshNotes()
+            refreshStudents()
+            refreshWTEvents()
+            refreshWTLessons()
+            
+        } catch (e: Exception) {
+            _errorMessage.postValue("Error refreshing data: ${e.message}")
+        } finally {
+            _isLoading.postValue(false)
+        }
+    }
+    
+    /**
+     * Force refresh all data regardless of cache state
+     */
+    suspend fun forceRefreshAllData() {
+        if (networkUtils.isActiveNetworkConnected()) {
+            // Clear all caches first
+            cacheManager.clearAllCache()
+            // Then refresh from network
+            refreshAllData()
+        } else {
+            _errorMessage.postValue("Network unavailable. Cannot force refresh data.")
         }
     }
     
     // Transaction methods
     suspend fun refreshTransactions() {
-        if (!networkUtils.isNetworkConnected()) {
+        if (!networkUtils.isActiveNetworkConnected()) {
             return // Use cached data
         }
         
         try {
             val transactionList = firebaseManager.getTransactions()
             _transactions.value = transactionList
+            
+            // Update cache
+            cacheManager.cacheTransactions(transactionList)
+            
         } catch (e: Exception) {
             _errorMessage.postValue("Error loading transactions: ${e.message}")
         }
@@ -409,7 +550,7 @@ class FirebaseRepository(private val context: Context) {
             _transactions.value = currentTransactions
             
             // Then update Firebase if network is available
-            if (networkUtils.isNetworkConnected()) {
+            if (networkUtils.isActiveNetworkConnected()) {
                 firebaseManager.saveTransaction(transaction)
             } else {
                 // Add to offline queue
@@ -445,7 +586,7 @@ class FirebaseRepository(private val context: Context) {
         _transactions.value = currentList
         
         // Save to Firebase if network is available
-        if (networkUtils.isNetworkConnected()) {
+        if (networkUtils.isActiveNetworkConnected()) {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     firebaseManager.saveTransaction(transaction)
@@ -489,7 +630,7 @@ class FirebaseRepository(private val context: Context) {
             _transactions.value = currentTransactions
             
             // Then delete from Firebase if network is available
-            if (networkUtils.isNetworkConnected()) {
+            if (networkUtils.isActiveNetworkConnected()) {
                 firebaseManager.deleteTransaction(transaction)
             } else {
                 // Add to offline queue
@@ -508,13 +649,17 @@ class FirebaseRepository(private val context: Context) {
     
     // Investment methods
     suspend fun refreshInvestments() {
-        if (!networkUtils.isNetworkConnected()) {
+        if (!networkUtils.isActiveNetworkConnected()) {
             return // Use cached data
         }
         
         try {
             val investmentList = firebaseManager.getInvestments()
             _investments.value = investmentList
+            
+            // Update cache
+            cacheManager.cacheInvestments(investmentList)
+            
         } catch (e: Exception) {
             _errorMessage.postValue("Error loading investments: ${e.message}")
         }
@@ -528,7 +673,7 @@ class FirebaseRepository(private val context: Context) {
             _investments.value = currentInvestments
             
             // Then update Firebase if network is available
-            if (networkUtils.isNetworkConnected()) {
+            if (networkUtils.isActiveNetworkConnected()) {
                 firebaseManager.saveInvestment(investment)
             } else {
                 // Add to offline queue
@@ -564,7 +709,7 @@ class FirebaseRepository(private val context: Context) {
         _investments.value = currentList
         
         // Save to Firebase if network is available
-        if (networkUtils.isNetworkConnected()) {
+        if (networkUtils.isActiveNetworkConnected()) {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     firebaseManager.saveInvestment(investment)
@@ -608,7 +753,7 @@ class FirebaseRepository(private val context: Context) {
             _investments.value = currentInvestments
             
             // Then delete from Firebase if network is available
-            if (networkUtils.isNetworkConnected()) {
+            if (networkUtils.isActiveNetworkConnected()) {
                 firebaseManager.deleteInvestment(investment)
             } else {
                 // Add to offline queue
@@ -627,13 +772,17 @@ class FirebaseRepository(private val context: Context) {
     
     // Note methods
     suspend fun refreshNotes() {
-        if (!networkUtils.isNetworkConnected()) {
+        if (!networkUtils.isActiveNetworkConnected()) {
             return // Use cached data
         }
         
         try {
             val noteList = firebaseManager.getNotes()
             _notes.value = noteList
+            
+            // Update cache
+            cacheManager.cacheNotes(noteList)
+            
         } catch (e: Exception) {
             _errorMessage.postValue("Error loading notes: ${e.message}")
         }
@@ -647,7 +796,7 @@ class FirebaseRepository(private val context: Context) {
             _notes.value = currentNotes
             
             // Then update Firebase if network is available
-            if (networkUtils.isNetworkConnected()) {
+            if (networkUtils.isActiveNetworkConnected()) {
                 firebaseManager.saveNote(note)
             } else {
                 // Add to offline queue
@@ -683,7 +832,7 @@ class FirebaseRepository(private val context: Context) {
         _notes.value = currentList
         
         // Save to Firebase if network is available
-        if (networkUtils.isNetworkConnected()) {
+        if (networkUtils.isActiveNetworkConnected()) {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     firebaseManager.saveNote(note)
@@ -727,7 +876,7 @@ class FirebaseRepository(private val context: Context) {
             _notes.value = currentNotes
             
             // Then delete from Firebase if network is available
-            if (networkUtils.isNetworkConnected()) {
+            if (networkUtils.isActiveNetworkConnected()) {
                 firebaseManager.deleteNote(note)
             } else {
                 // Add to offline queue
@@ -746,13 +895,17 @@ class FirebaseRepository(private val context: Context) {
     
     // WTStudent methods
     suspend fun refreshStudents() {
-        if (!networkUtils.isNetworkConnected()) {
+        if (!networkUtils.isActiveNetworkConnected()) {
             return // Use cached data
         }
         
         try {
             val studentList = firebaseManager.getStudents()
             _students.value = studentList
+            
+            // Update cache
+            cacheManager.cacheStudents(studentList)
+            
         } catch (e: Exception) {
             _errorMessage.postValue("Error loading students: ${e.message}")
         }
@@ -766,7 +919,7 @@ class FirebaseRepository(private val context: Context) {
             _students.value = currentStudents
             
             // Then update Firebase if network is available
-            if (networkUtils.isNetworkConnected()) {
+            if (networkUtils.isActiveNetworkConnected()) {
                 firebaseManager.saveStudent(student)
             } else {
                 // Add to offline queue
@@ -802,7 +955,7 @@ class FirebaseRepository(private val context: Context) {
         _students.value = currentList
         
         // Save to Firebase if network is available
-        if (networkUtils.isNetworkConnected()) {
+        if (networkUtils.isActiveNetworkConnected()) {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     firebaseManager.saveStudent(student)
@@ -846,7 +999,7 @@ class FirebaseRepository(private val context: Context) {
             _students.value = currentStudents
             
             // Then delete from Firebase if network is available
-            if (networkUtils.isNetworkConnected()) {
+            if (networkUtils.isActiveNetworkConnected()) {
                 firebaseManager.deleteStudent(student)
             } else {
                 // Add to offline queue
@@ -876,7 +1029,7 @@ class FirebaseRepository(private val context: Context) {
     
     // Image and attachment handling
     suspend fun uploadImage(uri: Uri): String? {
-        if (!networkUtils.isNetworkConnected()) {
+        if (!networkUtils.isActiveNetworkConnected()) {
             _errorMessage.postValue("Cannot upload image without network connection.")
             return null
         }
@@ -890,7 +1043,7 @@ class FirebaseRepository(private val context: Context) {
     }
     
     suspend fun uploadAttachment(uri: Uri): String? {
-        if (!networkUtils.isNetworkConnected()) {
+        if (!networkUtils.isActiveNetworkConnected()) {
             _errorMessage.postValue("Cannot upload attachment without network connection.")
             return null
         }
@@ -925,7 +1078,7 @@ class FirebaseRepository(private val context: Context) {
     suspend fun insertWTEvent(event: WTEvent) {
         withContext(Dispatchers.IO) {
             try {
-                if (networkUtils.isNetworkAvailable.value == true) {
+                if (networkUtils.isActiveNetworkConnected()) {
                     // Generate ID if not present
                     val eventWithId = if (event.id == 0L) {
                         event.copy(id = UUID.randomUUID().mostSignificantBits and Long.MAX_VALUE)
@@ -968,7 +1121,7 @@ class FirebaseRepository(private val context: Context) {
     suspend fun deleteWTEvent(event: WTEvent) {
         withContext(Dispatchers.IO) {
             try {
-                if (networkUtils.isNetworkAvailable.value == true) {
+                if (networkUtils.isActiveNetworkConnected()) {
                     // Delete from Firebase
                     firebaseManager.deleteWTEvent(event.id).await()
                     
@@ -1000,7 +1153,7 @@ class FirebaseRepository(private val context: Context) {
     suspend fun insertWTLesson(lesson: WTLesson) {
         withContext(Dispatchers.IO) {
             try {
-                if (networkUtils.isNetworkAvailable.value == true) {
+                if (networkUtils.isActiveNetworkConnected()) {
                     // Generate ID if not present
                     val lessonWithId = if (lesson.id == 0L) {
                         lesson.copy(id = UUID.randomUUID().mostSignificantBits and Long.MAX_VALUE)
@@ -1043,7 +1196,7 @@ class FirebaseRepository(private val context: Context) {
     suspend fun deleteWTLesson(lesson: WTLesson) {
         withContext(Dispatchers.IO) {
             try {
-                if (networkUtils.isNetworkAvailable.value == true) {
+                if (networkUtils.isActiveNetworkConnected()) {
                     // Delete from Firebase
                     firebaseManager.deleteWTLesson(lesson.id).await()
                     
@@ -1075,7 +1228,7 @@ class FirebaseRepository(private val context: Context) {
     suspend fun updateWTStudent(student: WTStudent) {
         withContext(Dispatchers.IO) {
             try {
-                if (networkUtils.isNetworkAvailable.value == true) {
+                if (networkUtils.isActiveNetworkConnected()) {
                     // Save to Firebase
                     firebaseManager.saveStudent(student)
                     
@@ -1111,72 +1264,66 @@ class FirebaseRepository(private val context: Context) {
     /**
      * Refreshes WT events from Firestore with robust error handling
      */
-    fun refreshWTEvents() {
-        Log.d(TAG, "Refreshing WT events")
+    suspend fun refreshWTEvents() {
+        if (!networkUtils.isActiveNetworkConnected()) {
+            return // Use cached data
+        }
         
-        // Skip authentication check since we're not using it
         try {
-            db.collection("wtEvents")
-                .get()
-                .addOnSuccessListener { documents ->
-                    Log.d(TAG, "WT events query successful, processing ${documents.size()} documents")
-                    val events = mutableListOf<WTEvent>()
-                    
-                    for (document in documents) {
-                        try {
-                            val event = document.toObject(WTEvent::class.java)
-                            events.add(event)
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error converting document to WTEvent: ${e.message}")
-                        }
-                    }
-                    
-                    Log.d(TAG, "Loaded ${events.size} WT events")
-                    _wtEvents.value = events
-                }
-                .addOnFailureListener { e ->
-                    Log.e(TAG, "Error fetching WT events: ${e.message}")
-                    _lastError.postValue("Error loading events: ${e.message}")
-                }
+            // Show loading state
+            withContext(Dispatchers.Main) {
+                _isLoading.value = true
+            }
+            
+            val eventList = firebaseManager.getWTEvents()
+            
+            // Update cache first
+            cacheManager.cacheEvents(eventList)
+            
+            // Then update LiveData on main thread
+            withContext(Dispatchers.Main) {
+                _wtEvents.value = eventList
+                _isLoading.value = false
+            }
+            
         } catch (e: Exception) {
-            Log.e(TAG, "Exception during WT events refresh: ${e.message}")
-            _lastError.postValue("Error refreshing events: ${e.message}")
+            withContext(Dispatchers.Main) {
+                _errorMessage.value = "Error loading events: ${e.message}"
+                _isLoading.value = false
+            }
         }
     }
     
     /**
      * Refreshes WT lessons from Firestore with robust error handling
      */
-    fun refreshWTLessons() {
-        Log.d(TAG, "Refreshing WT lessons")
+    suspend fun refreshWTLessons() {
+        if (!networkUtils.isActiveNetworkConnected()) {
+            return // Use cached data
+        }
         
-        // Skip authentication check since we're not using it
         try {
-            db.collection("wtLessons")
-                .get()
-                .addOnSuccessListener { documents ->
-                    Log.d(TAG, "WT lessons query successful, processing ${documents.size()} documents")
-                    val lessons = mutableListOf<WTLesson>()
-                    
-                    for (document in documents) {
-                        try {
-                            val lesson = document.toObject(WTLesson::class.java)
-                            lessons.add(lesson)
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error converting document to WTLesson: ${e.message}")
-                        }
-                    }
-                    
-                    Log.d(TAG, "Loaded ${lessons.size} WT lessons")
-                    _wtLessons.value = lessons
-                }
-                .addOnFailureListener { e ->
-                    Log.e(TAG, "Error fetching WT lessons: ${e.message}")
-                    _lastError.postValue("Error loading lessons: ${e.message}")
-                }
+            // Show loading state
+            withContext(Dispatchers.Main) {
+                _isLoading.value = true
+            }
+            
+            val lessonList = firebaseManager.getAllWTLessons()
+            
+            // Update cache first
+            cacheManager.cacheLessons(lessonList)
+            
+            // Then update LiveData on main thread
+            withContext(Dispatchers.Main) {
+                _wtLessons.value = lessonList
+                _isLoading.value = false
+            }
+            
         } catch (e: Exception) {
-            Log.e(TAG, "Exception during WT lessons refresh: ${e.message}")
-            _lastError.postValue("Error refreshing lessons: ${e.message}")
+            withContext(Dispatchers.Main) {
+                _errorMessage.value = "Error loading lessons: ${e.message}"
+                _isLoading.value = false
+            }
         }
     }
 

@@ -4,6 +4,8 @@ import android.app.DatePickerDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.OpenableColumns
 import android.view.LayoutInflater
 import android.view.View
@@ -110,6 +112,13 @@ class WTRegisterFragment : Fragment() {
         setupRecyclerView()
         setupFab()
         observeStudents()
+        observeNetworkStatus()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Force refresh data on resume
+        viewModel.refreshData()
     }
 
     private fun setupRecyclerView() {
@@ -406,6 +415,35 @@ class WTRegisterFragment : Fragment() {
         }
         
         startActivity(Intent.createChooser(intent, "Share via"))
+    }
+
+    private fun observeNetworkStatus() {
+        // Observe Firebase repository connection status
+        viewModel.isNetworkAvailable.observe(viewLifecycleOwner) { isAvailable ->
+            // Update with a delay to prevent false network status changes
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (view != null && isAdded) {
+                    // Update the network status indicator in the parent fragment if possible
+                    val parentFragment = parentFragment
+                    if (parentFragment is WTRegistryFragment) {
+                        // Network status already handled by parent
+                        return@postDelayed
+                    }
+                    
+                    if (!isAvailable) {
+                        // If network becomes unavailable, show message
+                        Toast.makeText(
+                            context, 
+                            "Network unavailable. Using cached data.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        // When network becomes available, refresh data
+                        viewModel.refreshData()
+                    }
+                }
+            }, 1000) // 1-second delay
+        }
     }
 
     override fun onDestroyView() {

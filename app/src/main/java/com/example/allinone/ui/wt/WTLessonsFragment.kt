@@ -2,6 +2,8 @@ package com.example.allinone.ui.wt
 
 import android.app.TimePickerDialog
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -293,28 +295,35 @@ class WTLessonsFragment : Fragment() {
         viewModel.isNetworkAvailable.observe(viewLifecycleOwner) { isAvailable ->
             android.util.Log.d("WTLessonsFragment", "Network availability changed: $isAvailable")
             
-            // Update the network status indicator
-            binding.networkStatusText.visibility = if (isAvailable) View.GONE else View.VISIBLE
-            
-            if (!isAvailable) {
-                // If network becomes unavailable, show message
-                Toast.makeText(
-                    context, 
-                    "Network unavailable. Using cached data.",
-                    Toast.LENGTH_SHORT
-                ).show()
-            } else {
-                // When network becomes available, automatically refresh data
-                android.util.Log.d("WTLessonsFragment", "Network available, reloading data")
-                viewModel.forceRefresh()
-            }
+            // Update the network status indicator with a short delay to avoid false-positives
+            Handler(Looper.getMainLooper()).postDelayed({
+                // Check if the view is still attached to avoid crashes
+                if (view != null && isAdded) {
+                    binding.networkStatusText.visibility = if (isAvailable) View.GONE else View.VISIBLE
+                    
+                    if (!isAvailable) {
+                        // If network becomes unavailable, show message
+                        Toast.makeText(
+                            context, 
+                            "Network unavailable. Using cached data.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } else {
+                        // When network becomes available, automatically refresh data
+                        android.util.Log.d("WTLessonsFragment", "Network available, reloading data")
+                        viewModel.forceRefresh()
+                    }
+                }
+            }, 1000) // 1-second delay to avoid false network status changes
         }
         
         // Observe Firebase error messages
         viewModel.errorMessage.observe(viewLifecycleOwner) { message ->
             if (message != null && message.isNotEmpty()) {
                 android.util.Log.e("WTLessonsFragment", "Error message: $message")
-                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                if (isAdded) { // Check if fragment is still attached
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                }
                 
                 // Clear the error message after showing it
                 viewModel.clearErrorMessage()
@@ -326,19 +335,24 @@ class WTLessonsFragment : Fragment() {
      * Updates the network status with current connectivity state
      */
     private fun updateNetworkStatus() {
-        val isAvailable = viewModel.isNetworkAvailable.value ?: false
-        // Update the network status indicator
-        binding.networkStatusText.visibility = if (isAvailable) View.GONE else View.VISIBLE
-        android.util.Log.d("WTLessonsFragment", "Network status updated: $isAvailable")
-        
-        if (!isAvailable) {
-            android.util.Log.d("WTLessonsFragment", "Network unavailable on fragment resume")
-            Toast.makeText(
-                context,
-                "Network unavailable. Using cached data.",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
+        // Add a slight delay to allow network state to stabilize
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (view != null && isAdded) {
+                val isAvailable = viewModel.isNetworkAvailable.value ?: false
+                // Update the network status indicator
+                binding.networkStatusText.visibility = if (isAvailable) View.GONE else View.VISIBLE
+                android.util.Log.d("WTLessonsFragment", "Network status updated: $isAvailable")
+                
+                if (!isAvailable) {
+                    android.util.Log.d("WTLessonsFragment", "Network unavailable on fragment resume")
+                    Toast.makeText(
+                        context,
+                        "Network unavailable. Using cached data.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }, 500) // Half-second delay
     }
     
     override fun onDestroyView() {
