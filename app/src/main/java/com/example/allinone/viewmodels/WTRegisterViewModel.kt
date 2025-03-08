@@ -145,15 +145,17 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
             val updatedStudent = student.copy(isPaid = false, paymentDate = null)
             repository.updateStudent(updatedStudent)
 
-            // Add a negative transaction record to offset the payment
+            // Add a transaction record that deducts the amount but is NOT an expense
+            // Using isIncome=true with a negative amount allows us to reduce the balance
+            // without categorizing it as an expense in reports/statistics
             val transaction = Transaction(
                 id = UUID.randomUUID().mostSignificantBits,
-                amount = student.amount,
+                amount = -student.amount, // Negative amount
                 type = "Wing Tzun",
-                description = "Payment reversal for ${student.name}",
-                isIncome = false,  // This makes it a deduction
+                description = "Payment reversal for ${student.name} (Not an expense)",
+                isIncome = true,  // This ensures it's not counted as an expense
                 date = Date(),
-                category = "Wing Tzun"
+                category = "Wing Tzun Adjustment" // Different category to help identify adjustments
             )
             repository.insertTransaction(
                 amount = transaction.amount,
