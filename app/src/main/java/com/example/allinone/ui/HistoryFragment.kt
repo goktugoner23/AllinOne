@@ -5,19 +5,17 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
-import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.allinone.R
 import com.example.allinone.adapters.HistoryAdapter
-import com.example.allinone.data.HistoryItem
 import com.example.allinone.databinding.FragmentHistoryBinding
 import com.example.allinone.viewmodels.HistoryViewModel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-class HistoryFragment : Fragment() {
+class HistoryFragment : BaseFragment() {
     private var _binding: FragmentHistoryBinding? = null
     private val binding get() = _binding!!
     
@@ -36,11 +34,8 @@ class HistoryFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
-        // Set title in main app bar
-        (requireActivity() as AppCompatActivity).supportActionBar?.title = "History"
-        
-        // Hide the toolbar
-        activity?.findViewById<View>(R.id.toolbar)?.visibility = View.GONE
+        // Setup custom toolbar
+        setupToolbar()
         
         // Initialize ViewModel
         viewModel = ViewModelProvider(this)[HistoryViewModel::class.java]
@@ -74,10 +69,18 @@ class HistoryFragment : Fragment() {
         }
     }
     
+    private fun setupToolbar() {
+        // Set up toolbar title
+        binding.toolbarTitle.text = getString(R.string.history)
+        
+        // Setup menu button to open drawer
+        binding.menuButton.setOnClickListener {
+            openDrawer()
+        }
+    }
+    
     override fun onDestroyView() {
         super.onDestroyView()
-        // Show the toolbar again when leaving
-        activity?.findViewById<View>(R.id.toolbar)?.visibility = View.VISIBLE
         _binding = null
     }
 } 
