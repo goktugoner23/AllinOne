@@ -18,6 +18,10 @@ import java.util.UUID
 import java.util.Date
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import android.util.Log
+import com.google.android.gms.tasks.Tasks
+import java.util.concurrent.TimeUnit
+import com.google.firebase.FirebaseApp
 
 /**
  * Manager class for Firebase operations (storage only)
@@ -38,6 +42,11 @@ class FirebaseManager(private val context: Context? = null) {
     private val imagesRef: StorageReference = storage.reference.child("images")
     private val attachmentsRef: StorageReference = storage.reference.child("attachments")
     
+    // Constants
+    companion object {
+        private const val TAG = "FirebaseManager"
+    }
+    
     // Device ID for anonymous data storage
     private val deviceId: String by lazy {
         if (context != null) {
@@ -54,19 +63,32 @@ class FirebaseManager(private val context: Context? = null) {
     }
     
     // Transactions
-    suspend fun saveTransaction(transaction: Transaction) {
-        val transactionMap = hashMapOf(
-            "id" to transaction.id,
-            "amount" to transaction.amount,
-            "type" to transaction.type,
-            "category" to transaction.category,
-            "description" to transaction.description,
-            "isIncome" to transaction.isIncome,
-            "date" to transaction.date,
-            "deviceId" to deviceId
-        )
-        
-        transactionsCollection.document(transaction.id.toString()).set(transactionMap).await()
+    suspend fun saveTransaction(transaction: Transaction): Boolean {
+        try {
+            Log.d(TAG, "Starting to save transaction with ID: ${transaction.id}, deviceId: $deviceId")
+            
+            val transactionMap = hashMapOf(
+                "id" to transaction.id,
+                "amount" to transaction.amount,
+                "type" to transaction.type,
+                "category" to transaction.category,
+                "description" to transaction.description,
+                "isIncome" to transaction.isIncome,
+                "date" to transaction.date,
+                "deviceId" to deviceId
+            )
+            
+            Log.d(TAG, "Setting transaction document with ID: ${transaction.id}")
+            
+            // Use a task with timeout
+            val task = transactionsCollection.document(transaction.id.toString()).set(transactionMap)
+            Tasks.await(task, 15, TimeUnit.SECONDS)
+            
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving transaction: ${e.message}", e)
+            return false
+        }
     }
     
     suspend fun getTransactions(): List<Transaction> {
@@ -204,33 +226,48 @@ class FirebaseManager(private val context: Context? = null) {
     }
     
     // WT Students
-    suspend fun saveStudent(student: WTStudent) {
-        // Upload attachment if any
-        var attachmentUrl = ""
-        if (student.attachmentUri != null) {
-            try {
-                val uri = Uri.parse(student.attachmentUri)
-                val attachmentRef = attachmentsRef.child("${UUID.randomUUID()}")
-                attachmentRef.putFile(uri).await()
-                attachmentUrl = attachmentRef.downloadUrl.await().toString()
-            } catch (e: Exception) {
-                // Skip failed upload
+    suspend fun saveStudent(student: WTStudent): Boolean {
+        try {
+            Log.d(TAG, "Starting to save student with ID: ${student.id}, name: ${student.name}, deviceId: $deviceId")
+            
+            // Upload attachment if any
+            var attachmentUrl = ""
+            if (student.attachmentUri != null) {
+                try {
+                    val uri = Uri.parse(student.attachmentUri)
+                    val attachmentRef = attachmentsRef.child("${UUID.randomUUID()}")
+                    attachmentRef.putFile(uri).await()
+                    attachmentUrl = attachmentRef.downloadUrl.await().toString()
+                    Log.d(TAG, "Uploaded attachment for student: $attachmentUrl")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to upload attachment: ${e.message}", e)
+                    // Skip failed upload
+                }
             }
+            
+            val studentMap = hashMapOf(
+                "id" to student.id,
+                "name" to student.name,
+                "startDate" to student.startDate,
+                "endDate" to student.endDate,
+                "amount" to student.amount,
+                "isPaid" to student.isPaid,
+                "paymentDate" to student.paymentDate,
+                "attachmentUri" to attachmentUrl,
+                "deviceId" to deviceId
+            )
+            
+            Log.d(TAG, "Setting student document with ID: ${student.id}")
+            
+            // Use a task with timeout
+            val task = studentsCollection.document(student.id.toString()).set(studentMap)
+            Tasks.await(task, 15, TimeUnit.SECONDS)
+            
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving student: ${e.message}", e)
+            return false
         }
-        
-        val studentMap = hashMapOf(
-            "id" to student.id,
-            "name" to student.name,
-            "startDate" to student.startDate,
-            "endDate" to student.endDate,
-            "amount" to student.amount,
-            "isPaid" to student.isPaid,
-            "paymentDate" to student.paymentDate,
-            "attachmentUri" to attachmentUrl,
-            "deviceId" to deviceId
-        )
-        
-        studentsCollection.document(student.id.toString()).set(studentMap).await()
     }
     
     suspend fun getStudents(): List<WTStudent> {
@@ -395,33 +432,56 @@ class FirebaseManager(private val context: Context? = null) {
     }
     
     /**
-     * Tests the Firebase connection by performing a simple query
-     * This can be used to check if Google Play Services is working properly
+     * Test Firebase connection and project setup
      */
-    suspend fun testConnection() {
-        try {
-            // Try to write to the test collection which has open security rules
+    suspend fun testConnection(): Boolean {
+        Log.d(TAG, "Testing Firebase connection...")
+        return try {
+            // Create a test document with timestamp
+            val timestamp = System.currentTimeMillis()
             val testData = hashMapOf(
-                "timestamp" to System.currentTimeMillis(),
-                "message" to "Firebase connection test",
+                "test" to true,
+                "timestamp" to timestamp,
+                "created" to Date(timestamp),
                 "deviceId" to deviceId
             )
             
-            // Try the test_connection collection which should have open rules
-            firestore.collection("test_connection")
-                .document("test_document")
-                .set(testData)
-                .await()
-                
-            // Then try to read it back
-            firestore.collection("test_connection")
-                .document("test_document")
-                .get()
-                .await()
+            // Use a unique document ID to avoid conflicts
+            val docRef = firestore.collection("test_connection")
+                .document("test_${timestamp}_${deviceId.take(8)}")
             
-            // If we reach here, the connection is working
+            Log.d(TAG, "Creating test document...")
+            
+            // Add the test document with a timeout
+            try {
+                val task = docRef.set(testData)
+                Tasks.await(task, 10, TimeUnit.SECONDS)
+                Log.d(TAG, "Test document created successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to create test document: ${e.message}", e)
+                throw e
+            }
+            
+            // Try to read it back
+            try {
+                Log.d(TAG, "Verifying test document was created...")
+                val snapshot = docRef.get().await()
+                val exists = snapshot.exists()
+                
+                if (exists) {
+                    Log.d(TAG, "Firebase connection test successful")
+                    return true
+                } else {
+                    Log.w(TAG, "Test document was not found after writing it")
+                    return false
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to verify test document: ${e.message}", e)
+                throw e
+            }
         } catch (e: Exception) {
-            throw Exception("Firebase connection test failed: ${e.message}", e)
+            Log.e(TAG, "Firebase connection test failed: ${e.message}", e)
+            return false
         }
     }
     
