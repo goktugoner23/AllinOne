@@ -121,6 +121,9 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         drawerLayout = binding.drawerLayout
         navigationView = binding.navView
 
+        // Set the toolbar as the support action bar
+        setSupportActionBar(binding.toolbar)
+
         // Set up the drawer toggle
         toggle = ActionBarDrawerToggle(
             this,
@@ -326,16 +329,19 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             }
         }
         
-        // Set appropriate title in the toolbar for each destination
-        supportActionBar?.title = when (destination.id) {
-            R.id.homeFragment -> getString(R.string.app_name)
-            R.id.nav_investments -> getString(R.string.title_investments)
-            R.id.nav_notes -> getString(R.string.title_notes)
-            R.id.nav_wt_registry -> getString(R.string.title_wing_tzun_registry)
-            R.id.nav_history -> getString(R.string.title_history)
-            R.id.wtRegisterFragment -> getString(R.string.title_wing_tzun_registry)
+        // Set the title based on destination label or use a specific title
+        val title = when (destination.id) {
+            R.id.homeFragment -> "Transactions"
+            R.id.nav_investments -> "Investments"
+            R.id.nav_notes -> "Notes"
+            R.id.nav_wt_registry -> "Wing Tzun Registry"
+            R.id.nav_history -> "History"
+            R.id.wtRegisterFragment -> "Wing Tzun Registry"
             else -> destination.label?.toString() ?: getString(R.string.app_name)
         }
+        
+        // Set the title in the action bar
+        supportActionBar?.title = title
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
