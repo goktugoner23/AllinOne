@@ -355,12 +355,8 @@ class WTRegisterFragment : Fragment() {
             .setTitle("Confirm Payment")
             .setMessage("Mark ${student.name} as paid?")
             .setPositiveButton("Yes") { _, _ ->
-                val updatedStudent = student.copy(
-                    isPaid = true,
-                    paymentDate = Date()
-                )
-                viewModel.updateStudent(updatedStudent)
-                showSnackbar("Payment status updated")
+                viewModel.markAsPaid(student)
+                showSnackbar("Payment status updated and transaction recorded")
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -369,14 +365,10 @@ class WTRegisterFragment : Fragment() {
     private fun showUnpaidConfirmation(student: WTStudent) {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Change Payment Status")
-            .setMessage("Mark ${student.name} as unpaid?")
+            .setMessage("Mark ${student.name} as unpaid? This will deduct the payment amount from your transactions.")
             .setPositiveButton("Yes") { _, _ ->
-                val updatedStudent = student.copy(
-                    isPaid = false,
-                    paymentDate = null
-                )
-                viewModel.updateStudent(updatedStudent)
-                showSnackbar("Payment status updated")
+                viewModel.markAsUnpaid(student)
+                showSnackbar("Payment status updated and transaction reversed")
             }
             .setNegativeButton("Cancel", null)
             .show()

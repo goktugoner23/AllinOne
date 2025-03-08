@@ -141,8 +141,27 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
 
     fun markAsUnpaid(student: WTStudent) {
         viewModelScope.launch {
+            // Update student payment status
             val updatedStudent = student.copy(isPaid = false, paymentDate = null)
             repository.updateStudent(updatedStudent)
+
+            // Add a negative transaction record to offset the payment
+            val transaction = Transaction(
+                id = UUID.randomUUID().mostSignificantBits,
+                amount = student.amount,
+                type = "Wing Tzun",
+                description = "Payment reversal for ${student.name}",
+                isIncome = false,  // This makes it a deduction
+                date = Date(),
+                category = "Wing Tzun"
+            )
+            repository.insertTransaction(
+                amount = transaction.amount,
+                type = transaction.type,
+                description = transaction.description,
+                isIncome = transaction.isIncome,
+                category = transaction.category
+            )
         }
     }
 
