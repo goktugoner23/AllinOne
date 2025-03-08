@@ -8,8 +8,4 @@
         android:id="@+id/wtLessonsFragment"
         android:icon="@drawable/ic_lessons"
         android:title="Lessons" />
-    <item
-        android:id="@+id/wtCalendarFragment"
-        android:icon="@drawable/ic_calendar"
-        android:title="Calendar" />
 </menu> 

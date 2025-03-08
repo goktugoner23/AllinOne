@@ -436,7 +436,7 @@ class FirebaseManager(private val context: Context? = null) {
      */
     suspend fun testConnection(): Boolean {
         Log.d(TAG, "Testing Firebase connection...")
-        return try {
+        try {
             // Create a test document with timestamp
             val timestamp = System.currentTimeMillis()
             val testData = hashMapOf(

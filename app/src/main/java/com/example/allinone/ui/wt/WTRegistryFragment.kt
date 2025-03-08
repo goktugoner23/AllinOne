@@ -57,12 +57,6 @@ class WTRegistryFragment : Fragment() {
                         .commit()
                     true
                 }
-                R.id.wtCalendarFragment -> {
-                    childFragmentManager.beginTransaction()
-                        .replace(R.id.wtFragmentContainer, WTCalendarFragment())
-                        .commit()
-                    true
-                }
                 else -> false
             }
         }
@@ -139,7 +133,6 @@ class WTRegistryFragment : Fragment() {
         val title = when (itemId) {
             R.id.wtRegisterFragment -> getString(R.string.title_wing_tzun_registry)
             R.id.wtLessonsFragment -> getString(R.string.title_lesson_schedule)
-            R.id.wtCalendarFragment -> getString(R.string.title_calendar)
             else -> getString(R.string.title_wing_tzun_registry)
         }
         

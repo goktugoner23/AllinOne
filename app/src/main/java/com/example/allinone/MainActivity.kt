@@ -39,7 +39,6 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 import android.app.AlertDialog
-import android.app.ProgressDialog
 import android.util.Log
 import androidx.lifecycle.lifecycleScope
 
