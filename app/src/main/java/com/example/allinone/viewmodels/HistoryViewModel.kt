@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import java.util.*
 
 class HistoryViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FirebaseRepository(application)
@@ -160,7 +161,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
             id = id,
             title = name,
             description = if (isPaid) "Paid" else "Not Paid",
-            date = startDate,
+            date = startDate ?: Date(),
             amount = amount,
             type = "Student",
             imageUri = attachmentUri,

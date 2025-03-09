@@ -15,8 +15,8 @@
 
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/profileImage"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:contentDescription="@string/profile_image"
             android:scaleType="centerCrop"
             android:src="@drawable/default_profile"
@@ -33,43 +33,63 @@
             android:layout_marginTop="2dp"
             android:textAppearance="?attr/textAppearanceSubtitle1"
             android:textStyle="bold"
-            app:layout_constraintEnd_toStartOf="@id/statusIndicator"
+            app:layout_constraintEnd_toStartOf="@id/buttonsContainer"
             app:layout_constraintStart_toEndOf="@id/profileImage"
             app:layout_constraintTop_toTopOf="parent"
             tools:text="John Doe" />
 
         <TextView
-            android:id="@+id/phoneNumber"
+            android:id="@+id/courseStartDate"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
             android:layout_marginTop="2dp"
             android:textAppearance="?attr/textAppearanceBody2"
-            app:layout_constraintEnd_toStartOf="@id/statusIndicator"
+            app:layout_constraintEnd_toStartOf="@id/buttonsContainer"
             app:layout_constraintStart_toEndOf="@id/profileImage"
             app:layout_constraintTop_toBottomOf="@id/studentName"
-            tools:text="+90 555 123 4567" />
+            tools:text="Started: 15 Jan 2023" />
             
         <TextView
-            android:id="@+id/email"
+            android:id="@+id/amountText"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
+            android:layout_marginTop="2dp"
             android:textAppearance="?attr/textAppearanceCaption"
-            android:visibility="gone"
-            app:layout_constraintEnd_toStartOf="@id/statusIndicator"
+            app:layout_constraintEnd_toStartOf="@id/buttonsContainer"
             app:layout_constraintStart_toEndOf="@id/profileImage"
-            app:layout_constraintTop_toBottomOf="@id/phoneNumber"
-            tools:text="john.doe@example.com"
-            tools:visibility="visible" />
+            app:layout_constraintTop_toBottomOf="@id/courseStartDate"
+            tools:text="Amount: ₺250" />
 
-        <View
-            android:id="@+id/statusIndicator"
-            android:layout_width="12dp"
-            android:layout_height="12dp"
-            android:background="@drawable/circle_shape"
+        <!-- Container for buttons to align them horizontally -->
+        <LinearLayout
+            android:id="@+id/buttonsContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintTop_toTopOf="parent">
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/paymentStatusChip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                app:chipBackgroundColor="@color/colorSuccess"
+                tools:text="Paid" />
+
+            <ImageButton
+                android:id="@+id/shareButton"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/share_registration"
+                android:src="@android:drawable/ic_menu_share"
+                app:tint="?attr/colorPrimary" />
+        </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

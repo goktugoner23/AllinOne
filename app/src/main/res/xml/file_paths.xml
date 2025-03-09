@@ -3,6 +3,9 @@
     <!-- For backups stored in app's external files directory -->
     <external-files-path name="backups" path="backups" />
     
+    <!-- For camera photos stored in app's external files directory -->
+    <external-files-path name="student_photos" path="." />
+    
     <!-- For temporary files that might be shared -->
     <cache-path name="cache" path="." />
 </paths> 

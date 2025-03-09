@@ -15,12 +15,24 @@ import com.example.allinone.R
 import com.example.allinone.databinding.FragmentWtRegistryBinding
 import com.example.allinone.data.WTLesson
 import com.example.allinone.viewmodels.WTRegisterViewModel
+// Import all needed WT fragment classes
+import com.example.allinone.ui.wt.WTStudentsFragment
+import com.example.allinone.ui.wt.WTRegisterFragment
+import com.example.allinone.ui.wt.WTLessonsFragment
 
 class WTRegistryFragment : Fragment() {
     private var _binding: FragmentWtRegistryBinding? = null
     private val binding get() = _binding!!
     private val viewModel: WTRegisterViewModel by viewModels()
     private var networkStatusText: TextView? = null
+    
+    // Keep fragment instances to reuse them
+    private val studentsFragment by lazy { WTStudentsFragment() }
+    private val registerFragment by lazy { WTRegisterFragment() }
+    private val lessonsFragment by lazy { WTLessonsFragment() }
+    
+    // Track the current fragment
+    private var currentFragment: Fragment? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentWtRegistryBinding.inflate(inflater, container, false)
@@ -31,7 +43,7 @@ class WTRegistryFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         
         // Set initial title
-        updateTitle(R.id.wtRegisterFragment)
+        updateTitle(R.id.wtStudentsFragment)
         
         // Hide main bottom navigation and show WT bottom navigation
         requireActivity().findViewById<View>(R.id.bottomNavigation).visibility = View.GONE
@@ -40,32 +52,54 @@ class WTRegistryFragment : Fragment() {
         // Setup network status indicator
         setupNetworkStatusIndicator()
         
-        // Setup navigation between Register, Lessons and Calendar
+        // Setup navigation between Students, Register, and Lessons
         binding.wtBottomNavigation.setOnItemSelectedListener { item ->
             // Update title based on selected item
             updateTitle(item.itemId)
             
             when (item.itemId) {
+                R.id.wtStudentsFragment -> {
+                    switchFragment(studentsFragment)
+                    true
+                }
                 R.id.wtRegisterFragment -> {
-                    childFragmentManager.beginTransaction()
-                        .replace(R.id.wtFragmentContainer, WTRegisterFragment())
-                        .commit()
+                    switchFragment(registerFragment)
                     true
                 }
                 R.id.wtLessonsFragment -> {
-                    childFragmentManager.beginTransaction()
-                        .replace(R.id.wtFragmentContainer, WTLessonsFragment())
-                        .commit()
+                    switchFragment(lessonsFragment)
                     true
                 }
                 else -> false
             }
         }
         
-        // Set default fragment
+        // Set default fragment to Students tab
         if (savedInstanceState == null) {
-            binding.wtBottomNavigation.selectedItemId = R.id.wtRegisterFragment
+            binding.wtBottomNavigation.selectedItemId = R.id.wtStudentsFragment
         }
+    }
+    
+    private fun switchFragment(fragment: Fragment) {
+        if (currentFragment == fragment) {
+            // Fragment already displayed, no need to switch
+            return
+        }
+        
+        val transaction = childFragmentManager.beginTransaction()
+        
+        if (fragment.isAdded) {
+            // Fragment already added, just show it
+            currentFragment?.let { transaction.hide(it) }
+            transaction.show(fragment)
+        } else {
+            // First time showing this fragment
+            currentFragment?.let { transaction.hide(it) }
+            transaction.add(R.id.wtFragmentContainer, fragment)
+        }
+        
+        transaction.commit()
+        currentFragment = fragment
     }
     
     private fun setupNetworkStatusIndicator() {
@@ -132,7 +166,8 @@ class WTRegistryFragment : Fragment() {
     
     private fun updateTitle(itemId: Int) {
         val title = when (itemId) {
-            R.id.wtRegisterFragment -> getString(R.string.title_wing_tzun_registry)
+            R.id.wtStudentsFragment -> getString(R.string.title_students)
+            R.id.wtRegisterFragment -> getString(R.string.title_register)
             R.id.wtLessonsFragment -> getString(R.string.title_lesson_schedule)
             else -> getString(R.string.title_wing_tzun_registry)
         }

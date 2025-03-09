@@ -16,4 +16,9 @@
         <item name="itemTextColor">@color/bottom_nav_item_color</item>
         <item name="itemRippleColor">@color/bright_tab_selected</item>
     </style>
+    
+    <style name="circleImageView">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
 </resources> 

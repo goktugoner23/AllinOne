@@ -244,9 +244,29 @@ class FirebaseManager(private val context: Context? = null) {
                 }
             }
             
+            // Upload profile image if any and it's a local file
+            var profileImageUrl = student.profileImageUri
+            if (student.profileImageUri != null && student.profileImageUri.startsWith("content://")) {
+                try {
+                    val uri = Uri.parse(student.profileImageUri)
+                    val imageRef = imagesRef.child("profiles/${UUID.randomUUID()}")
+                    imageRef.putFile(uri).await()
+                    profileImageUrl = imageRef.downloadUrl.await().toString()
+                    Log.d(TAG, "Uploaded profile image for student: $profileImageUrl")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to upload profile image: ${e.message}", e)
+                    // Keep the original URI on failure
+                }
+            }
+            
             val studentMap = hashMapOf(
                 "id" to student.id,
                 "name" to student.name,
+                "phoneNumber" to student.phoneNumber,
+                "email" to student.email,
+                "instagram" to student.instagram,
+                "isActive" to student.isActive,
+                "profileImageUri" to profileImageUrl,
                 "startDate" to student.startDate,
                 "endDate" to student.endDate,
                 "amount" to student.amount,
@@ -274,16 +294,35 @@ class FirebaseManager(private val context: Context? = null) {
             try {
                 val snapshot = studentsCollection.whereEqualTo("deviceId", deviceId).get().await()
                 snapshot.documents.mapNotNull { doc ->
-                    val id = doc.getLong("id") ?: return@mapNotNull null
+                    val id = doc.id.hashCode().toLong()
                     val name = doc.getString("name") ?: ""
-                    val startDate = doc.getDate("startDate") ?: Date()
-                    val endDate = doc.getDate("endDate") ?: Date()
+                    val phoneNumber = doc.getString("phoneNumber") ?: ""
+                    val email = doc.getString("email")
+                    val instagram = doc.getString("instagram")
+                    val isActive = doc.getBoolean("isActive") ?: true
+                    val profileImageUri = doc.getString("profileImageUri")
+                    val startDate = doc.getDate("startDate")
+                    val endDate = doc.getDate("endDate")
                     val amount = doc.getDouble("amount") ?: 0.0
                     val isPaid = doc.getBoolean("isPaid") ?: false
                     val paymentDate = doc.getDate("paymentDate")
                     val attachmentUri = doc.getString("attachmentUri")
                     
-                    WTStudent(id, name, startDate, endDate, amount, isPaid, paymentDate, attachmentUri)
+                    WTStudent(
+                        id = id, 
+                        name = name,
+                        phoneNumber = phoneNumber,
+                        email = email,
+                        instagram = instagram,
+                        isActive = isActive,
+                        profileImageUri = profileImageUri,
+                        startDate = startDate,
+                        endDate = endDate,
+                        amount = amount,
+                        isPaid = isPaid,
+                        paymentDate = paymentDate,
+                        attachmentUri = attachmentUri
+                    )
                 }
             } catch (e: Exception) {
                 emptyList()

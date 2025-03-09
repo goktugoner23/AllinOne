@@ -20,6 +20,8 @@
     
     <!-- Network status color -->
     <color name="colorError">#F44336</color>
+    <color name="colorSuccess">#4CAF50</color>
+    <color name="colorWarning">#FFC107</color>
     
     <!-- Dark theme colors - Professional Navy Blue theme -->
     <color name="navy_primary">#003566</color>         <!-- Deep navy blue (primary) -->

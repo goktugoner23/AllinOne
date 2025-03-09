@@ -37,7 +37,59 @@
     <string name="title_investments">Investments</string>
     <string name="title_notes">Notes</string>
     <string name="title_wing_tzun_registry">Wing Tzun Registry</string>
+    <string name="title_students">Students</string>
+    <string name="title_register">Register</string>
     <string name="title_history">History</string>
     <string name="title_lesson_schedule">Lesson Schedule</string>
     <string name="title_calendar">Calendar</string>
+    <string name="profile_image">Profile Image</string>
+    <string name="add_photo">Add Photo</string>
+    <string name="name">Name</string>
+    <string name="phone_number">Phone Number</string>
+    <string name="email">E-mail</string>
+    <string name="instagram">Instagram</string>
+    <string name="active_status">Active Status</string>
+    <string name="add_student">Add Student</string>
+    <string name="edit_student">Edit Student</string>
+    <string name="required_fields_missing">Name and Phone are required fields</string>
+    <string name="no_students">No Students</string>
+    <string name="add_student_prompt">Add students to start registering them for courses</string>
+    
+    <!-- Course Registration -->
+    <string name="add_registration">Add New Registration</string>
+    <string name="edit_registration">Edit Registration</string>
+    <string name="select_student">Select Student</string>
+    <string name="start_date">Start Date</string>
+    <string name="end_date">End Date</string>
+    <string name="payment_received">Payment Received</string>
+    <string name="registration_success">Student registered for course successfully</string>
+    <string name="registration_updated">Registration updated successfully</string>
+    <string name="payment_receipt">Payment Receipt</string>
+    <string name="add_receipt">Add Receipt</string>
+    <string name="receipt_unavailable">Receipt unavailable</string>
+    <string name="share_registration">Share Registration Info</string>
+    <string name="please_select_student">Please select a student</string>
+    <string name="please_select_start_date">Please select start date</string>
+    <string name="please_select_end_date">Please select end date</string>
+    <string name="please_enter_valid_amount">Please enter valid amount</string>
+    <string name="attachments_only_for_paid_registrations">Attachments can only be added for paid registrations</string>
+    <string name="no_registrations">No Course Registrations</string>
+    <string name="no_registrations_prompt">Add students to courses by clicking the + button</string>
+    
+    <!-- Photo Selection -->
+    <string name="select_profile_photo">Select Profile Photo</string>
+    <string name="take_photo">Take Photo</string>
+    <string name="choose_from_gallery">Choose from Gallery</string>
+    <string name="camera_permission_title">Camera Permission</string>
+    <string name="camera_permission_message">Camera permission is needed to take photos for student profiles.</string>
+    <string name="storage_permission_title">Storage Permission</string>
+    <string name="storage_permission_message">Storage permission is needed to select photos for student profiles.</string>
+    <string name="grant_permission">Grant Permission</string>
+    <string name="permission_denied">%1$s permission denied. Unable to proceed.</string>
+    <string name="error_camera">Error preparing camera: %1$s</string>
+    <string name="status_paid_desc">Paid. Click to mark as unpaid</string>
+    <string name="status_unpaid_desc">Unpaid. Click to mark as paid</string>
+    
+    <!-- Form validation -->
+    <string name="field_required">This field is required</string>
 </resources>

@@ -1,11 +1,14 @@
 package com.example.allinone.adapters
 
+import android.net.Uri
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.example.allinone.R
 import com.example.allinone.data.WTStudent
 import com.example.allinone.databinding.ItemWtStudentBinding
 import java.text.SimpleDateFormat
@@ -13,7 +16,7 @@ import java.util.Locale
 
 class WTStudentAdapter(
     private val onItemClick: (WTStudent) -> Unit,
-    private val onPaymentStatusClick: (WTStudent) -> Unit
+    private val onPaymentStatusClick: ((WTStudent) -> Unit)? = null
 ) : ListAdapter<WTStudent, WTStudentAdapter.WTStudentViewHolder>(WTStudentDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): WTStudentViewHolder {
@@ -32,7 +35,6 @@ class WTStudentAdapter(
     inner class WTStudentViewHolder(
         private val binding: ItemWtStudentBinding
     ) : RecyclerView.ViewHolder(binding.root) {
-        private val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
 
         init {
             binding.root.setOnClickListener {
@@ -41,11 +43,14 @@ class WTStudentAdapter(
                     onItemClick(getItem(position))
                 }
             }
-
-            binding.paymentStatus.setOnClickListener {
-                val position = adapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    onPaymentStatusClick(getItem(position))
+            
+            // Add payment status click listener only if callback is provided
+            onPaymentStatusClick?.let { callback ->
+                binding.statusIndicator.setOnClickListener {
+                    val position = adapterPosition
+                    if (position != RecyclerView.NO_POSITION) {
+                        callback(getItem(position))
+                    }
                 }
             }
         }
@@ -53,14 +58,43 @@ class WTStudentAdapter(
         fun bind(student: WTStudent) {
             binding.apply {
                 studentName.text = student.name
-                dateRange.text = "${dateFormat.format(student.startDate)} - ${dateFormat.format(student.endDate)}"
-                amount.text = String.format("₺%.2f", student.amount)
-
-                paymentStatus.apply {
-                    text = if (student.isPaid) "Paid" else "Unpaid"
-                    setChipBackgroundColorResource(
-                        if (student.isPaid) android.R.color.holo_green_light
+                phoneNumber.text = student.phoneNumber
+                
+                // Show email if available
+                if (!student.email.isNullOrEmpty()) {
+                    email.visibility = View.VISIBLE
+                    email.text = student.email
+                } else {
+                    email.visibility = View.GONE
+                }
+                
+                // Set profile image if available
+                student.profileImageUri?.let { imageUri ->
+                    try {
+                        profileImage.setImageURI(Uri.parse(imageUri))
+                    } catch (e: Exception) {
+                        profileImage.setImageResource(R.drawable.default_profile)
+                    }
+                } ?: profileImage.setImageResource(R.drawable.default_profile)
+                
+                // Set active status indicator color
+                statusIndicator.setBackgroundColor(
+                    ContextCompat.getColor(
+                        itemView.context,
+                        if (student.isActive) android.R.color.holo_green_light 
                         else android.R.color.holo_red_light
+                    )
+                )
+                
+                // Make status indicator clickable if payment callback is provided
+                if (onPaymentStatusClick != null) {
+                    statusIndicator.isClickable = true
+                    statusIndicator.isFocusable = true
+                    statusIndicator.contentDescription = itemView.context.getString(
+                        if (student.isPaid) 
+                            R.string.status_paid_desc 
+                        else 
+                            R.string.status_unpaid_desc
                     )
                 }
             }
@@ -69,11 +103,18 @@ class WTStudentAdapter(
 
     private class WTStudentDiffCallback : DiffUtil.ItemCallback<WTStudent>() {
         override fun areItemsTheSame(oldItem: WTStudent, newItem: WTStudent): Boolean {
+            // Use only ID to determine if items are the same
             return oldItem.id == newItem.id
         }
 
         override fun areContentsTheSame(oldItem: WTStudent, newItem: WTStudent): Boolean {
-            return oldItem == newItem
+            // Check all the fields that are shown in the student item view
+            return oldItem.id == newItem.id &&
+                   oldItem.name == newItem.name &&
+                   oldItem.phoneNumber == newItem.phoneNumber &&
+                   oldItem.email == newItem.email &&
+                   oldItem.isActive == newItem.isActive &&
+                   oldItem.profileImageUri == newItem.profileImageUri
         }
     }
 } 

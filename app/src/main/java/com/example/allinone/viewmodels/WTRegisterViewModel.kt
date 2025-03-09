@@ -25,11 +25,17 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
     private val _allStudents = MutableLiveData<List<WTStudent>>(emptyList())
     val allStudents: LiveData<List<WTStudent>> = _allStudents
     
+    private val _activeStudents = MutableLiveData<List<WTStudent>>(emptyList())
+    val activeStudents: LiveData<List<WTStudent>> = _activeStudents
+    
     private val _unpaidStudents = MutableLiveData<List<WTStudent>>(emptyList())
     val unpaidStudents: LiveData<List<WTStudent>> = _unpaidStudents
     
     private val _paidStudents = MutableLiveData<List<WTStudent>>(emptyList())
     val paidStudents: LiveData<List<WTStudent>> = _paidStudents
+    
+    private val _registeredStudents = MutableLiveData<List<WTStudent>>(emptyList())
+    val registeredStudents: LiveData<List<WTStudent>> = _registeredStudents
     
     private val _lessonSchedule = MutableLiveData<List<WTLesson>>(emptyList())
     private val calendarViewModel: CalendarViewModel by lazy { 
@@ -48,9 +54,14 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
         // Collect students from the repository flow
         viewModelScope.launch {
             repository.students.collect { students ->
-                _allStudents.value = students
-                _unpaidStudents.value = students.filter { !it.isPaid }
-                _paidStudents.value = students.filter { it.isPaid }
+                // First ensure we have no duplicate IDs in the students list
+                val uniqueStudents = students.distinctBy { it.id }
+                
+                _allStudents.value = uniqueStudents
+                _activeStudents.value = uniqueStudents.filter { it.isActive }
+                _unpaidStudents.value = uniqueStudents.filter { !it.isPaid && it.startDate != null }
+                _paidStudents.value = uniqueStudents.filter { it.isPaid && it.startDate != null }
+                _registeredStudents.value = uniqueStudents.filter { it.startDate != null }
             }
         }
         
@@ -67,19 +78,27 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
         _errorMessage.value = null
     }
 
-    fun addStudent(name: String, startDate: Date, endDate: Date, amount: Double) {
+    // Add a new student
+    fun addStudent(student: WTStudent) {
+        viewModelScope.launch {
+            repository.insertStudent(student)
+        }
+    }
+
+    // Register a student for a course
+    fun registerStudentForCourse(student: WTStudent, startDate: Date, endDate: Date, amount: Double, isPaid: Boolean = false) {
         viewModelScope.launch {
             // Calculate accurate end date based on lesson schedule
             val calculatedEndDate = calculateEndDateBasedOnLessons(startDate)
             
-            val student = WTStudent(
-                id = UUID.randomUUID().mostSignificantBits,
-                name = name,
+            val updatedStudent = student.copy(
                 startDate = startDate,
-                endDate = calculatedEndDate ?: endDate, // Use calculated date or fallback to provided date
-                amount = amount
+                endDate = calculatedEndDate ?: endDate, // Use calculated date or fallback
+                amount = amount,
+                isPaid = isPaid,
+                paymentDate = if (isPaid) Date() else null
             )
-            repository.insertStudent(student)
+            repository.updateStudent(updatedStudent)
         }
     }
 
@@ -95,10 +114,12 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
 
     fun updateStudent(student: WTStudent) {
         viewModelScope.launch {
-            // If start date was changed, recalculate the end date
+            // If start date was changed and not null, recalculate the end date
             val existingStudent = _allStudents.value?.find { it.id == student.id }
             
-            if (existingStudent != null && existingStudent.startDate != student.startDate) {
+            if (existingStudent != null && 
+                student.startDate != null && 
+                existingStudent.startDate != student.startDate) {
                 // Calculate new end date
                 val calculatedEndDate = calculateEndDateBasedOnLessons(student.startDate)
                 
@@ -117,6 +138,12 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
 
     fun markAsPaid(student: WTStudent) {
         viewModelScope.launch {
+            // Ensure student has a course assigned with an amount
+            if (student.startDate == null || student.amount <= 0) {
+                _errorMessage.value = "Student must be registered for a course first"
+                return@launch
+            }
+            
             // Update student payment status
             val updatedStudent = student.copy(
                 isPaid = true,
@@ -146,6 +173,12 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
 
     fun markAsUnpaid(student: WTStudent) {
         viewModelScope.launch {
+            // Ensure student has a course assigned
+            if (student.startDate == null) {
+                _errorMessage.value = "Student must be registered for a course first"
+                return@launch
+            }
+            
             // Update student payment status
             val updatedStudent = student.copy(isPaid = false, paymentDate = null)
             repository.updateStudent(updatedStudent)

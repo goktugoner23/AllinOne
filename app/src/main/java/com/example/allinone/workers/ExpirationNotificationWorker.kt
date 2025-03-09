@@ -37,8 +37,11 @@ class ExpirationNotificationWorker(
         
         // Find students with expiring registrations (within 7 days)
         val expiringStudents = students.filter { student ->
-            val daysUntilExpiration = (student.endDate.time - today.time) / TimeUnit.DAYS.toMillis(1)
-            daysUntilExpiration in 0..7
+            // Only check students with a valid end date
+            student.endDate?.let { endDate ->
+                val daysUntilExpiration = (endDate.time - today.time) / TimeUnit.DAYS.toMillis(1)
+                daysUntilExpiration in 0..7
+            } ?: false // If endDate is null, don't include the student
         }
         
         if (expiringStudents.isNotEmpty()) {
