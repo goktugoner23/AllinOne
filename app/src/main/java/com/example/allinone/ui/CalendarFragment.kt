@@ -54,6 +54,9 @@ class CalendarFragment : Fragment() {
     // All events for the current month
     private val monthEvents = mutableListOf<Event>()
 
+    // Map to store all events by year, month, and day for quick lookup
+    private val allEvents = mutableMapOf<Int, MutableMap<Int, MutableMap<Int, MutableList<Event>>>>()
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -148,8 +151,9 @@ class CalendarFragment : Fragment() {
                     // Update calendar to show selection
                     updateCalendarForMonth(calendar)
                     
-                    // Filter events for the selected day
-                    val filteredEvents = dayEvents[day]?.sortedBy { it.date } ?: emptyList()
+                    // Get events for the selected day from the allEvents structure
+                    val selectedDayEvents = allEvents[selectedYear]?.get(selectedMonth)?.get(selectedDay)?.toList() ?: emptyList()
+                    val filteredEvents = selectedDayEvents.sortedBy { it.date }
                     
                     // Update events list header to show the selected date
                     val selectedDate = Calendar.getInstance().apply {
@@ -197,31 +201,44 @@ class CalendarFragment : Fragment() {
             // Clear previous events
             dayEvents.clear()
             monthEvents.clear()
+            allEvents.clear()
             
-            // Group events by day for quick lookups when the calendar needs to know if a day has events
+            // Get current date for filtering
+            val now = Calendar.getInstance()
+            val currentYear = now.get(Calendar.YEAR)
+            val currentMonth = now.get(Calendar.MONTH)
+            val currentDay = now.get(Calendar.DAY_OF_MONTH)
+            
+            // Process all events - STRICTLY FUTURE ONLY
             events.forEach { event ->
                 val eventCal = Calendar.getInstance().apply { time = event.date }
-                // Only process events for the current month and year
-                if (eventCal.get(Calendar.MONTH) == calendar.get(Calendar.MONTH) && 
-                    eventCal.get(Calendar.YEAR) == calendar.get(Calendar.YEAR)) {
-                    val day = eventCal.get(Calendar.DAY_OF_MONTH)
-                    
-                    // Add to day events map for internal tracking
-                    if (!dayEvents.containsKey(day)) {
-                        dayEvents[day] = mutableListOf()
+                val year = eventCal.get(Calendar.YEAR)
+                val month = eventCal.get(Calendar.MONTH)
+                val day = eventCal.get(Calendar.DAY_OF_MONTH)
+                
+                // Only process current and future events
+                // (Same year but later month, OR same year/month but same/later day, OR future year)
+                val isFutureOrToday = (year > currentYear) || 
+                                     (year == currentYear && month > currentMonth) || 
+                                     (year == currentYear && month == currentMonth && day >= currentDay)
+                
+                if (isFutureOrToday) {
+                    // Store all future events by year/month/day
+                    if (!allEvents.containsKey(year)) {
+                        allEvents[year] = mutableMapOf()
                     }
-                    dayEvents[day]?.add(event)
-                    
-                    // Add to the month events list for display
-                    monthEvents.add(event)
+                    if (!allEvents[year]!!.containsKey(month)) {
+                        allEvents[year]!![month] = mutableMapOf()
+                    }
+                    if (!allEvents[year]!![month]!!.containsKey(day)) {
+                        allEvents[year]!![month]!![day] = mutableListOf()
+                    }
+                    allEvents[year]!![month]!![day]!!.add(event)
                 }
             }
             
-            // Sort events by date
-            monthEvents.sortBy { it.date }
-            
-            // Update the RecyclerView with the events
-            updateEventsList()
+            // Update calendar data for current month view
+            updateEventsForCurrentMonth()
             
             // Update the calendar UI
             updateCalendarForMonth(calendar)
@@ -244,8 +261,9 @@ class CalendarFragment : Fragment() {
     private fun updateEventsList() {
         // Check if a day is selected
         if (selectedDay > 0) {
-            // If a specific day is selected, show events for that day
-            val filteredEvents = dayEvents[selectedDay]?.sortedBy { it.date } ?: emptyList()
+            // Get events for the selected day directly from the allEvents structure
+            val selectedDayEvents = allEvents[selectedYear]?.get(selectedMonth)?.get(selectedDay)?.toList() ?: emptyList()
+            val filteredEvents = selectedDayEvents.sortedBy { it.date }
             
             // Update the RecyclerView with filtered events
             if (filteredEvents.isEmpty()) {
@@ -260,24 +278,26 @@ class CalendarFragment : Fragment() {
                 binding.emptyEventsText.visibility = View.GONE
                 eventAdapter.submitList(filteredEvents)
             }
-        } else {
-            // On initial load or when no day is selected, show today's events
-            val today = Calendar.getInstance()
-            val todayDay = today.get(Calendar.DAY_OF_MONTH)
-            val todayEvents = dayEvents[todayDay]?.sortedBy { it.date } ?: emptyList()
             
-            if (todayEvents.isEmpty()) {
+            // Update events header
+            val selectedDate = Calendar.getInstance().apply {
+                set(selectedYear, selectedMonth, selectedDay)
+            }.time
+            binding.eventsHeader.text = "Events - ${fullDateFormat.format(selectedDate)}"
+        } else {
+            // No day selected - show all events for the current displayed month
+            if (monthEvents.isEmpty()) {
                 binding.eventsRecyclerView.visibility = View.GONE
-                binding.emptyEventsText.text = "No events for today"
+                binding.emptyEventsText.text = "No events for ${dateFormatter.format(calendar.time)}"
                 binding.emptyEventsText.visibility = View.VISIBLE
             } else {
                 binding.eventsRecyclerView.visibility = View.VISIBLE
                 binding.emptyEventsText.visibility = View.GONE
-                eventAdapter.submitList(todayEvents)
+                eventAdapter.submitList(monthEvents)
             }
             
             // Update the events header
-            binding.eventsHeader.text = "Events - Today (${fullDateFormat.format(today.time)})"
+            binding.eventsHeader.text = "Events - ${dateFormatter.format(calendar.time)}"
         }
     }
     
@@ -292,10 +312,11 @@ class CalendarFragment : Fragment() {
                 selectedDay = -1 // No selection in the new month initially
             }
             
-            updateCalendarForMonth(calendar)
+            // Load events for the new month
+            updateEventsForCurrentMonth()
             
-            // Refresh events from the ViewModel for the new month
-            viewModel.forceRefresh()
+            // Update calendar UI
+            updateCalendarForMonth(calendar)
         }
         
         // Next month button
@@ -308,26 +329,44 @@ class CalendarFragment : Fragment() {
                 selectedDay = -1 // No selection in the new month initially
             }
             
-            updateCalendarForMonth(calendar)
+            // Load events for the new month
+            updateEventsForCurrentMonth()
             
-            // Refresh events from the ViewModel for the new month
-            viewModel.forceRefresh()
+            // Update calendar UI
+            updateCalendarForMonth(calendar)
+        }
+    }
+    
+    /**
+     * Updates the dayEvents and monthEvents collections for the current month
+     * using the data from the allEvents structure
+     */
+    private fun updateEventsForCurrentMonth() {
+        // Clear the current month's data
+        dayEvents.clear()
+        monthEvents.clear()
+        
+        // Get the current year and month from the calendar
+        val year = calendar.get(Calendar.YEAR)
+        val month = calendar.get(Calendar.MONTH)
+        
+        // Load events for this specific month from allEvents
+        if (allEvents.containsKey(year) && allEvents[year]!!.containsKey(month)) {
+            // We have events for this month
+            allEvents[year]!![month]!!.forEach { (day, events) ->
+                // Add to day events for internal tracking
+                dayEvents[day] = events.toMutableList()
+                
+                // Add all events to monthEvents for display
+                monthEvents.addAll(events)
+            }
+            
+            // Sort events by date
+            monthEvents.sortBy { it.date }
         }
         
-        // Today button
-        binding.todayButton.setOnClickListener {
-            calendar.time = Date() // Reset to today
-            
-            // Set selection to today
-            selectedDay = calendar.get(Calendar.DAY_OF_MONTH)
-            selectedMonth = calendar.get(Calendar.MONTH)
-            selectedYear = calendar.get(Calendar.YEAR)
-            
-            updateCalendarForMonth(calendar)
-            
-            // Refresh events for current month
-            viewModel.forceRefresh()
-        }
+        // Update the events list UI
+        updateEventsList()
     }
     
     private fun updateCalendarForMonth(cal: Calendar) {
@@ -349,6 +388,10 @@ class CalendarFragment : Fragment() {
         
         // Get the number of days in the month
         val daysInMonth = tempCal.getActualMaximum(Calendar.DAY_OF_MONTH)
+        
+        // Current year and month
+        val year = cal.get(Calendar.YEAR)
+        val month = cal.get(Calendar.MONTH)
         
         // Reset all day cells
         for (i in 1..42) {
@@ -380,12 +423,7 @@ class CalendarFragment : Fragment() {
                           cal.get(Calendar.MONTH) == currentDate.get(Calendar.MONTH) &&
                           i == currentDate.get(Calendar.DAY_OF_MONTH))
             
-            // We no longer need to check for days with events since we're not highlighting them
-            
-            // Apply styling:
-            // 1. If a day is selected, it gets the black circle 
-            // 2. If no day is selected (selectedDay < 0), then today gets the black circle
-            // 3. No more styling for days with events
+            // Apply styling - MINIMAL DESIGN: only show selection and today indicators
             when {
                 isSelectedDay -> {
                     // Selected day always gets black circle
@@ -397,12 +435,19 @@ class CalendarFragment : Fragment() {
                     dayView.setBackgroundResource(R.drawable.bg_selected_day)
                     dayView.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
                 }
-                // Removed the "hasEvents" case
+                // No styling for lesson days - keeping minimal design
             }
         }
         
-        // Update the events list title to include the month
-        binding.eventsHeader.text = "Events - ${dateFormatter.format(cal.time)}"
+        // Update the events list title for the selected day or month
+        if (selectedDay > 0) {
+            val selectedDate = Calendar.getInstance().apply {
+                set(selectedYear, selectedMonth, selectedDay)
+            }.time
+            binding.eventsHeader.text = "Events - ${fullDateFormat.format(selectedDate)}"
+        } else {
+            binding.eventsHeader.text = "Events - ${dateFormatter.format(cal.time)}"
+        }
     }
     
     private fun showAddEventDialog(day: Int) {
@@ -410,6 +455,15 @@ class CalendarFragment : Fragment() {
         val eventCal = Calendar.getInstance()
         eventCal.time = calendar.time
         eventCal.set(Calendar.DAY_OF_MONTH, day)
+        
+        // Get current date for validation
+        val now = Calendar.getInstance()
+        
+        // Ensure we're only adding events for today or future dates
+        if (eventCal.before(now) && !isSameDay(eventCal, now)) {
+            Toast.makeText(context, "Cannot add events for past dates", Toast.LENGTH_SHORT).show()
+            return
+        }
         
         // Create and show the dialog
         val dialogView = layoutInflater.inflate(R.layout.dialog_add_event, null)
@@ -471,20 +525,30 @@ class CalendarFragment : Fragment() {
                     eventCal.set(Calendar.HOUR_OF_DAY, hour)
                     eventCal.set(Calendar.MINUTE, minute)
                     
+                    // Ensure again that the event isn't in the past after setting the time
+                    if (eventCal.before(now)) {
+                        Toast.makeText(context, "Cannot add events in the past", Toast.LENGTH_SHORT).show()
+                        return@setPositiveButton
+                    }
+                    
                     viewModel.addEvent(title, description, eventCal.time)
                     Toast.makeText(context, "Event added", Toast.LENGTH_SHORT).show()
                     
-                    // Filter events for the selected day
-                    val selectedDate = Calendar.getInstance().apply {
-                        set(selectedYear, selectedMonth, selectedDay)
-                    }.time
-                    binding.eventsHeader.text = "Events - ${fullDateFormat.format(selectedDate)}"
+                    // Refresh data to ensure the new event is displayed correctly
+                    viewModel.forceRefresh()
                 } else {
                     Toast.makeText(context, "Please enter a title and valid time (HH:MM)", Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+    
+    // Helper function to check if two dates are the same day
+    private fun isSameDay(cal1: Calendar, cal2: Calendar): Boolean {
+        return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
+               cal1.get(Calendar.MONTH) == cal2.get(Calendar.MONTH) &&
+               cal1.get(Calendar.DAY_OF_MONTH) == cal2.get(Calendar.DAY_OF_MONTH)
     }
     
     private fun showEventOptionsDialog(event: Event) {
@@ -545,22 +609,14 @@ class CalendarFragment : Fragment() {
                 viewModel.deleteEvent(event)
                 Toast.makeText(context, "Event deleted", Toast.LENGTH_SHORT).show()
                 
-                // Refresh the calendar view to reflect the change
+                // Force refresh to update all data structures
+                viewModel.forceRefresh()
+                
+                // Update calendar UI
                 updateCalendarForMonth(calendar)
                 
-                // Update events list
-                val filteredEvents = dayEvents[selectedDay]?.sortedBy { it.date } ?: emptyList()
-                eventAdapter.submitList(filteredEvents)
-                
-                // Update visibility of events list/empty state
-                if (filteredEvents.isEmpty()) {
-                    binding.eventsRecyclerView.visibility = View.GONE
-                    binding.emptyEventsText.text = "No events for the selected day"
-                    binding.emptyEventsText.visibility = View.VISIBLE
-                } else {
-                    binding.eventsRecyclerView.visibility = View.VISIBLE
-                    binding.emptyEventsText.visibility = View.GONE
-                }
+                // Update UI with the latest events
+                updateEventsList()
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -574,22 +630,14 @@ class CalendarFragment : Fragment() {
                 viewModel.cancelLesson(event.date)
                 Toast.makeText(context, "Lesson cancelled", Toast.LENGTH_SHORT).show()
                 
-                // Refresh the calendar view to reflect the change
+                // Force refresh to update all data structures
+                viewModel.forceRefresh()
+                
+                // Update calendar UI
                 updateCalendarForMonth(calendar)
                 
-                // Update events list
-                val filteredEvents = dayEvents[selectedDay]?.sortedBy { it.date } ?: emptyList()
-                eventAdapter.submitList(filteredEvents)
-                
-                // Update visibility of events list/empty state
-                if (filteredEvents.isEmpty()) {
-                    binding.eventsRecyclerView.visibility = View.GONE
-                    binding.emptyEventsText.text = "No events for the selected day"
-                    binding.emptyEventsText.visibility = View.VISIBLE
-                } else {
-                    binding.eventsRecyclerView.visibility = View.VISIBLE
-                    binding.emptyEventsText.visibility = View.GONE
-                }
+                // Update UI with the latest events
+                updateEventsList()
             }
             .setNegativeButton("Keep", null)
             .show()
@@ -619,7 +667,10 @@ class CalendarFragment : Fragment() {
                         viewModel.postponeLesson(event.date, newEventCal.time)
                         Toast.makeText(context, "Lesson postponed", Toast.LENGTH_SHORT).show()
                         
-                        // Refresh the calendar
+                        // Force data refresh to update all data structures
+                        viewModel.forceRefresh()
+                        
+                        // Refresh the calendar UI
                         updateCalendarForMonth(calendar)
                         
                         // If the user postponed to a day in the current view, select that day
@@ -628,23 +679,9 @@ class CalendarFragment : Fragment() {
                             selectedMonth = month
                             selectedYear = year
                             
-                            // Update events for the new selected day
-                            val filteredEvents = dayEvents[selectedDay]?.sortedBy { it.date } ?: emptyList()
-                            eventAdapter.submitList(filteredEvents)
-                            
-                            // Update visibility of events list/empty state
-                            if (filteredEvents.isEmpty()) {
-                                binding.eventsRecyclerView.visibility = View.GONE
-                                binding.emptyEventsText.text = "No events for the selected day"
-                                binding.emptyEventsText.visibility = View.VISIBLE
-                            } else {
-                                binding.eventsRecyclerView.visibility = View.VISIBLE
-                                binding.emptyEventsText.visibility = View.GONE
-                            }
+                            // Update the events list
+                            updateEventsList()
                         }
-                        
-                        // Force data refresh
-                        viewModel.forceRefresh()
                     },
                     eventCal.get(Calendar.HOUR_OF_DAY),
                     eventCal.get(Calendar.MINUTE),
