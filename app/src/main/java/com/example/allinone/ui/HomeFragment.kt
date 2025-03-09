@@ -10,6 +10,7 @@ import android.widget.AutoCompleteTextView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import com.example.allinone.R
+import com.example.allinone.config.TransactionCategories
 import com.example.allinone.databinding.FragmentHomeBinding
 import com.example.allinone.viewmodels.HomeViewModel
 import com.github.mikephil.charting.data.PieData
@@ -124,7 +125,8 @@ class HomeFragment : Fragment() {
         if (positiveIncomeTransactions.isNotEmpty()) {
             val incomeByCategoryMap = positiveIncomeTransactions
                 .groupBy { 
-                    if (it.category.isNullOrEmpty()) "Uncategorized Income" else "${it.category} (Income)" 
+                    if (it.category.isNullOrEmpty()) "Uncategorized Income" 
+                    else "${it.category} (Income)" 
                 }
                 .mapValues { (_, txns) -> txns.sumOf { it.amount } }
                 .toList()
@@ -169,7 +171,8 @@ class HomeFragment : Fragment() {
         if (expenseTransactions.isNotEmpty()) {
             val expenseByCategoryMap = expenseTransactions
                 .groupBy { 
-                    if (it.category.isNullOrEmpty()) "Uncategorized Expense" else "${it.category} (Expense)" 
+                    if (it.category.isNullOrEmpty()) "Uncategorized Expense" 
+                    else "${it.category} (Expense)" 
                 }
                 .mapValues { (_, txns) -> txns.sumOf { it.amount } }
                 .toList()
@@ -228,11 +231,10 @@ class HomeFragment : Fragment() {
     }
 
     private fun setupTypeDropdowns() {
-        val categories = arrayOf("Salary", "Wing Tzun", "General", "Investment")
         val adapter = ArrayAdapter(
             requireContext(),
             android.R.layout.simple_dropdown_item_1line,
-            categories
+            TransactionCategories.CATEGORIES
         )
         (binding.typeLayout.editText as? AutoCompleteTextView)?.setAdapter(adapter)
     }
@@ -262,7 +264,7 @@ class HomeFragment : Fragment() {
             showSnackbar("Please enter a valid amount")
             return
         }
-
+        
         viewModel.addTransaction(
             amount = amount,
             type = type,

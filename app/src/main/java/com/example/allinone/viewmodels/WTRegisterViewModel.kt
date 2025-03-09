@@ -17,6 +17,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.UUID
 import androidx.lifecycle.ViewModelProvider
+import com.example.allinone.config.TransactionCategories
 
 class WTRegisterViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FirebaseRepository(application)
@@ -159,7 +160,7 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                 description = "Payment reversal for ${student.name} (Not an expense)",
                 isIncome = true,  // This ensures it's not counted as an expense
                 date = Date(),
-                category = "Wing Tzun Adjustment" // Different category to help identify adjustments
+                category = "Wing Tzun Adjustment"
             )
             repository.insertTransaction(
                 amount = transaction.amount,
