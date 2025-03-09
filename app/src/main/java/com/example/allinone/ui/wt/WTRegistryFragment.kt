@@ -152,8 +152,10 @@ class WTRegistryFragment : Fragment() {
      * Note: This method is intentionally empty as the calendar view is updated 
      * automatically through the connection between WTLessonsViewModel and 
      * CalendarViewModel established in MainActivity
+     * 
+     * @param lessons The list of lessons (parameter is required by the interface but not used here)
      */
-    fun updateLessons(lessons: List<WTLesson>) {
+    fun updateLessons(@Suppress("UNUSED_PARAMETER") lessons: List<WTLesson>) {
         // No action needed in this fragment
     }
 } 

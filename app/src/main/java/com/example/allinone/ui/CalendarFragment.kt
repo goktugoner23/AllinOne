@@ -71,9 +71,11 @@ class CalendarFragment : Fragment() {
         
         viewModel = ViewModelProvider(requireActivity())[CalendarViewModel::class.java]
         
-        // Initialize the calendar to today's date but don't select any specific day
+        // Initialize the calendar to today's date
         calendar.time = Date()
-        selectedDay = -1 // Initialize with no day selected to show all month events
+        
+        // Select today's date by default to show the black circle
+        selectedDay = calendar.get(Calendar.DAY_OF_MONTH)
         selectedMonth = calendar.get(Calendar.MONTH)
         selectedYear = calendar.get(Calendar.YEAR)
         
@@ -341,13 +343,13 @@ class CalendarFragment : Fragment() {
         monthEvents.clear()
         
         // Get the current year and month from the calendar
-        val year = calendar.get(Calendar.YEAR)
-        val month = calendar.get(Calendar.MONTH)
+        val currentCalendarYear = calendar.get(Calendar.YEAR)
+        val currentCalendarMonth = calendar.get(Calendar.MONTH)
         
         // Load events for this specific month from allEvents
-        if (allEvents.containsKey(year) && allEvents[year]!!.containsKey(month)) {
+        if (allEvents.containsKey(currentCalendarYear) && allEvents[currentCalendarYear]!!.containsKey(currentCalendarMonth)) {
             // We have events for this month
-            allEvents[year]!![month]!!.forEach { (day, events) ->
+            allEvents[currentCalendarYear]!![currentCalendarMonth]!!.forEach { (day, events) ->
                 // Add to day events for internal tracking
                 dayEvents[day] = events.toMutableList()
                 
@@ -382,10 +384,6 @@ class CalendarFragment : Fragment() {
         
         // Get the number of days in the month
         val daysInMonth = tempCal.getActualMaximum(Calendar.DAY_OF_MONTH)
-        
-        // Current year and month
-        val year = cal.get(Calendar.YEAR)
-        val month = cal.get(Calendar.MONTH)
         
         // Reset all day cells
         for (i in 1..42) {
@@ -423,18 +421,39 @@ class CalendarFragment : Fragment() {
                     // Selected day always gets black circle
                     dayView.setBackgroundResource(R.drawable.bg_selected_day) 
                     dayView.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                    dayView.setTypeface(null, android.graphics.Typeface.NORMAL)
+                    dayView.textSize = 14f
+                }
+                isToday && selectedDay <= 0 -> {
+                    // Today gets black circle when no other day is selected
+                    dayView.setBackgroundResource(R.drawable.bg_selected_day)
+                    dayView.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                    dayView.setTypeface(null, android.graphics.Typeface.NORMAL)
+                    dayView.textSize = 14f
                 }
                 isToday -> {
-                    // Today gets bold text only, not a circle when another day is selected
+                    // Today gets EXTRA BOLD text when another day is selected
                     dayView.background = null
-                    dayView.setTextColor(ContextCompat.getColor(requireContext(), R.color.textPrimary))
-                    dayView.setTypeface(null, android.graphics.Typeface.BOLD)
+                    dayView.setTextColor(ContextCompat.getColor(requireContext(), R.color.black))
+                    
+                    // Create an extra bold typeface for today
+                    val typefaceStyle = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, 
+                                         android.graphics.Typeface.BOLD)
+                    dayView.setTypeface(typefaceStyle)
+                    
+                    // Make text even larger for better visibility
+                    dayView.textSize = 20f
+                    
+                    // Make the text appear bolder with paint flags
+                    dayView.paintFlags = dayView.paintFlags or android.graphics.Paint.FAKE_BOLD_TEXT_FLAG
                 }
                 else -> {
                     // Regular day styling
                     dayView.background = null
                     dayView.setTextColor(ContextCompat.getColor(requireContext(), R.color.textPrimary))
                     dayView.setTypeface(null, android.graphics.Typeface.NORMAL)
+                    // Reset text size to default
+                    dayView.textSize = 14f
                 }
                 // No styling for lesson days - keeping minimal design
             }
