@@ -71,9 +71,9 @@ class CalendarFragment : Fragment() {
         
         viewModel = ViewModelProvider(requireActivity())[CalendarViewModel::class.java]
         
-        // Initialize the calendar to today's date and make sure it's selected
+        // Initialize the calendar to today's date but don't select any specific day
         calendar.time = Date()
-        selectedDay = calendar.get(Calendar.DAY_OF_MONTH)
+        selectedDay = -1 // Initialize with no day selected to show all month events
         selectedMonth = calendar.get(Calendar.MONTH)
         selectedYear = calendar.get(Calendar.YEAR)
         
@@ -285,16 +285,10 @@ class CalendarFragment : Fragment() {
             }.time
             binding.eventsHeader.text = "Events - ${fullDateFormat.format(selectedDate)}"
         } else {
-            // No day selected - show all events for the current displayed month
-            if (monthEvents.isEmpty()) {
-                binding.eventsRecyclerView.visibility = View.GONE
-                binding.emptyEventsText.text = "No events for ${dateFormatter.format(calendar.time)}"
-                binding.emptyEventsText.visibility = View.VISIBLE
-            } else {
-                binding.eventsRecyclerView.visibility = View.VISIBLE
-                binding.emptyEventsText.visibility = View.GONE
-                eventAdapter.submitList(monthEvents)
-            }
+            // No day selected - don't show any events in the list
+            binding.eventsRecyclerView.visibility = View.GONE
+            binding.emptyEventsText.text = "Select a date to view events"
+            binding.emptyEventsText.visibility = View.VISIBLE
             
             // Update the events header
             binding.eventsHeader.text = "Events - ${dateFormatter.format(calendar.time)}"
@@ -430,10 +424,17 @@ class CalendarFragment : Fragment() {
                     dayView.setBackgroundResource(R.drawable.bg_selected_day) 
                     dayView.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
                 }
-                isToday && selectedDay < 0 -> {
-                    // Today gets black circle only if no date is selected
-                    dayView.setBackgroundResource(R.drawable.bg_selected_day)
-                    dayView.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                isToday -> {
+                    // Today gets bold text only, not a circle when another day is selected
+                    dayView.background = null
+                    dayView.setTextColor(ContextCompat.getColor(requireContext(), R.color.textPrimary))
+                    dayView.setTypeface(null, android.graphics.Typeface.BOLD)
+                }
+                else -> {
+                    // Regular day styling
+                    dayView.background = null
+                    dayView.setTextColor(ContextCompat.getColor(requireContext(), R.color.textPrimary))
+                    dayView.setTypeface(null, android.graphics.Typeface.NORMAL)
                 }
                 // No styling for lesson days - keeping minimal design
             }

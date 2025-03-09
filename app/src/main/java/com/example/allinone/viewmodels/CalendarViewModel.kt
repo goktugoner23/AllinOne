@@ -200,27 +200,28 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         // Get the current date
         val currentDate = Calendar.getInstance()
         
-        // For each lesson, create events for the next 4 weeks
+        // Get a date far in the future (5 years ahead) to cover all practical calendar navigation
+        val farFutureDate = Calendar.getInstance()
+        farFutureDate.add(Calendar.YEAR, 5) // Add 5 years to current date
+        
+        // For each lesson, create events far into the future
         for (lesson in lessons) {
-            // For each of the next 4 weeks
-            for (week in 0 until 4) {
-                // Create a new calendar for this specific lesson
-                val lessonCalendar = Calendar.getInstance()
-                
-                // Set it to the current date first
-                lessonCalendar.time = currentDate.time
-                
-                // Move to the correct day of week for this lesson
-                while (lessonCalendar.get(Calendar.DAY_OF_WEEK) != lesson.dayOfWeek) {
-                    lessonCalendar.add(Calendar.DAY_OF_WEEK, 1)
-                }
-                
-                // Add the week offset
-                lessonCalendar.add(Calendar.WEEK_OF_YEAR, week)
-                
+            // Create a calendar for this specific lesson starting from current date
+            val lessonCalendar = Calendar.getInstance()
+            lessonCalendar.time = currentDate.time
+            
+            // Move to the correct day of week for this lesson
+            while (lessonCalendar.get(Calendar.DAY_OF_WEEK) != lesson.dayOfWeek) {
+                lessonCalendar.add(Calendar.DAY_OF_WEEK, 1)
+            }
+            
+            // Keep adding weekly lessons until we reach the far future date
+            while (lessonCalendar.before(farFutureDate)) {
                 // Set the lesson time
-                lessonCalendar.set(Calendar.HOUR_OF_DAY, lesson.startHour)
-                lessonCalendar.set(Calendar.MINUTE, lesson.startMinute)
+                val eventCalendar = Calendar.getInstance()
+                eventCalendar.time = lessonCalendar.time
+                eventCalendar.set(Calendar.HOUR_OF_DAY, lesson.startHour)
+                eventCalendar.set(Calendar.MINUTE, lesson.startMinute)
                 
                 // Create a formatted time string
                 val startTime = String.format("%02d:%02d", lesson.startHour, lesson.startMinute)
@@ -231,12 +232,15 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                     id = System.currentTimeMillis() + eventsList.size, // Simple unique ID
                     title = "WT Lesson ($startTime-$endTime)",
                     description = "Regular weekly Wing Tzun lesson",
-                    date = lessonCalendar.time,
+                    date = eventCalendar.time,
                     type = "Lesson"
                 )
                 
                 // Add to our list
                 eventsList.add(event)
+                
+                // Move to next week
+                lessonCalendar.add(Calendar.WEEK_OF_YEAR, 1)
             }
         }
         
