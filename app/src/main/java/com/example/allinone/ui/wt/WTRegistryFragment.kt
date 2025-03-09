@@ -13,6 +13,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import com.example.allinone.R
 import com.example.allinone.databinding.FragmentWtRegistryBinding
+import com.example.allinone.data.WTLesson
 import com.example.allinone.viewmodels.WTRegisterViewModel
 
 class WTRegistryFragment : Fragment() {
@@ -144,5 +145,12 @@ class WTRegistryFragment : Fragment() {
         super.onDestroyView()
         _binding = null
         networkStatusText = null
+    }
+
+    /**
+     * Update the lessons in the calendar
+     */
+    fun updateLessons(lessons: List<WTLesson>) {
+        viewModel.updateLessons(lessons)
     }
 } 

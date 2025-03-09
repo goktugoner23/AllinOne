@@ -162,6 +162,11 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                     drawerLayout.closeDrawers()
                     true
                 }
+                R.id.nav_calendar -> {
+                    navController.navigate(R.id.nav_calendar)
+                    drawerLayout.closeDrawers()
+                    true
+                }
                 R.id.nav_notes -> {
                     navController.navigate(R.id.nav_notes)
                     drawerLayout.closeDrawers()

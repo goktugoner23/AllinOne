@@ -52,6 +52,8 @@ class WTLessonsFragment : Fragment() {
         // Set up add lesson button
         binding.addLessonButton.setOnClickListener {
             addLessons()
+            // Save lessons after adding
+            onSaveLessonsClick()
         }
         
         // Observe lessons
@@ -258,6 +260,8 @@ class WTLessonsFragment : Fragment() {
             .setMessage("Are you sure you want to delete this lesson?")
             .setPositiveButton("Delete") { _, _ ->
                 viewModel.deleteLesson(lesson)
+                // After deletion, save changes to update the calendar
+                onSaveLessonsClick()
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -315,6 +319,9 @@ class WTLessonsFragment : Fragment() {
                     endHour,
                     endMinute
                 )
+                
+                // After editing, save changes to update the calendar
+                onSaveLessonsClick()
             }
             .setNegativeButton("Cancel") { _, _ ->
                 viewModel.setEditingLesson(null)
@@ -323,6 +330,24 @@ class WTLessonsFragment : Fragment() {
                 viewModel.setEditingLesson(null)
             }
             .show()
+    }
+    
+    /**
+     * Get all lessons from the selected chips
+     */
+    private fun getLessonsFromChips(): List<WTLesson> {
+        return viewModel.lessons.value ?: emptyList()
+    }
+    
+    private fun onSaveLessonsClick() {
+        val lessons = getLessonsFromChips()
+        viewModel.saveLessons(lessons)
+        
+        // Also update the register view model to update the calendar
+        val parentFragment = parentFragment
+        if (parentFragment is WTRegistryFragment) {
+            parentFragment.updateLessons(lessons)
+        }
     }
     
     override fun onDestroyView() {

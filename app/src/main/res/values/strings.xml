@@ -16,6 +16,9 @@
     <string name="navigation_drawer_open">Open Navigation Drawer</string>
     <string name="navigation_drawer_close">Close Navigation Drawer</string>
     
+    <!-- Google Play Services -->
+    <string name="app_id">YOUR_APP_ID_HERE</string>
+    
     <!-- Offline status -->
     <string name="offline_mode">Offline Mode</string>
     <string name="offline_message">You are currently offline. Changes will be synchronized when you reconnect.</string>

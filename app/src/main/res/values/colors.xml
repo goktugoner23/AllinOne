@@ -10,6 +10,9 @@
     <color name="default_event_color">#FFFFFF</color>
     <color name="lesson_event_color">#E3F2FD</color>
     
+    <!-- Text colors -->
+    <color name="textPrimary">#212121</color>
+    
     <!-- History page colors -->
     <color name="red">#F44336</color>
     <color name="dark_gray">#555555</color>

@@ -94,6 +94,10 @@ dependencies {
     implementation 'com.google.firebase:firebase-firestore'
     implementation 'com.google.firebase:firebase-storage'
     
+    // Google Play Services
+    implementation 'com.google.android.gms:play-services-auth:20.7.0'
+    implementation 'com.google.android.gms:play-services-base:18.3.0'
+    
     // Gson for JSON serialization/deserialization
     implementation 'com.google.code.gson:gson:2.10.1'
     

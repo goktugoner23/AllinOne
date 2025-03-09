@@ -94,6 +94,26 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
     
+    /**
+     * Save a list of lessons
+     * This method is used to save lessons when they are added/removed in bulk
+     */
+    fun saveLessons(lessons: List<WTLesson>) {
+        viewModelScope.launch {
+            try {
+                // Update lessons in repository
+                // For simplicity, we're just ensuring the current lessons are persisted
+                // In a real implementation, you might want to compare with existing lessons
+                // and only add/update/delete as needed
+                lessons.forEach { lesson ->
+                    repository.insertWTLesson(lesson)
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "Failed to save lessons: ${e.message}"
+            }
+        }
+    }
+    
     // Clear error message
     fun clearErrorMessage() {
         _errorMessage.value = null
