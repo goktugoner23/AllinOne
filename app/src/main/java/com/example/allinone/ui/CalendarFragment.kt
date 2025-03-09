@@ -13,7 +13,9 @@ import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.allinone.R
+import com.example.allinone.adapters.EventAdapter
 import com.example.allinone.data.WTEvent
 import com.example.allinone.databinding.FragmentCalendarBinding
 import com.example.allinone.viewmodels.CalendarViewModel
@@ -46,6 +48,12 @@ class CalendarFragment : Fragment() {
     private var selectedMonth: Int = currentDate.get(Calendar.MONTH)
     private var selectedYear: Int = currentDate.get(Calendar.YEAR)
 
+    // Adapter for events
+    private lateinit var eventAdapter: EventAdapter
+    
+    // All events for the current month
+    private val monthEvents = mutableListOf<WTEvent>()
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -62,6 +70,7 @@ class CalendarFragment : Fragment() {
         
         setupCalendarHeader()
         setupCalendarDays()
+        setupEventsList()
         setupObservers()
         setupNavigationButtons()
         
@@ -133,12 +142,46 @@ class CalendarFragment : Fragment() {
                     // Update calendar to show selection
                     updateCalendarForMonth(calendar)
                     
-                    // Show events if any exist
-                    if (dayEvents.containsKey(day) && dayEvents[day]?.isNotEmpty() == true) {
-                        showEventsForDay(day)
+                    // Filter events for the selected day
+                    val filteredEvents = dayEvents[day]?.sortedBy { it.date } ?: emptyList()
+                    
+                    // Update events list header to show the selected date
+                    val selectedDate = Calendar.getInstance().apply {
+                        set(selectedYear, selectedMonth, selectedDay)
+                    }.time
+                    binding.eventsHeader.text = "Events - ${fullDateFormat.format(selectedDate)}"
+                    
+                    // Update the RecyclerView with filtered events
+                    if (filteredEvents.isEmpty()) {
+                        binding.eventsRecyclerView.visibility = View.GONE
+                        binding.emptyEventsText.text = "No events for ${fullDateFormat.format(selectedDate)}"
+                        binding.emptyEventsText.visibility = View.VISIBLE
+                    } else {
+                        binding.eventsRecyclerView.visibility = View.VISIBLE
+                        binding.emptyEventsText.visibility = View.GONE
+                        eventAdapter.submitList(filteredEvents)
+                    }
+                    
+                    // Scroll to the events section if there are events
+                    if (filteredEvents.isNotEmpty()) {
+                        binding.eventsHeader.requestFocus()
+                        binding.eventsHeader.parent.requestChildFocus(binding.eventsHeader, binding.eventsHeader)
                     }
                 }
             }
+        }
+    }
+    
+    private fun setupEventsList() {
+        // Initialize the adapter with a click listener
+        eventAdapter = EventAdapter { event ->
+            showEventOptionsDialog(event)
+        }
+        
+        // Set up the RecyclerView
+        binding.eventsRecyclerView.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = eventAdapter
         }
     }
     
@@ -147,22 +190,34 @@ class CalendarFragment : Fragment() {
         viewModel.events.observe(viewLifecycleOwner) { events ->
             // Clear previous events
             dayEvents.clear()
+            monthEvents.clear()
             
-            // Group events by day
+            // Group events by day for quick lookups when the calendar needs to know if a day has events
             events.forEach { event ->
                 val eventCal = Calendar.getInstance().apply { time = event.date }
                 // Only process events for the current month and year
                 if (eventCal.get(Calendar.MONTH) == calendar.get(Calendar.MONTH) && 
                     eventCal.get(Calendar.YEAR) == calendar.get(Calendar.YEAR)) {
                     val day = eventCal.get(Calendar.DAY_OF_MONTH)
+                    
+                    // Add to day events map for internal tracking
                     if (!dayEvents.containsKey(day)) {
                         dayEvents[day] = mutableListOf()
                     }
                     dayEvents[day]?.add(event)
+                    
+                    // Add to the month events list for display
+                    monthEvents.add(event)
                 }
             }
             
-            // Update the calendar UI to show events
+            // Sort events by date
+            monthEvents.sortBy { it.date }
+            
+            // Update the RecyclerView with the events
+            updateEventsList()
+            
+            // Update the calendar UI
             updateCalendarForMonth(calendar)
         }
         
@@ -180,6 +235,18 @@ class CalendarFragment : Fragment() {
         }
     }
     
+    private fun updateEventsList() {
+        // Update events list and show/hide empty state
+        if (monthEvents.isEmpty()) {
+            binding.eventsRecyclerView.visibility = View.GONE
+            binding.emptyEventsText.visibility = View.VISIBLE
+        } else {
+            binding.eventsRecyclerView.visibility = View.VISIBLE
+            binding.emptyEventsText.visibility = View.GONE
+            eventAdapter.submitList(monthEvents)
+        }
+    }
+    
     private fun setupNavigationButtons() {
         // Previous month button
         binding.prevMonthButton.setOnClickListener {
@@ -192,6 +259,9 @@ class CalendarFragment : Fragment() {
             }
             
             updateCalendarForMonth(calendar)
+            
+            // Refresh events from the ViewModel for the new month
+            viewModel.forceRefresh()
         }
         
         // Next month button
@@ -205,6 +275,9 @@ class CalendarFragment : Fragment() {
             }
             
             updateCalendarForMonth(calendar)
+            
+            // Refresh events from the ViewModel for the new month
+            viewModel.forceRefresh()
         }
         
         // Today button
@@ -217,6 +290,9 @@ class CalendarFragment : Fragment() {
             selectedYear = calendar.get(Calendar.YEAR)
             
             updateCalendarForMonth(calendar)
+            
+            // Refresh events for current month
+            viewModel.forceRefresh()
         }
     }
     
@@ -270,13 +346,12 @@ class CalendarFragment : Fragment() {
                           cal.get(Calendar.MONTH) == currentDate.get(Calendar.MONTH) &&
                           i == currentDate.get(Calendar.DAY_OF_MONTH))
             
-            // Check if this day has events
-            val hasEvents = dayEvents.containsKey(i) && dayEvents[i]?.isNotEmpty() == true
+            // We no longer need to check for days with events since we're not highlighting them
             
             // Apply styling:
             // 1. If a day is selected, it gets the black circle 
             // 2. If no day is selected (selectedDay < 0), then today gets the black circle
-            // 3. Days with events get a outline indicator (but no black circle)
+            // 3. No more styling for days with events
             when {
                 isSelectedDay -> {
                     // Selected day always gets black circle
@@ -288,11 +363,12 @@ class CalendarFragment : Fragment() {
                     dayView.setBackgroundResource(R.drawable.bg_selected_day)
                     dayView.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
                 }
-                hasEvents -> {
-                    dayView.setBackgroundResource(R.drawable.bg_day_with_events)
-                }
+                // Removed the "hasEvents" case
             }
         }
+        
+        // Update the events list title to include the month
+        binding.eventsHeader.text = "Events - ${dateFormatter.format(cal.time)}"
     }
     
     private fun showAddEventDialog(day: Int) {
@@ -363,43 +439,17 @@ class CalendarFragment : Fragment() {
                     
                     viewModel.addEvent(title, description, eventCal.time)
                     Toast.makeText(context, "Event added", Toast.LENGTH_SHORT).show()
+                    
+                    // Filter events for the selected day
+                    val selectedDate = Calendar.getInstance().apply {
+                        set(selectedYear, selectedMonth, selectedDay)
+                    }.time
+                    binding.eventsHeader.text = "Events - ${fullDateFormat.format(selectedDate)}"
                 } else {
                     Toast.makeText(context, "Please enter a title and valid time (HH:MM)", Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton("Cancel", null)
-            .show()
-    }
-    
-    private fun showEventsForDay(day: Int) {
-        val events = dayEvents[day] ?: return
-        
-        if (events.isEmpty()) {
-            Toast.makeText(context, "No events for this day", Toast.LENGTH_SHORT).show()
-            return
-        }
-        
-        // Create a calendar for the selected date
-        val dayCal = Calendar.getInstance()
-        dayCal.time = calendar.time
-        dayCal.set(Calendar.DAY_OF_MONTH, day)
-        
-        // Create list items
-        val items = events.map { event ->
-            val eventTime = eventDateFormat.format(event.date)
-            "${eventTime} - ${event.title}${if (event.type == "Lesson") " (Lesson)" else ""}"
-        }.toTypedArray()
-        
-        // Show dialog with events
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Events for ${fullDateFormat.format(dayCal.time)}")
-            .setItems(items) { _, which ->
-                showEventOptionsDialog(events[which])
-            }
-            .setPositiveButton("Add New Event") { _, _ ->
-                showAddEventDialog(day)
-            }
-            .setNegativeButton("Close", null)
             .show()
     }
     
@@ -463,6 +513,9 @@ class CalendarFragment : Fragment() {
             .setPositiveButton("Delete") { _, _ ->
                 viewModel.deleteEvent(event)
                 Toast.makeText(context, "Event deleted", Toast.LENGTH_SHORT).show()
+                
+                // Need to refresh events list after delete
+                viewModel.forceRefresh()
             }
             .setNegativeButton("Cancel", null)
             .show()
@@ -475,6 +528,9 @@ class CalendarFragment : Fragment() {
             .setPositiveButton("Cancel Lesson") { _, _ ->
                 viewModel.cancelLesson(event.date)
                 Toast.makeText(context, "Lesson cancelled", Toast.LENGTH_SHORT).show()
+                
+                // Need to refresh events list after cancellation
+                viewModel.forceRefresh()
             }
             .setNegativeButton("Keep", null)
             .show()
@@ -503,6 +559,9 @@ class CalendarFragment : Fragment() {
                         // Postpone the lesson
                         viewModel.postponeLesson(event.date, newEventCal.time)
                         Toast.makeText(context, "Lesson postponed", Toast.LENGTH_SHORT).show()
+                        
+                        // Need to refresh events list after postponing
+                        viewModel.forceRefresh()
                     },
                     eventCal.get(Calendar.HOUR_OF_DAY),
                     eventCal.get(Calendar.MINUTE),
