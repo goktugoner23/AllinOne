@@ -41,6 +41,10 @@ import java.util.concurrent.TimeUnit
 import android.app.AlertDialog
 import android.util.Log
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.ViewModelProvider
+import com.example.allinone.viewmodels.CalendarViewModel
+import com.example.allinone.viewmodels.WTLessonsViewModel
+import com.example.allinone.viewmodels.LessonChangeEvent
 
 class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedListener {
     private lateinit var binding: ActivityMainBinding
@@ -62,6 +66,10 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             scheduleExpirationNotifications()
         }
     }
+
+    // ViewModels
+    private lateinit var calendarViewModel: CalendarViewModel
+    private lateinit var wtLessonsViewModel: WTLessonsViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -88,6 +96,13 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         
         // Test Firebase connection
         testFirebaseConnection()
+        
+        // Initialize ViewModels
+        calendarViewModel = ViewModelProvider(this)[CalendarViewModel::class.java]
+        wtLessonsViewModel = ViewModelProvider(this)[WTLessonsViewModel::class.java]
+        
+        // Connect WTLessonsViewModel to CalendarViewModel
+        setupViewModelConnections()
         
         // Observe repository error messages
         firebaseRepository.errorMessage.observe(this) { message ->
@@ -365,6 +380,29 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
     fun openDrawer() {
         if (::drawerLayout.isInitialized) {
             drawerLayout.openDrawer(navigationView)
+        }
+    }
+
+    /**
+     * Set up connections between ViewModels
+     * This allows changes in WTLessonsViewModel to update the CalendarViewModel
+     */
+    private fun setupViewModelConnections() {
+        // Observe lesson changes and update calendar accordingly
+        wtLessonsViewModel.lessonChangeEvent.observe(this) { event ->
+            when (event) {
+                is LessonChangeEvent.LessonsUpdated -> {
+                    // When all lessons are updated, update the calendar
+                    calendarViewModel.setLessonSchedule(wtLessonsViewModel.lessons.value ?: emptyList())
+                }
+                
+                is LessonChangeEvent.LessonAdded,
+                is LessonChangeEvent.LessonModified,
+                is LessonChangeEvent.LessonDeleted -> {
+                    // When individual lessons change, update the calendar
+                    calendarViewModel.setLessonSchedule(wtLessonsViewModel.lessons.value ?: emptyList())
+                }
+            }
         }
     }
 }

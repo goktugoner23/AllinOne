@@ -141,12 +141,12 @@ class CacheManager(private val context: Context) {
     }
     
     // Cache Event data
-    fun cacheEvents(events: List<WTEvent>) {
+    fun cacheEvents(events: List<Event>) {
         cacheData(KEY_EVENTS, events)
     }
     
-    fun getCachedEvents(): List<WTEvent> {
-        val type = object : TypeToken<List<WTEvent>>() {}.type
+    fun getCachedEvents(): List<Event> {
+        val type = object : TypeToken<List<Event>>() {}.type
         return getCachedData(KEY_EVENTS, type) ?: emptyList()
     }
     

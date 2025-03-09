@@ -77,7 +77,7 @@ class WTLessonsFragment : Fragment() {
         // Observe currently editing lesson
         viewModel.currentEditingLesson.observe(viewLifecycleOwner) { lesson ->
             lesson?.let {
-                showEditLessonDialog(it)
+                showEditDialog(it)
             }
         }
     }
@@ -198,7 +198,8 @@ class WTLessonsFragment : Fragment() {
         // Clear selections
         clearSelections()
         
-        Toast.makeText(requireContext(), "Lesson(s) added", Toast.LENGTH_SHORT).show()
+        // Show confirmation
+        Toast.makeText(requireContext(), "Lessons added successfully", Toast.LENGTH_SHORT).show()
     }
     
     private fun clearSelections() {
@@ -267,7 +268,7 @@ class WTLessonsFragment : Fragment() {
             .show()
     }
     
-    private fun showEditLessonDialog(lesson: WTLesson) {
+    private fun showEditDialog(lesson: WTLesson) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_edit_lesson, null)
         
         // Find views

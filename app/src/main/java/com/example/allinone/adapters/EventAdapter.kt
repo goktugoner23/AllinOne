@@ -8,20 +8,22 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.allinone.R
-import com.example.allinone.data.WTEvent
+import com.example.allinone.data.Event
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-class EventAdapter(private val onItemClicked: (WTEvent) -> Unit) : 
-    ListAdapter<WTEvent, EventAdapter.EventViewHolder>(EventDiffCallback) {
+/**
+ * Adapter for displaying events in a RecyclerView
+ */
+class EventAdapter(private val onItemClicked: (Event) -> Unit) :
+    ListAdapter<Event, EventAdapter.EventViewHolder>(EventDiffCallback) {
 
     // Date formatters
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-    private val dateFormat = SimpleDateFormat("EEE, d MMM yyyy", Locale.getDefault())
+    private val dateFormat = SimpleDateFormat("d MMM", Locale.getDefault())
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): EventViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_event, parent, false)
+        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_event, parent, false)
         return EventViewHolder(view)
     }
 
@@ -34,34 +36,38 @@ class EventAdapter(private val onItemClicked: (WTEvent) -> Unit) :
     }
 
     inner class EventViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        private val eventTime: TextView = itemView.findViewById(R.id.eventTime)
         private val eventTitle: TextView = itemView.findViewById(R.id.eventTitle)
-        private val eventType: TextView = itemView.findViewById(R.id.eventType)
+        private val eventTime: TextView = itemView.findViewById(R.id.eventTime)
         private val eventDate: TextView = itemView.findViewById(R.id.eventDate)
-        private val eventDescription: TextView = itemView.findViewById(R.id.eventDescription)
+        private val eventTypeTag: TextView = itemView.findViewById(R.id.eventTypeTag)
 
-        fun bind(event: WTEvent) {
-            eventTime.text = timeFormat.format(event.date)
+        fun bind(event: Event) {
             eventTitle.text = event.title
-            eventType.text = event.type
+            
+            // Format the time
+            eventTime.text = timeFormat.format(event.date)
+            
+            // Format the date (day and month)
             eventDate.text = dateFormat.format(event.date)
             
-            if (event.description != null && event.description.isNotEmpty()) {
-                eventDescription.text = event.description
-                eventDescription.visibility = View.VISIBLE
+            // Set tag for event type
+            eventTypeTag.text = event.type
+            
+            // Set different background colors based on event type
+            if (event.type == "Lesson") {
+                eventTypeTag.setBackgroundResource(R.drawable.bg_tag_lesson)
             } else {
-                eventDescription.visibility = View.GONE
+                eventTypeTag.setBackgroundResource(R.drawable.bg_tag_event)
             }
         }
     }
 
-    object EventDiffCallback : DiffUtil.ItemCallback<WTEvent>() {
-        override fun areItemsTheSame(oldItem: WTEvent, newItem: WTEvent): Boolean {
-            // For simplicity, comparing by date and title
-            return oldItem.date == newItem.date && oldItem.title == newItem.title
+    object EventDiffCallback : DiffUtil.ItemCallback<Event>() {
+        override fun areItemsTheSame(oldItem: Event, newItem: Event): Boolean {
+            return oldItem.id == newItem.id
         }
-
-        override fun areContentsTheSame(oldItem: WTEvent, newItem: WTEvent): Boolean {
+        
+        override fun areContentsTheSame(oldItem: Event, newItem: Event): Boolean {
             return oldItem == newItem
         }
     }

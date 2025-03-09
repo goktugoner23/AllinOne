@@ -5,17 +5,19 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
-import com.example.allinone.data.WTEvent
+import com.example.allinone.data.Event
 import com.example.allinone.data.WTLesson
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Date
+import kotlin.math.ceil
+import kotlin.math.floor
 
 class CalendarViewModel(application: Application) : AndroidViewModel(application) {
     
     // LiveData for events
-    private val _events = MutableLiveData<List<WTEvent>>(emptyList())
-    val events: LiveData<List<WTEvent>> = _events
+    private val _events = MutableLiveData<List<Event>>(emptyList())
+    val events: LiveData<List<Event>> = _events
     
     // Loading state
     private val _isLoading = MutableLiveData<Boolean>(false)
@@ -29,7 +31,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     private val _lessonSchedule = MutableLiveData<List<WTLesson>>(emptyList())
     
     // In-memory storage for events since we don't have a proper database implementation yet
-    private val eventsList = mutableListOf<WTEvent>()
+    private val eventsList = mutableListOf<Event>()
     
     init {
         // Load events when the ViewModel is created
@@ -65,7 +67,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     fun addEvent(title: String, description: String?, date: Date) {
         viewModelScope.launch {
             try {
-                val newEvent = WTEvent(
+                val newEvent = Event(
                     id = System.currentTimeMillis(), // Simple ID generation
                     title = title,
                     description = description,
@@ -88,7 +90,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     /**
      * Delete an event from the calendar
      */
-    fun deleteEvent(event: WTEvent) {
+    fun deleteEvent(event: Event) {
         viewModelScope.launch {
             try {
                 // Remove from our in-memory list
@@ -225,7 +227,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                 val endTime = String.format("%02d:%02d", lesson.endHour, lesson.endMinute)
                 
                 // Create the event
-                val event = WTEvent(
+                val event = Event(
                     id = System.currentTimeMillis() + eventsList.size, // Simple unique ID
                     title = "WT Lesson ($startTime-$endTime)",
                     description = "Regular weekly Wing Tzun lesson",
@@ -255,8 +257,49 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     fun forceRefresh() {
         _isLoading.value = true
         viewModelScope.launch {
+            // Generate lesson events based on current lesson schedule
             generateLessonEvents()
+            
+            // Update UI state
             _isLoading.value = false
+            
+            // Notify observers that data has changed
+            _events.value = eventsList.toList()
         }
+    }
+    
+    /**
+     * Calculates the end date after a number of lessons
+     * Used by WTRegisterViewModel to determine when a student's training period ends
+     */
+    fun calculateEndDateAfterLessons(
+        startDate: Calendar,
+        lessonCount: Int,
+        lessons: List<WTLesson>
+    ): Date {
+        // If no lessons defined or lesson count is 0, default to 8 weeks
+        if (lessons.isEmpty() || lessonCount <= 0) {
+            val calendar = Calendar.getInstance()
+            calendar.time = startDate.time
+            calendar.add(Calendar.WEEK_OF_YEAR, 8)
+            return calendar.time
+        }
+        
+        // Count how many lessons occur each week
+        val lessonsPerWeek = lessons.size
+        
+        // Calculate how many weeks needed
+        val weeksNeeded = if (lessonsPerWeek > 0) {
+            Math.ceil(lessonCount.toDouble() / lessonsPerWeek).toInt()
+        } else {
+            8 // Default to 8 weeks if no lessons per week
+        }
+        
+        // Calculate end date
+        val calendar = Calendar.getInstance()
+        calendar.time = startDate.time
+        calendar.add(Calendar.WEEK_OF_YEAR, weeksNeeded)
+        
+        return calendar.time
     }
 } 

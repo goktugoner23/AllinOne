@@ -10,7 +10,6 @@ import com.example.allinone.data.Transaction
 import com.example.allinone.data.WTLesson
 import com.example.allinone.data.WTStudent
 import com.example.allinone.firebase.FirebaseRepository
-import com.example.allinone.ui.wt.WTCalendarViewModel
 import com.example.allinone.viewmodels.CalendarViewModel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -32,8 +31,7 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
     val paidStudents: LiveData<List<WTStudent>> = _paidStudents
     
     private val _lessonSchedule = MutableLiveData<List<WTLesson>>(emptyList())
-    private val calendarViewModel: WTCalendarViewModel = WTCalendarViewModel(application)
-    private val generalCalendarViewModel: CalendarViewModel by lazy { 
+    private val calendarViewModel: CalendarViewModel by lazy { 
         ViewModelProvider.AndroidViewModelFactory.getInstance(application)
             .create(CalendarViewModel::class.java) 
     }
@@ -183,10 +181,5 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             repository.refreshStudents()
         }
-    }
-
-    fun updateLessons(lessons: List<WTLesson>) {
-        // Also update the general calendar
-        generalCalendarViewModel.setLessonSchedule(lessons)
     }
 } 

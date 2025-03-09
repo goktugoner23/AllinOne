@@ -8,11 +8,11 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.allinone.R
-import com.example.allinone.data.WTEvent
+import com.example.allinone.data.Event
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-class WTEventAdapter : ListAdapter<WTEvent, WTEventAdapter.EventViewHolder>(EventDiffCallback()) {
+class WTEventAdapter : ListAdapter<Event, WTEventAdapter.EventViewHolder>(EventDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): EventViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -31,7 +31,7 @@ class WTEventAdapter : ListAdapter<WTEvent, WTEventAdapter.EventViewHolder>(Even
         private val dateTextView: TextView = itemView.findViewById(R.id.eventDate)
         private val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
 
-        fun bind(event: WTEvent) {
+        fun bind(event: Event) {
             titleTextView.text = event.title
             descriptionTextView.text = event.description
             dateTextView.text = dateFormat.format(event.date)
@@ -46,12 +46,12 @@ class WTEventAdapter : ListAdapter<WTEvent, WTEventAdapter.EventViewHolder>(Even
         }
     }
 
-    class EventDiffCallback : DiffUtil.ItemCallback<WTEvent>() {
-        override fun areItemsTheSame(oldItem: WTEvent, newItem: WTEvent): Boolean {
+    class EventDiffCallback : DiffUtil.ItemCallback<Event>() {
+        override fun areItemsTheSame(oldItem: Event, newItem: Event): Boolean {
             return oldItem.id == newItem.id && oldItem.type == newItem.type
         }
 
-        override fun areContentsTheSame(oldItem: WTEvent, newItem: WTEvent): Boolean {
+        override fun areContentsTheSame(oldItem: Event, newItem: Event): Boolean {
             return oldItem == newItem
         }
     }

@@ -10,7 +10,7 @@ import com.example.allinone.data.Transaction
 import com.example.allinone.data.Investment
 import com.example.allinone.data.Note
 import com.example.allinone.data.WTStudent
-import com.example.allinone.data.WTEvent
+import com.example.allinone.data.Event
 import com.example.allinone.data.WTLesson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -34,7 +34,7 @@ class FirebaseManager(private val context: Context? = null) {
     private val investmentsCollection = firestore.collection("investments")
     private val notesCollection = firestore.collection("notes")
     private val studentsCollection = firestore.collection("students")
-    private val wtEventsCollection = firestore.collection("wtEvents")
+    private val eventsCollection = firestore.collection("events")
     private val wtLessonsCollection = firestore.collection("wtLessons")
     
     // Storage references
@@ -346,38 +346,44 @@ class FirebaseManager(private val context: Context? = null) {
     }
     
     // WT Events
-    suspend fun saveWTEvent(event: WTEvent) = withContext(Dispatchers.IO) {
-        val eventMap = hashMapOf(
-            "id" to event.id,
-            "title" to event.title,
-            "description" to event.description,
-            "date" to event.date,
-            "type" to event.type,
-            "deviceId" to deviceId
-        )
-        
-        return@withContext wtEventsCollection.document(event.id.toString()).set(eventMap)
-    }
-    
-    suspend fun getWTEvents(): List<WTEvent> = withContext(Dispatchers.IO) {
+    suspend fun saveEvent(event: Event) = withContext(Dispatchers.IO) {
         try {
-            val snapshot = wtEventsCollection.whereEqualTo("deviceId", deviceId).get().await()
-            return@withContext snapshot.documents.mapNotNull { doc ->
-                val id = doc.getLong("id") ?: return@mapNotNull null
-                val title = doc.getString("title") ?: ""
-                val description = doc.getString("description")
-                val date = doc.getDate("date") ?: Date()
-                val type = doc.getString("type") ?: ""
-                
-                WTEvent(id, title, description, date, type)
-            }
+            val eventMap = hashMapOf(
+                "id" to event.id,
+                "title" to event.title,
+                "description" to event.description,
+                "date" to event.date,
+                "type" to event.type,
+                "deviceId" to deviceId
+            )
+            
+            return@withContext eventsCollection.document(event.id.toString()).set(eventMap)
         } catch (e: Exception) {
-            return@withContext emptyList<WTEvent>()
+            throw e
         }
     }
     
-    suspend fun deleteWTEvent(eventId: Long) = withContext(Dispatchers.IO) {
-        return@withContext wtEventsCollection.document(eventId.toString()).delete()
+    suspend fun getEvents(): List<Event> = withContext(Dispatchers.IO) {
+        try {
+            val snapshot = eventsCollection.whereEqualTo("deviceId", deviceId).get().await()
+            
+            return@withContext snapshot.documents.map { doc ->
+                val id = doc.getLong("id") ?: 0L
+                val title = doc.getString("title") ?: ""
+                val description = doc.getString("description")
+                val date = doc.getDate("date") ?: Date()
+                val type = doc.getString("type") ?: "Event"
+                
+                Event(id, title, description, date, type)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting events", e)
+            return@withContext emptyList<Event>()
+        }
+    }
+    
+    suspend fun deleteEvent(eventId: Long) = withContext(Dispatchers.IO) {
+        return@withContext eventsCollection.document(eventId.toString()).delete()
     }
     
     // WT Lessons

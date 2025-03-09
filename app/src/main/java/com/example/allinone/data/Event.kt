@@ -3,7 +3,7 @@ package com.example.allinone.data
 import java.util.Date
 
 /**
- * Data class representing an event in the Wing Tzun calendar.
+ * Data class representing an event in the calendar.
  * 
  * @property id Unique identifier for the event
  * @property title Title of the event
@@ -11,7 +11,7 @@ import java.util.Date
  * @property date Date and time of the event
  * @property type Type of event (e.g., "Event", "Lesson")
  */
-data class WTEvent(
+data class Event(
     val id: Long = 0,
     val title: String = "",
     val description: String? = null,

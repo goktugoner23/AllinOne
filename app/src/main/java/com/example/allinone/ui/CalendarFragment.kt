@@ -16,7 +16,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.allinone.R
 import com.example.allinone.adapters.EventAdapter
-import com.example.allinone.data.WTEvent
+import com.example.allinone.data.Event
 import com.example.allinone.databinding.FragmentCalendarBinding
 import com.example.allinone.viewmodels.CalendarViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -41,7 +41,7 @@ class CalendarFragment : Fragment() {
     
     // Map to store day views for quick lookup
     private val dayViews = mutableMapOf<Int, TextView>()
-    private val dayEvents = mutableMapOf<Int, MutableList<WTEvent>>()
+    private val dayEvents = mutableMapOf<Int, MutableList<Event>>()
     
     // Selected day
     private var selectedDay: Int = currentDate.get(Calendar.DAY_OF_MONTH)
@@ -52,7 +52,7 @@ class CalendarFragment : Fragment() {
     private lateinit var eventAdapter: EventAdapter
     
     // All events for the current month
-    private val monthEvents = mutableListOf<WTEvent>()
+    private val monthEvents = mutableListOf<Event>()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -453,11 +453,11 @@ class CalendarFragment : Fragment() {
             .show()
     }
     
-    private fun showEventOptionsDialog(event: WTEvent) {
+    private fun showEventOptionsDialog(event: Event) {
         val options = if (event.type == "Lesson") {
             arrayOf("View Details", "Cancel Lesson", "Postpone Lesson")
         } else {
-            arrayOf("View Details", "Edit Event", "Delete Event")
+            arrayOf("View Details", "Delete Event")
         }
         
         MaterialAlertDialogBuilder(requireContext())
@@ -469,15 +469,12 @@ class CalendarFragment : Fragment() {
                         if (event.type == "Lesson") {
                             showCancelLessonConfirmation(event)
                         } else {
-                            // Edit event - for simplicity, just delete and let them recreate
                             showDeleteEventConfirmation(event)
                         }
                     }
                     2 -> {
                         if (event.type == "Lesson") {
                             showPostponeLessonDialog(event)
-                        } else {
-                            showDeleteEventConfirmation(event)
                         }
                     }
                 }
@@ -486,7 +483,7 @@ class CalendarFragment : Fragment() {
             .show()
     }
     
-    private fun showEventDetailsDialog(event: WTEvent) {
+    private fun showEventDetailsDialog(event: Event) {
         // We're only using the date and time, no need to store the calendar object
         val date = fullDateFormat.format(event.date)
         val time = eventDateFormat.format(event.date)
@@ -506,7 +503,7 @@ class CalendarFragment : Fragment() {
             .show()
     }
     
-    private fun showDeleteEventConfirmation(event: WTEvent) {
+    private fun showDeleteEventConfirmation(event: Event) {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Delete Event")
             .setMessage("Are you sure you want to delete '${event.title}'?")
@@ -514,14 +511,28 @@ class CalendarFragment : Fragment() {
                 viewModel.deleteEvent(event)
                 Toast.makeText(context, "Event deleted", Toast.LENGTH_SHORT).show()
                 
-                // Need to refresh events list after delete
-                viewModel.forceRefresh()
+                // Refresh the calendar view to reflect the change
+                updateCalendarForMonth(calendar)
+                
+                // Update events list
+                val filteredEvents = dayEvents[selectedDay]?.sortedBy { it.date } ?: emptyList()
+                eventAdapter.submitList(filteredEvents)
+                
+                // Update visibility of events list/empty state
+                if (filteredEvents.isEmpty()) {
+                    binding.eventsRecyclerView.visibility = View.GONE
+                    binding.emptyEventsText.text = "No events for the selected day"
+                    binding.emptyEventsText.visibility = View.VISIBLE
+                } else {
+                    binding.eventsRecyclerView.visibility = View.VISIBLE
+                    binding.emptyEventsText.visibility = View.GONE
+                }
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
     
-    private fun showCancelLessonConfirmation(event: WTEvent) {
+    private fun showCancelLessonConfirmation(event: Event) {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Cancel Lesson")
             .setMessage("Are you sure you want to cancel this lesson (${event.title})?")
@@ -529,14 +540,28 @@ class CalendarFragment : Fragment() {
                 viewModel.cancelLesson(event.date)
                 Toast.makeText(context, "Lesson cancelled", Toast.LENGTH_SHORT).show()
                 
-                // Need to refresh events list after cancellation
-                viewModel.forceRefresh()
+                // Refresh the calendar view to reflect the change
+                updateCalendarForMonth(calendar)
+                
+                // Update events list
+                val filteredEvents = dayEvents[selectedDay]?.sortedBy { it.date } ?: emptyList()
+                eventAdapter.submitList(filteredEvents)
+                
+                // Update visibility of events list/empty state
+                if (filteredEvents.isEmpty()) {
+                    binding.eventsRecyclerView.visibility = View.GONE
+                    binding.emptyEventsText.text = "No events for the selected day"
+                    binding.emptyEventsText.visibility = View.VISIBLE
+                } else {
+                    binding.eventsRecyclerView.visibility = View.VISIBLE
+                    binding.emptyEventsText.visibility = View.GONE
+                }
             }
             .setNegativeButton("Keep", null)
             .show()
     }
     
-    private fun showPostponeLessonDialog(event: WTEvent) {
+    private fun showPostponeLessonDialog(event: Event) {
         // Create a calendar for the event
         val eventCal = Calendar.getInstance().apply { time = event.date }
         
@@ -560,7 +585,31 @@ class CalendarFragment : Fragment() {
                         viewModel.postponeLesson(event.date, newEventCal.time)
                         Toast.makeText(context, "Lesson postponed", Toast.LENGTH_SHORT).show()
                         
-                        // Need to refresh events list after postponing
+                        // Refresh the calendar
+                        updateCalendarForMonth(calendar)
+                        
+                        // If the user postponed to a day in the current view, select that day
+                        if (month == calendar.get(Calendar.MONTH) && year == calendar.get(Calendar.YEAR)) {
+                            selectedDay = dayOfMonth
+                            selectedMonth = month
+                            selectedYear = year
+                            
+                            // Update events for the new selected day
+                            val filteredEvents = dayEvents[selectedDay]?.sortedBy { it.date } ?: emptyList()
+                            eventAdapter.submitList(filteredEvents)
+                            
+                            // Update visibility of events list/empty state
+                            if (filteredEvents.isEmpty()) {
+                                binding.eventsRecyclerView.visibility = View.GONE
+                                binding.emptyEventsText.text = "No events for the selected day"
+                                binding.emptyEventsText.visibility = View.VISIBLE
+                            } else {
+                                binding.eventsRecyclerView.visibility = View.VISIBLE
+                                binding.emptyEventsText.visibility = View.GONE
+                            }
+                        }
+                        
+                        // Force data refresh
                         viewModel.forceRefresh()
                     },
                     eventCal.get(Calendar.HOUR_OF_DAY),

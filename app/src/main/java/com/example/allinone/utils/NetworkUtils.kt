@@ -123,7 +123,8 @@ class NetworkUtils(private val context: Context) {
     
     /**
      * Checks if the system reports active network connectivity.
-     * This does not make actual network requests, so it's safe to call from any thread.
+     * This is the non-suspend version which is safer to call from any thread/place.
+     * It may still cause NetworkOnMainThreadException in some edge cases - use with caution.
      */
     fun isActiveNetworkConnected(): Boolean {
         val network = connectivityManager.activeNetwork
@@ -134,6 +135,14 @@ class NetworkUtils(private val context: Context) {
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
         ) && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
             capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+    
+    /**
+     * Suspend version of isActiveNetworkConnected that safely runs on a background thread.
+     * Use this version when calling from a suspend function or coroutine.
+     */
+    suspend fun isActiveNetworkConnectedSuspend(): Boolean = withContext(Dispatchers.IO) {
+        isActiveNetworkConnected()
     }
     
     fun unregister() {

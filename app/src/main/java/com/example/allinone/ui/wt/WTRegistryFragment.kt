@@ -149,8 +149,11 @@ class WTRegistryFragment : Fragment() {
 
     /**
      * Update the lessons in the calendar
+     * Note: This method is intentionally empty as the calendar view is updated 
+     * automatically through the connection between WTLessonsViewModel and 
+     * CalendarViewModel established in MainActivity
      */
     fun updateLessons(lessons: List<WTLesson>) {
-        viewModel.updateLessons(lessons)
+        // No action needed in this fragment
     }
 } 

@@ -22,7 +22,7 @@ service cloud.firestore {
                            request.resource.data.deviceId != null;
     }
     
-    match /wtEvents/{document=**} {
+    match /events/{document=**} {
       allow read, write: if request.resource.data.deviceId == resource.data.deviceId || 
                            request.resource.data.deviceId != null;
     }

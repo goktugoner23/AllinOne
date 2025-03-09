@@ -20,36 +20,31 @@ class OfflineQueue(context: Context) {
     private val gson = Gson()
     
     // Operation types
-    enum class OperationType {
-        INSERT, UPDATE, DELETE, 
-        INSERT_WT_EVENT, DELETE_WT_EVENT,
-        INSERT_WT_LESSON, DELETE_WT_LESSON,
-        UPDATE_WT_STUDENT
+    enum class Operation {
+        INSERT, UPDATE, DELETE
     }
     
     // Data types
     enum class DataType {
-        TRANSACTION, INVESTMENT, NOTE, STUDENT, WT_EVENT, WT_LESSON
+        TRANSACTION, INVESTMENT, NOTE, STUDENT, EVENT, WT_LESSON
     }
     
     // Queue item
     data class QueueItem(
         val id: String = UUID.randomUUID().toString(),
-        val operationType: OperationType,
+        val operation: Operation,
         val dataType: DataType,
-        val dataId: Long,
         val jsonData: String? = null,
         val timestamp: Long = System.currentTimeMillis()
     )
     
     /**
-     * Add an operation to the queue
+     * Add an item to the queue
      */
-    fun addOperation(operationType: OperationType, dataType: DataType, dataId: Long, jsonData: String? = null) {
+    fun enqueue(dataType: DataType, operation: Operation, jsonData: String?) {
         val queueItem = QueueItem(
-            operationType = operationType,
+            operation = operation,
             dataType = dataType,
-            dataId = dataId,
             jsonData = jsonData
         )
         

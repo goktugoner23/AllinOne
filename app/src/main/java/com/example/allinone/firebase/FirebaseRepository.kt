@@ -13,7 +13,7 @@ import com.example.allinone.data.Investment
 import com.example.allinone.data.Note
 import com.example.allinone.data.Transaction
 import com.example.allinone.data.WTStudent
-import com.example.allinone.data.WTEvent
+import com.example.allinone.data.Event
 import com.example.allinone.data.WTLesson
 import com.example.allinone.utils.NetworkUtils
 import com.google.firebase.auth.FirebaseAuth
@@ -60,7 +60,7 @@ class FirebaseRepository(private val context: Context) {
     private val _investments = MutableStateFlow<List<Investment>>(emptyList())
     private val _notes = MutableStateFlow<List<Note>>(emptyList())
     private val _students = MutableStateFlow<List<WTStudent>>(emptyList())
-    private val _wtEvents = MutableStateFlow<List<WTEvent>>(emptyList())
+    private val _events = MutableStateFlow<List<Event>>(emptyList())
     private val _wtLessons = MutableStateFlow<List<WTLesson>>(emptyList())
     
     // Public flows
@@ -68,7 +68,7 @@ class FirebaseRepository(private val context: Context) {
     val investments: StateFlow<List<Investment>> = _investments
     val notes: StateFlow<List<Note>> = _notes
     val students: StateFlow<List<WTStudent>> = _students
-    val wtEvents: StateFlow<List<WTEvent>> = _wtEvents
+    val events: StateFlow<List<Event>> = _events
     val wtLessons: StateFlow<List<WTLesson>> = _wtLessons
     
     // Error handling
@@ -191,7 +191,7 @@ class FirebaseRepository(private val context: Context) {
             // Load events
             val cachedEvents = cacheManager.getCachedEvents()
             if (cachedEvents.isNotEmpty()) {
-                _wtEvents.value = cachedEvents
+                _events.value = cachedEvents
                 Log.d(TAG, "Loaded ${cachedEvents.size} events from cache")
             }
             
@@ -313,7 +313,7 @@ class FirebaseRepository(private val context: Context) {
                     OfflineQueue.DataType.INVESTMENT -> processInvestmentQueueItem(queueItem)
                     OfflineQueue.DataType.NOTE -> processNoteQueueItem(queueItem)
                     OfflineQueue.DataType.STUDENT -> processStudentQueueItem(queueItem)
-                    OfflineQueue.DataType.WT_EVENT -> processWTEventQueueItem(queueItem)
+                    OfflineQueue.DataType.EVENT -> processEventQueueItem(queueItem)
                     OfflineQueue.DataType.WT_LESSON -> processWTLessonQueueItem(queueItem)
                 }
                 true // Operation succeeded
@@ -328,135 +328,92 @@ class FirebaseRepository(private val context: Context) {
     }
     
     private suspend fun processTransactionQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
-        return when (queueItem.operationType) {
-            OfflineQueue.OperationType.INSERT, OfflineQueue.OperationType.UPDATE -> {
+        return when (queueItem.operation) {
+            OfflineQueue.Operation.INSERT, OfflineQueue.Operation.UPDATE -> {
                 val transaction = gson.fromJson(queueItem.jsonData, Transaction::class.java)
                 firebaseManager.saveTransaction(transaction)
                 true
             }
-            OfflineQueue.OperationType.DELETE -> {
-                val transaction = Transaction(
-                    id = queueItem.dataId,
-                    amount = 0.0,
-                    date = Date(),
-                    description = "",
-                    category = "",
-                    type = "",
-                    isIncome = false
-                )
+            OfflineQueue.Operation.DELETE -> {
+                val transaction = gson.fromJson(queueItem.jsonData, Transaction::class.java)
                 firebaseManager.deleteTransaction(transaction)
                 true
             }
-            else -> false
         }
     }
     
     private suspend fun processInvestmentQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
-        return when (queueItem.operationType) {
-            OfflineQueue.OperationType.INSERT, OfflineQueue.OperationType.UPDATE -> {
+        return when (queueItem.operation) {
+            OfflineQueue.Operation.INSERT, OfflineQueue.Operation.UPDATE -> {
                 val investment = gson.fromJson(queueItem.jsonData, Investment::class.java)
                 firebaseManager.saveInvestment(investment)
                 true
             }
-            OfflineQueue.OperationType.DELETE -> {
-                val investment = Investment(
-                    id = queueItem.dataId,
-                    name = "",
-                    amount = 0.0,
-                    date = Date(),
-                    description = "",
-                    type = "",
-                    imageUri = null,
-                    profitLoss = 0.0
-                )
+            OfflineQueue.Operation.DELETE -> {
+                val investment = gson.fromJson(queueItem.jsonData, Investment::class.java)
                 firebaseManager.deleteInvestment(investment)
                 true
             }
-            else -> false
         }
     }
     
     private suspend fun processNoteQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
-        return when (queueItem.operationType) {
-            OfflineQueue.OperationType.INSERT, OfflineQueue.OperationType.UPDATE -> {
+        return when (queueItem.operation) {
+            OfflineQueue.Operation.INSERT, OfflineQueue.Operation.UPDATE -> {
                 val note = gson.fromJson(queueItem.jsonData, Note::class.java)
                 firebaseManager.saveNote(note)
                 true
             }
-            OfflineQueue.OperationType.DELETE -> {
-                val note = Note(
-                    id = queueItem.dataId,
-                    title = "",
-                    content = "",
-                    date = Date(),
-                    imageUri = null
-                )
+            OfflineQueue.Operation.DELETE -> {
+                val note = gson.fromJson(queueItem.jsonData, Note::class.java)
                 firebaseManager.deleteNote(note)
                 true
             }
-            else -> false
         }
     }
     
     private suspend fun processStudentQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
-        return when (queueItem.operationType) {
-            OfflineQueue.OperationType.INSERT, OfflineQueue.OperationType.UPDATE -> {
+        return when (queueItem.operation) {
+            OfflineQueue.Operation.INSERT, OfflineQueue.Operation.UPDATE -> {
                 val student = gson.fromJson(queueItem.jsonData, WTStudent::class.java)
                 firebaseManager.saveStudent(student)
                 true
             }
-            OfflineQueue.OperationType.UPDATE_WT_STUDENT -> {
+            OfflineQueue.Operation.DELETE -> {
                 val student = gson.fromJson(queueItem.jsonData, WTStudent::class.java)
-                firebaseManager.saveStudent(student)
-                true
-            }
-            OfflineQueue.OperationType.DELETE -> {
-                val student = WTStudent(
-                    id = queueItem.dataId,
-                    name = "",
-                    startDate = Date(),
-                    endDate = Date(),
-                    amount = 0.0,
-                    isPaid = false,
-                    paymentDate = null,
-                    attachmentUri = null
-                )
                 firebaseManager.deleteStudent(student)
                 true
             }
-            else -> false
         }
     }
     
-    private suspend fun processWTEventQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
-        return when (queueItem.operationType) {
-            OfflineQueue.OperationType.INSERT_WT_EVENT -> {
-                val event = gson.fromJson(queueItem.jsonData, WTEvent::class.java)
-                insertWTEvent(event)
+    private suspend fun processEventQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
+        return when (queueItem.operation) {
+            OfflineQueue.Operation.INSERT, OfflineQueue.Operation.UPDATE -> {
+                val event = gson.fromJson(queueItem.jsonData, Event::class.java)
+                insertEvent(event)
                 true
             }
-            OfflineQueue.OperationType.DELETE_WT_EVENT -> {
-                val event = gson.fromJson(queueItem.jsonData, WTEvent::class.java)
-                deleteWTEvent(event)
+            OfflineQueue.Operation.DELETE -> {
+                val event = gson.fromJson(queueItem.jsonData, Event::class.java)
+                deleteEvent(event)
                 true
             }
-            else -> false
         }
     }
     
     private suspend fun processWTLessonQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
-        return when (queueItem.operationType) {
-            OfflineQueue.OperationType.INSERT_WT_LESSON -> {
+        return when (queueItem.operation) {
+            OfflineQueue.Operation.INSERT, OfflineQueue.Operation.UPDATE -> {
                 val lesson = gson.fromJson(queueItem.jsonData, WTLesson::class.java)
                 insertWTLesson(lesson)
                 true
             }
-            OfflineQueue.OperationType.DELETE_WT_LESSON -> {
+            OfflineQueue.Operation.DELETE -> {
                 val lesson = gson.fromJson(queueItem.jsonData, WTLesson::class.java)
                 deleteWTLesson(lesson)
                 true
             }
-            else -> false
         }
     }
     
@@ -484,7 +441,7 @@ class FirebaseRepository(private val context: Context) {
             refreshInvestments()
             refreshNotes()
             refreshStudents()
-            refreshWTEvents()
+            refreshEvents()
             refreshWTLessons()
             
         } catch (e: Exception) {
@@ -554,10 +511,9 @@ class FirebaseRepository(private val context: Context) {
                 firebaseManager.saveTransaction(transaction)
             } else {
                 // Add to offline queue
-                offlineQueue.addOperation(
-                    OfflineQueue.OperationType.INSERT,
+                offlineQueue.enqueue(
                     OfflineQueue.DataType.TRANSACTION,
-                    transaction.id,
+                    OfflineQueue.Operation.INSERT,
                     gson.toJson(transaction)
                 )
                 _errorMessage.postValue("Transaction saved locally. Will sync when network is available.")
@@ -592,10 +548,9 @@ class FirebaseRepository(private val context: Context) {
                     firebaseManager.saveTransaction(transaction)
                 } catch (e: Exception) {
                     // Add to offline queue
-                    offlineQueue.addOperation(
-                        OfflineQueue.OperationType.UPDATE,
+                    offlineQueue.enqueue(
                         OfflineQueue.DataType.TRANSACTION,
-                        transaction.id,
+                        OfflineQueue.Operation.UPDATE,
                         gson.toJson(transaction)
                     )
                     
@@ -609,10 +564,9 @@ class FirebaseRepository(private val context: Context) {
         } else {
             // Add to offline queue
             CoroutineScope(Dispatchers.IO).launch {
-                offlineQueue.addOperation(
-                    OfflineQueue.OperationType.UPDATE,
+                offlineQueue.enqueue(
                     OfflineQueue.DataType.TRANSACTION,
-                    transaction.id,
+                    OfflineQueue.Operation.UPDATE,
                     gson.toJson(transaction)
                 )
                 
@@ -634,10 +588,10 @@ class FirebaseRepository(private val context: Context) {
                 firebaseManager.deleteTransaction(transaction)
             } else {
                 // Add to offline queue
-                offlineQueue.addOperation(
-                    OfflineQueue.OperationType.DELETE,
+                offlineQueue.enqueue(
                     OfflineQueue.DataType.TRANSACTION,
-                    transaction.id
+                    OfflineQueue.Operation.DELETE,
+                    gson.toJson(transaction)
                 )
                 _errorMessage.postValue("Transaction deleted locally. Will sync when network is available.")
                 updatePendingOperationsCount()
@@ -677,10 +631,9 @@ class FirebaseRepository(private val context: Context) {
                 firebaseManager.saveInvestment(investment)
             } else {
                 // Add to offline queue
-                offlineQueue.addOperation(
-                    OfflineQueue.OperationType.INSERT,
+                offlineQueue.enqueue(
                     OfflineQueue.DataType.INVESTMENT,
-                    investment.id,
+                    OfflineQueue.Operation.INSERT,
                     gson.toJson(investment)
                 )
                 _errorMessage.postValue("Investment saved locally. Will sync when network is available.")
@@ -715,10 +668,9 @@ class FirebaseRepository(private val context: Context) {
                     firebaseManager.saveInvestment(investment)
                 } catch (e: Exception) {
                     // Add to offline queue
-                    offlineQueue.addOperation(
-                        OfflineQueue.OperationType.UPDATE,
+                    offlineQueue.enqueue(
                         OfflineQueue.DataType.INVESTMENT,
-                        investment.id,
+                        OfflineQueue.Operation.UPDATE,
                         gson.toJson(investment)
                     )
                     
@@ -732,10 +684,9 @@ class FirebaseRepository(private val context: Context) {
         } else {
             // Add to offline queue
             CoroutineScope(Dispatchers.IO).launch {
-                offlineQueue.addOperation(
-                    OfflineQueue.OperationType.UPDATE,
+                offlineQueue.enqueue(
                     OfflineQueue.DataType.INVESTMENT,
-                    investment.id,
+                    OfflineQueue.Operation.UPDATE,
                     gson.toJson(investment)
                 )
                 
@@ -757,10 +708,10 @@ class FirebaseRepository(private val context: Context) {
                 firebaseManager.deleteInvestment(investment)
             } else {
                 // Add to offline queue
-                offlineQueue.addOperation(
-                    OfflineQueue.OperationType.DELETE,
+                offlineQueue.enqueue(
                     OfflineQueue.DataType.INVESTMENT,
-                    investment.id
+                    OfflineQueue.Operation.DELETE,
+                    gson.toJson(investment)
                 )
                 _errorMessage.postValue("Investment deleted locally. Will sync when network is available.")
                 updatePendingOperationsCount()
@@ -800,10 +751,9 @@ class FirebaseRepository(private val context: Context) {
                 firebaseManager.saveNote(note)
             } else {
                 // Add to offline queue
-                offlineQueue.addOperation(
-                    OfflineQueue.OperationType.INSERT,
+                offlineQueue.enqueue(
                     OfflineQueue.DataType.NOTE,
-                    note.id,
+                    OfflineQueue.Operation.INSERT,
                     gson.toJson(note)
                 )
                 _errorMessage.postValue("Note saved locally. Will sync when network is available.")
@@ -838,10 +788,9 @@ class FirebaseRepository(private val context: Context) {
                     firebaseManager.saveNote(note)
                 } catch (e: Exception) {
                     // Add to offline queue
-                    offlineQueue.addOperation(
-                        OfflineQueue.OperationType.UPDATE,
+                    offlineQueue.enqueue(
                         OfflineQueue.DataType.NOTE,
-                        note.id,
+                        OfflineQueue.Operation.UPDATE,
                         gson.toJson(note)
                     )
                     
@@ -855,10 +804,9 @@ class FirebaseRepository(private val context: Context) {
         } else {
             // Add to offline queue
             CoroutineScope(Dispatchers.IO).launch {
-                offlineQueue.addOperation(
-                    OfflineQueue.OperationType.UPDATE,
+                offlineQueue.enqueue(
                     OfflineQueue.DataType.NOTE,
-                    note.id,
+                    OfflineQueue.Operation.UPDATE,
                     gson.toJson(note)
                 )
                 
@@ -880,10 +828,10 @@ class FirebaseRepository(private val context: Context) {
                 firebaseManager.deleteNote(note)
             } else {
                 // Add to offline queue
-                offlineQueue.addOperation(
-                    OfflineQueue.OperationType.DELETE,
+                offlineQueue.enqueue(
                     OfflineQueue.DataType.NOTE,
-                    note.id
+                    OfflineQueue.Operation.DELETE,
+                    gson.toJson(note)
                 )
                 _errorMessage.postValue("Note deleted locally. Will sync when network is available.")
                 updatePendingOperationsCount()
@@ -923,10 +871,9 @@ class FirebaseRepository(private val context: Context) {
                 firebaseManager.saveStudent(student)
             } else {
                 // Add to offline queue
-                offlineQueue.addOperation(
-                    OfflineQueue.OperationType.INSERT,
+                offlineQueue.enqueue(
                     OfflineQueue.DataType.STUDENT,
-                    student.id,
+                    OfflineQueue.Operation.INSERT,
                     gson.toJson(student)
                 )
                 _errorMessage.postValue("Student saved locally. Will sync when network is available.")
@@ -961,10 +908,9 @@ class FirebaseRepository(private val context: Context) {
                     firebaseManager.saveStudent(student)
                 } catch (e: Exception) {
                     // Add to offline queue
-                    offlineQueue.addOperation(
-                        OfflineQueue.OperationType.UPDATE,
+                    offlineQueue.enqueue(
                         OfflineQueue.DataType.STUDENT,
-                        student.id,
+                        OfflineQueue.Operation.UPDATE,
                         gson.toJson(student)
                     )
                     
@@ -978,10 +924,9 @@ class FirebaseRepository(private val context: Context) {
         } else {
             // Add to offline queue
             CoroutineScope(Dispatchers.IO).launch {
-                offlineQueue.addOperation(
-                    OfflineQueue.OperationType.UPDATE,
+                offlineQueue.enqueue(
                     OfflineQueue.DataType.STUDENT,
-                    student.id,
+                    OfflineQueue.Operation.UPDATE,
                     gson.toJson(student)
                 )
                 
@@ -1003,10 +948,10 @@ class FirebaseRepository(private val context: Context) {
                 firebaseManager.deleteStudent(student)
             } else {
                 // Add to offline queue
-                offlineQueue.addOperation(
-                    OfflineQueue.OperationType.DELETE,
+                offlineQueue.enqueue(
                     OfflineQueue.DataType.STUDENT,
-                    student.id
+                    OfflineQueue.Operation.DELETE,
+                    gson.toJson(student)
                 )
                 _errorMessage.postValue("Student deleted locally. Will sync when network is available.")
                 updatePendingOperationsCount()
@@ -1064,18 +1009,17 @@ class FirebaseRepository(private val context: Context) {
     }
     
     // WT Events
-    suspend fun insertWTEvent(title: String, description: String?, date: Date) {
-        val event = WTEvent(
-            id = 0, // Will be replaced by Firebase
+    suspend fun insertEvent(title: String, description: String?, date: Date) {
+        val event = Event(
+            id = UUID.randomUUID().mostSignificantBits,
             title = title,
             description = description,
-            date = date,
-            type = "Event"
+            date = date
         )
-        insertWTEvent(event)
+        insertEvent(event)
     }
     
-    suspend fun insertWTEvent(event: WTEvent) {
+    suspend fun insertEvent(event: Event) {
         withContext(Dispatchers.IO) {
             try {
                 if (networkUtils.isActiveNetworkConnected()) {
@@ -1087,63 +1031,61 @@ class FirebaseRepository(private val context: Context) {
                     }
                     
                     // Save to Firebase
-                    firebaseManager.saveWTEvent(eventWithId).await()
+                    firebaseManager.saveEvent(eventWithId).await()
                     
                     // Update local cache - switch to Main thread for LiveData updates
                     withContext(Dispatchers.Main) {
-                        val currentEvents = _wtEvents.value.toMutableList()
+                        val currentEvents = _events.value.toMutableList()
                         val index = currentEvents.indexOfFirst { it.id == eventWithId.id }
                         if (index >= 0) {
                             currentEvents[index] = eventWithId
                         } else {
                             currentEvents.add(eventWithId)
                         }
-                        _wtEvents.value = currentEvents
+                        _events.value = currentEvents
                     }
                 } else {
                     // Queue for later
-                    offlineQueue.addOperation(
-                        OfflineQueue.OperationType.INSERT_WT_EVENT,
-                        OfflineQueue.DataType.WT_EVENT,
-                        event.id,
+                    offlineQueue.enqueue(
+                        OfflineQueue.DataType.EVENT,
+                        OfflineQueue.Operation.INSERT,
                         gson.toJson(event)
                     )
                 }
             } catch (e: Exception) {
                 // Handle error
                 withContext(Dispatchers.Main) {
-                    _errorMessage.value = "Error inserting WT event: ${e.message}"
+                    _errorMessage.value = "Error inserting event: ${e.message}"
                 }
             }
         }
     }
     
-    suspend fun deleteWTEvent(event: WTEvent) {
+    suspend fun deleteEvent(event: Event) {
         withContext(Dispatchers.IO) {
             try {
                 if (networkUtils.isActiveNetworkConnected()) {
                     // Delete from Firebase
-                    firebaseManager.deleteWTEvent(event.id).await()
+                    firebaseManager.deleteEvent(event.id).await()
                     
                     // Update local cache - switch to Main thread for LiveData updates
                     withContext(Dispatchers.Main) {
-                        val currentEvents = _wtEvents.value.toMutableList()
+                        val currentEvents = _events.value.toMutableList()
                         currentEvents.removeAll { it.id == event.id }
-                        _wtEvents.value = currentEvents
+                        _events.value = currentEvents
                     }
                 } else {
                     // Queue for later
-                    offlineQueue.addOperation(
-                        OfflineQueue.OperationType.DELETE_WT_EVENT,
-                        OfflineQueue.DataType.WT_EVENT,
-                        event.id,
+                    offlineQueue.enqueue(
+                        OfflineQueue.DataType.EVENT,
+                        OfflineQueue.Operation.DELETE,
                         gson.toJson(event)
                     )
                 }
             } catch (e: Exception) {
                 // Handle error
                 withContext(Dispatchers.Main) {
-                    _errorMessage.value = "Error deleting WT event: ${e.message}"
+                    _errorMessage.value = "Error deleting event: ${e.message}"
                 }
             }
         }
@@ -1164,30 +1106,29 @@ class FirebaseRepository(private val context: Context) {
                     // Save to Firebase
                     firebaseManager.saveWTLesson(lessonWithId).await()
                     
-                    // Update local cache - switch to Main thread for LiveData updates
+                    // Update cache
+                    val currentLessons = _wtLessons.value.toMutableList()
+                    val index = currentLessons.indexOfFirst { it.id == lessonWithId.id }
+                    if (index >= 0) {
+                        currentLessons[index] = lessonWithId
+                    } else {
+                        currentLessons.add(lessonWithId)
+                    }
                     withContext(Dispatchers.Main) {
-                        val currentLessons = _wtLessons.value.toMutableList()
-                        val index = currentLessons.indexOfFirst { it.id == lessonWithId.id }
-                        if (index >= 0) {
-                            currentLessons[index] = lessonWithId
-                        } else {
-                            currentLessons.add(lessonWithId)
-                        }
                         _wtLessons.value = currentLessons
                     }
                 } else {
                     // Queue for later
-                    offlineQueue.addOperation(
-                        OfflineQueue.OperationType.INSERT_WT_LESSON,
+                    offlineQueue.enqueue(
                         OfflineQueue.DataType.WT_LESSON,
-                        lesson.id,
+                        OfflineQueue.Operation.INSERT,
                         gson.toJson(lesson)
                     )
                 }
             } catch (e: Exception) {
                 // Handle error
                 withContext(Dispatchers.Main) {
-                    _errorMessage.value = "Error inserting WT lesson: ${e.message}"
+                    _errorMessage.value = "Error saving Wing Tzun lesson: ${e.message}"
                 }
             }
         }
@@ -1197,28 +1138,27 @@ class FirebaseRepository(private val context: Context) {
         withContext(Dispatchers.IO) {
             try {
                 if (networkUtils.isActiveNetworkConnected()) {
-                    // Delete from Firebase
+                    // Delete from Firestore
                     firebaseManager.deleteWTLesson(lesson.id).await()
                     
-                    // Update local cache - switch to Main thread for LiveData updates
+                    // Update cache
+                    val currentLessons = _wtLessons.value.toMutableList()
+                    currentLessons.removeIf { it.id == lesson.id }
                     withContext(Dispatchers.Main) {
-                        val currentLessons = _wtLessons.value.toMutableList()
-                        currentLessons.removeAll { it.id == lesson.id }
                         _wtLessons.value = currentLessons
                     }
                 } else {
                     // Queue for later
-                    offlineQueue.addOperation(
-                        OfflineQueue.OperationType.DELETE_WT_LESSON,
+                    offlineQueue.enqueue(
                         OfflineQueue.DataType.WT_LESSON,
-                        lesson.id,
+                        OfflineQueue.Operation.DELETE,
                         gson.toJson(lesson)
                     )
                 }
             } catch (e: Exception) {
                 // Handle error
                 withContext(Dispatchers.Main) {
-                    _errorMessage.value = "Error deleting WT lesson: ${e.message}"
+                    _errorMessage.value = "Error deleting Wing Tzun lesson: ${e.message}"
                 }
             }
         }
@@ -1245,10 +1185,9 @@ class FirebaseRepository(private val context: Context) {
                     }
                 } else {
                     // Queue for later
-                    offlineQueue.addOperation(
-                        OfflineQueue.OperationType.UPDATE_WT_STUDENT,
+                    offlineQueue.enqueue(
                         OfflineQueue.DataType.STUDENT,
-                        student.id,
+                        OfflineQueue.Operation.UPDATE,
                         gson.toJson(student)
                     )
                 }
@@ -1264,7 +1203,7 @@ class FirebaseRepository(private val context: Context) {
     /**
      * Refreshes WT events from Firestore with robust error handling
      */
-    suspend fun refreshWTEvents() {
+    suspend fun refreshEvents() {
         if (!networkUtils.isActiveNetworkConnected()) {
             return // Use cached data
         }
@@ -1275,14 +1214,14 @@ class FirebaseRepository(private val context: Context) {
                 _isLoading.value = true
             }
             
-            val eventList = firebaseManager.getWTEvents()
+            val eventList = firebaseManager.getEvents()
             
             // Update cache first
             cacheManager.cacheEvents(eventList)
             
             // Then update LiveData on main thread
             withContext(Dispatchers.Main) {
-                _wtEvents.value = eventList
+                _events.value = eventList
                 _isLoading.value = false
             }
             

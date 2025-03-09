@@ -12,6 +12,16 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.UUID
 
+/**
+ * Change event for lessons to notify other components
+ */
+sealed class LessonChangeEvent {
+    object LessonsUpdated : LessonChangeEvent()
+    data class LessonDeleted(val lesson: WTLesson) : LessonChangeEvent()
+    data class LessonAdded(val lesson: WTLesson) : LessonChangeEvent()
+    data class LessonModified(val lesson: WTLesson) : LessonChangeEvent()
+}
+
 class WTLessonsViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FirebaseRepository(application)
     
@@ -29,11 +39,17 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
     private val _currentEditingLesson = MutableLiveData<WTLesson?>(null)
     val currentEditingLesson: LiveData<WTLesson?> = _currentEditingLesson
     
+    // Lesson change events
+    private val _lessonChangeEvent = MutableLiveData<LessonChangeEvent>()
+    val lessonChangeEvent: LiveData<LessonChangeEvent> = _lessonChangeEvent
+    
     init {
         // Collect lesson data from repository
         viewModelScope.launch {
             repository.wtLessons.collect { lessonsList ->
                 _lessons.value = lessonsList
+                // Notify observers that lessons were updated
+                _lessonChangeEvent.value = LessonChangeEvent.LessonsUpdated
             }
         }
     }
@@ -51,6 +67,8 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
                     endMinute = endMinute
                 )
                 repository.insertWTLesson(lesson)
+                // Notify observers that a lesson was added
+                _lessonChangeEvent.value = LessonChangeEvent.LessonAdded(lesson)
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to add lesson: ${e.message}"
             }
@@ -62,6 +80,8 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             try {
                 repository.deleteWTLesson(lesson)
+                // Notify observers that a lesson was deleted
+                _lessonChangeEvent.value = LessonChangeEvent.LessonDeleted(lesson)
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to delete lesson: ${e.message}"
             }
@@ -88,6 +108,9 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
                 )
                 repository.insertWTLesson(updatedLesson)
                 setEditingLesson(null) // Clear editing state
+                
+                // Notify observers that a lesson was modified
+                _lessonChangeEvent.value = LessonChangeEvent.LessonModified(updatedLesson)
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to update lesson: ${e.message}"
             }
@@ -108,6 +131,9 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
                 lessons.forEach { lesson ->
                     repository.insertWTLesson(lesson)
                 }
+                
+                // Notify observers that lessons were updated
+                _lessonChangeEvent.value = LessonChangeEvent.LessonsUpdated
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to save lessons: ${e.message}"
             }
