@@ -68,6 +68,12 @@ class CalendarFragment : Fragment() {
         
         viewModel = ViewModelProvider(requireActivity())[CalendarViewModel::class.java]
         
+        // Initialize the calendar to today's date and make sure it's selected
+        calendar.time = Date()
+        selectedDay = calendar.get(Calendar.DAY_OF_MONTH)
+        selectedMonth = calendar.get(Calendar.MONTH)
+        selectedYear = calendar.get(Calendar.YEAR)
+        
         setupCalendarHeader()
         setupCalendarDays()
         setupEventsList()
@@ -236,14 +242,42 @@ class CalendarFragment : Fragment() {
     }
     
     private fun updateEventsList() {
-        // Update events list and show/hide empty state
-        if (monthEvents.isEmpty()) {
-            binding.eventsRecyclerView.visibility = View.GONE
-            binding.emptyEventsText.visibility = View.VISIBLE
+        // Check if a day is selected
+        if (selectedDay > 0) {
+            // If a specific day is selected, show events for that day
+            val filteredEvents = dayEvents[selectedDay]?.sortedBy { it.date } ?: emptyList()
+            
+            // Update the RecyclerView with filtered events
+            if (filteredEvents.isEmpty()) {
+                binding.eventsRecyclerView.visibility = View.GONE
+                val selectedDate = Calendar.getInstance().apply {
+                    set(selectedYear, selectedMonth, selectedDay)
+                }.time
+                binding.emptyEventsText.text = "No events for ${fullDateFormat.format(selectedDate)}"
+                binding.emptyEventsText.visibility = View.VISIBLE
+            } else {
+                binding.eventsRecyclerView.visibility = View.VISIBLE
+                binding.emptyEventsText.visibility = View.GONE
+                eventAdapter.submitList(filteredEvents)
+            }
         } else {
-            binding.eventsRecyclerView.visibility = View.VISIBLE
-            binding.emptyEventsText.visibility = View.GONE
-            eventAdapter.submitList(monthEvents)
+            // On initial load or when no day is selected, show today's events
+            val today = Calendar.getInstance()
+            val todayDay = today.get(Calendar.DAY_OF_MONTH)
+            val todayEvents = dayEvents[todayDay]?.sortedBy { it.date } ?: emptyList()
+            
+            if (todayEvents.isEmpty()) {
+                binding.eventsRecyclerView.visibility = View.GONE
+                binding.emptyEventsText.text = "No events for today"
+                binding.emptyEventsText.visibility = View.VISIBLE
+            } else {
+                binding.eventsRecyclerView.visibility = View.VISIBLE
+                binding.emptyEventsText.visibility = View.GONE
+                eventAdapter.submitList(todayEvents)
+            }
+            
+            // Update the events header
+            binding.eventsHeader.text = "Events - Today (${fullDateFormat.format(today.time)})"
         }
     }
     
