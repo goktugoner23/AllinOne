@@ -21,7 +21,6 @@ import com.google.firebase.ktx.Firebase
 import android.util.Log
 import com.google.android.gms.tasks.Tasks
 import java.util.concurrent.TimeUnit
-import com.google.firebase.FirebaseApp
 
 /**
  * Manager class for Firebase operations (storage only)
