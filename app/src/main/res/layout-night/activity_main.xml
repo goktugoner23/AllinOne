@@ -8,6 +8,7 @@
     android:background="?android:attr/windowBackground"
     tools:openDrawer="start">
 
+    <!-- This is the night-specific version that uses blue tabs -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -23,7 +24,7 @@
                 android:id="@+id/toolbar"
                 android:layout_width="match_parent"
                 android:layout_height="?attr/actionBarSize"
-                android:background="?attr/colorPrimary"
+                android:background="@color/navy_surface"
                 android:elevation="4dp"
                 android:theme="@style/ThemeOverlay.MaterialComponents.Dark.ActionBar"
                 app:popupTheme="@style/ThemeOverlay.MaterialComponents.Light" />
@@ -47,8 +48,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="?android:attr/windowBackground"
-            app:itemIconTint="@color/bottom_nav_item_color_light"
-            app:itemTextColor="@color/bottom_nav_item_color_light"
+            app:itemIconTint="@color/bottom_nav_item_color"
+            app:itemTextColor="@color/bottom_nav_item_color"
+            app:itemRippleColor="@color/bright_tab_selected"
             app:layout_constraintBottom_toBottomOf="parent"
             app:menu="@menu/bottom_nav_menu" />
 

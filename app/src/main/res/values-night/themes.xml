@@ -3,17 +3,32 @@
     <!-- Base application theme. -->
     <style name="Theme.AllinOne" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/white</item>
-        <item name="colorPrimaryVariant">@color/gray_light</item>
-        <item name="colorOnPrimary">@color/black</item>
+        <item name="colorPrimary">@color/navy_surface</item>
+        <item name="colorPrimaryVariant">@color/navy_surface</item>
+        <item name="colorOnPrimary">@color/white</item>
         <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/white</item>
-        <item name="colorSecondaryVariant">@color/gray_light</item>
-        <item name="colorOnSecondary">@color/black</item>
+        <item name="colorSecondary">@color/bright_tab_selected</item>
+        <item name="colorSecondaryVariant">@color/navy_variant</item>
+        <item name="colorOnSecondary">@color/white</item>
         <!-- Status bar color. -->
-        <item name="android:statusBarColor">@color/black</item>
+        <item name="android:statusBarColor">@color/navy_surface</item>
         <!-- Explicitly disable ActionBar -->
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
+        <!-- Set professional navy theme background -->
+        <item name="android:windowBackground">@color/navy_background</item>
+        <!-- Surface and background -->
+        <item name="colorSurface">@color/navy_surface</item>
+        <item name="android:colorBackground">@color/navy_background</item>
+        <!-- Text colors for dark theme -->
+        <item name="android:textColorPrimary">@color/white</item>
+        <item name="android:textColorSecondary">@color/navy_text_secondary</item>
+    </style>
+    
+    <!-- Custom bottom navigation style for dark theme -->
+    <style name="Widget.App.BottomNavigationView" parent="Widget.MaterialComponents.BottomNavigationView">
+        <item name="itemIconTint">@color/bottom_nav_item_color</item>
+        <item name="itemTextColor">@color/bottom_nav_item_color</item>
+        <item name="itemRippleColor">@color/bright_tab_selected</item>
     </style>
 </resources>

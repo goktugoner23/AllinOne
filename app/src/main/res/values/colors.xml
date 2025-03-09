@@ -2,8 +2,8 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="gray_dark">#FF333333</color>
-    <color name="gray_light">#FFCCCCCC</color>
+    <color name="gray_dark">#FF444444</color>
+    <color name="gray_light">#FFD3D3D3</color>
     <color name="colorPrimary">@color/black</color>
     <color name="expiration_color">#FFEBEE</color>
     <color name="start_color">#E8F5E9</color>
@@ -20,4 +20,16 @@
     
     <!-- Network status color -->
     <color name="colorError">#F44336</color>
+    
+    <!-- Dark theme colors - Professional Navy Blue theme -->
+    <color name="navy_primary">#003566</color>         <!-- Deep navy blue (primary) -->
+    <color name="navy_background">#001D3D</color>      <!-- Midnight blue (background) -->
+    <color name="navy_surface">#00264D</color>         <!-- Slightly lighter navy (surface) -->
+    <color name="navy_variant">#004E92</color>         <!-- Lighter navy variant -->
+    <color name="navy_accent">#4DA8DA</color>          <!-- Blue accent that complements navy -->
+    <color name="navy_text_secondary">#A5C5E1</color>  <!-- Light blue for secondary text -->
+    
+    <!-- Bright tab color for better visibility in dark theme -->
+    <color name="bright_tab_selected">#0466C8</color>  <!-- Bright blue for selected tabs -->
+    <color name="bright_tab_unselected">#7FB5DE</color> <!-- Light blue for unselected tabs -->
 </resources>

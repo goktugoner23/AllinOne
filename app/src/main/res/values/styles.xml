@@ -9,4 +9,11 @@
         <item name="android:focusable">true</item>
         <item name="android:background">?attr/selectableItemBackground</item>
     </style>
+    
+    <!-- Bottom Navigation Styles for both light and dark themes -->
+    <style name="BottomNavigationStyle">
+        <item name="itemIconTint">@color/bottom_nav_item_color</item>
+        <item name="itemTextColor">@color/bottom_nav_item_color</item>
+        <item name="itemRippleColor">@color/bright_tab_selected</item>
+    </style>
 </resources> 

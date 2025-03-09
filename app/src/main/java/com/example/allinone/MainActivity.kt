@@ -1,6 +1,7 @@
 package com.example.allinone
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -11,7 +12,9 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.appcompat.widget.SwitchCompat
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
@@ -52,6 +55,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
     private lateinit var navigationView: NavigationView
     private lateinit var toggle: ActionBarDrawerToggle
     private lateinit var navController: NavController
+    private lateinit var themeSwitch: SwitchCompat
     private val firebaseManager by lazy { FirebaseManager(this) }
     private val firebaseRepository by lazy { FirebaseRepository(this) }
     private val offlineStatusHelper by lazy { OfflineStatusHelper(this, firebaseRepository, this) }
@@ -70,17 +74,77 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
     // ViewModels
     private lateinit var calendarViewModel: CalendarViewModel
     private lateinit var wtLessonsViewModel: WTLessonsViewModel
+    
+    companion object {
+        private const val PREFS_NAME = "app_preferences"
+        private const val KEY_DARK_MODE = "dark_mode_enabled"
+    }
+
+    override fun attachBaseContext(newBase: Context) {
+        // Load the saved theme preference
+        val prefs = newBase.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val isDarkMode = prefs.getBoolean(KEY_DARK_MODE, false)
+        
+        // Apply the appropriate theme mode
+        if (isDarkMode) {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+        } else {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+        }
+        
+        super.attachBaseContext(newBase)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Install splash screen before super.onCreate()
+        val splashScreen = installSplashScreen()
+        
+        // Keep splash screen visible only while initializing
+        var keepSplashScreen = true
+        splashScreen.setKeepOnScreenCondition { keepSplashScreen }
+        
         super.onCreate(savedInstanceState)
         
-        // Set night mode first
-        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-        
-        // Initialize binding and set content view ONCE
+        // Set the main activity content view
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         
+        // Initialize the app
+        initializeApp()
+        
+        // Setup theme toggle switch
+        setupThemeToggle()
+        
+        // Allow the splash screen to dismiss
+        keepSplashScreen = false
+    }
+    
+    private fun setupThemeToggle() {
+        // Find the theme switch in the navigation drawer
+        themeSwitch = findViewById(R.id.themeSwitch)
+        
+        // Load current theme state
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val isDarkMode = prefs.getBoolean(KEY_DARK_MODE, false)
+        
+        // Set the switch state to match the current theme
+        themeSwitch.isChecked = isDarkMode
+        
+        // Set up the theme switch listener
+        themeSwitch.setOnCheckedChangeListener { _, isChecked ->
+            // Save the theme preference
+            prefs.edit().putBoolean(KEY_DARK_MODE, isChecked).apply()
+            
+            // Apply the theme change
+            if (isChecked) {
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            } else {
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+            }
+        }
+    }
+    
+    private fun initializeApp() {
         // Initialize offline status helper
         offlineStatusHelper.initialize()
         

@@ -20,6 +20,9 @@ import com.github.mikephil.charting.utils.ColorTemplate
 import com.google.android.material.snackbar.Snackbar
 import java.util.Random
 import androidx.lifecycle.ViewModelProvider
+import kotlin.math.absoluteValue
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.ContextCompat
 
 class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
@@ -43,6 +46,14 @@ class HomeFragment : Fragment() {
     }
 
     private fun setupPieChart() {
+        // Get the appropriate hole color based on the current theme
+        val isNightMode = AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES
+        val holeColor = if (isNightMode) {
+            ContextCompat.getColor(requireContext(), R.color.navy_surface)
+        } else {
+            Color.WHITE
+        }
+
         binding.pieChart.apply {
             description.isEnabled = false
             setUsePercentValues(true)
@@ -50,9 +61,18 @@ class HomeFragment : Fragment() {
             legend.isEnabled = true
             isDrawHoleEnabled = true
             holeRadius = 40f
-            setHoleColor(Color.WHITE)
+            setHoleColor(holeColor)
             setTransparentCircleAlpha(0)
             setNoDataText("No transactions yet")
+            
+            // Set theme-appropriate text colors
+            legend.textColor = ContextCompat.getColor(requireContext(), 
+                if (isNightMode) R.color.white else R.color.textPrimary)
+            
+            // Set no data text color
+            setNoDataTextColor(ContextCompat.getColor(requireContext(), 
+                if (isNightMode) R.color.white else R.color.textPrimary))
+                
             animateY(1000)
         }
     }
@@ -89,16 +109,20 @@ class HomeFragment : Fragment() {
             return
         }
         
+        // Check if dark theme is enabled
+        val isNightMode = AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES
+        
         // Prepare data for income and expense transactions
-        val incomeTransactions = transactions.filter { it.isIncome }
+        // For income transactions, only include positive amounts - completely exclude adjustments
+        val positiveIncomeTransactions = transactions.filter { it.isIncome && it.amount > 0 }
         val expenseTransactions = transactions.filter { !it.isIncome }
         
         val entries = ArrayList<PieEntry>()
         val colors = ArrayList<Int>()
         
-        // Process income transactions by category
-        if (incomeTransactions.isNotEmpty()) {
-            val incomeByCategoryMap = incomeTransactions
+        // Process positive income transactions by category
+        if (positiveIncomeTransactions.isNotEmpty()) {
+            val incomeByCategoryMap = positiveIncomeTransactions
                 .groupBy { 
                     if (it.category.isNullOrEmpty()) "Uncategorized Income" else "${it.category} (Income)" 
                 }
@@ -109,16 +133,30 @@ class HomeFragment : Fragment() {
             incomeByCategoryMap.forEach { (category, amount) ->
                 entries.add(PieEntry(amount.toFloat(), category))
                 
-                // Assign a consistent color with income-biased colors (generally green hues)
+                // Assign a consistent color with income-biased colors
                 if (!categoryColors.containsKey(category)) {
                     val color = when {
-                        category.contains("Salary") -> Color.rgb(76, 175, 80)  // Green
-                        category.contains("Income") -> Color.rgb(129, 199, 132)  // Light Green
-                        else -> Color.rgb(
-                            100 + random.nextInt(155),  // Bias toward greener colors
-                            100 + random.nextInt(155),
-                            random.nextInt(100)
-                        )
+                        category.contains("Salary") -> ContextCompat.getColor(requireContext(), 
+                            if (isNightMode) R.color.navy_accent else R.color.start_color)
+                        category.contains("Income") -> if (isNightMode) 
+                            Color.rgb(77, 168, 218) else Color.rgb(129, 199, 132)  // Light Blue/Green
+                        category.contains("Wing Tzun") -> ContextCompat.getColor(requireContext(), 
+                            if (isNightMode) R.color.navy_accent else R.color.lesson_event_color)
+                        else -> if (isNightMode) {
+                            // Professional blue-palette random colors for dark theme
+                            Color.rgb(
+                                50 + random.nextInt(50),  // Dark-medium blue range
+                                100 + random.nextInt(100),
+                                150 + random.nextInt(100)
+                            )
+                        } else {
+                            // Green-biased colors for light theme
+                            Color.rgb(
+                                100 + random.nextInt(155),
+                                100 + random.nextInt(155),
+                                random.nextInt(100)
+                            )
+                        }
                     }
                     categoryColors[category] = color
                 }
@@ -140,18 +178,32 @@ class HomeFragment : Fragment() {
             expenseByCategoryMap.forEach { (category, amount) ->
                 entries.add(PieEntry(amount.toFloat(), category))
                 
-                // Assign a consistent color with expense-biased colors (generally red hues)
+                // Assign a consistent color with expense-biased colors
                 if (!categoryColors.containsKey(category)) {
                     val color = when {
-                        category.contains("Wing Tzun") -> Color.rgb(255, 152, 0)  // Orange
-                        category.contains("Investment") -> Color.rgb(33, 150, 243)  // Blue
-                        category.contains("General") -> Color.rgb(156, 39, 176)  // Purple
-                        category.contains("Expense") -> Color.rgb(239, 83, 80)  // Red
-                        else -> Color.rgb(
-                            100 + random.nextInt(155),
-                            random.nextInt(100),
-                            random.nextInt(100)  // Bias toward redder colors
-                        )
+                        category.contains("Wing Tzun") -> if (isNightMode)
+                            Color.rgb(230, 145, 56) else Color.rgb(255, 152, 0)  // Orange
+                        category.contains("Investment") -> if (isNightMode)
+                            Color.rgb(41, 121, 255) else Color.rgb(33, 150, 243)  // Blue
+                        category.contains("General") -> if (isNightMode)
+                            Color.rgb(165, 85, 236) else Color.rgb(156, 39, 176)  // Purple
+                        category.contains("Expense") -> if (isNightMode)
+                            Color.rgb(247, 86, 86) else Color.rgb(239, 83, 80)  // Red
+                        else -> if (isNightMode) {
+                            // Professional warm-palette random colors for dark theme
+                            Color.rgb(
+                                180 + random.nextInt(75),  // Reddish tones
+                                100 + random.nextInt(80),
+                                50 + random.nextInt(50)
+                            )
+                        } else {
+                            // Red-biased colors for light theme
+                            Color.rgb(
+                                100 + random.nextInt(155),
+                                random.nextInt(100),
+                                random.nextInt(100)
+                            )
+                        }
                     }
                     categoryColors[category] = color
                 }
