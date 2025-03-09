@@ -210,10 +210,21 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             val lessonCalendar = Calendar.getInstance()
             lessonCalendar.time = currentDate.time
             
-            // Move to the correct day of week for this lesson
-            while (lessonCalendar.get(Calendar.DAY_OF_WEEK) != lesson.dayOfWeek) {
-                lessonCalendar.add(Calendar.DAY_OF_WEEK, 1)
+            // First reset to Monday (first day of our week)
+            while (lessonCalendar.get(Calendar.DAY_OF_WEEK) != Calendar.MONDAY) {
+                lessonCalendar.add(Calendar.DAY_OF_MONTH, -1)
             }
+            
+            // Then add the appropriate number of days to reach the correct day
+            // Convert Calendar.DAY_OF_WEEK to our Monday-first system:
+            // Monday=1, Tuesday=2, ..., Sunday=7
+            val targetDay = when (lesson.dayOfWeek) {
+                Calendar.SUNDAY -> 7  // Sunday is day 7 in our system
+                else -> lesson.dayOfWeek - Calendar.MONDAY + 1  // Others are 1-based from Monday
+            }
+            
+            // Add days (accounting for being already on Monday/day 1)
+            lessonCalendar.add(Calendar.DAY_OF_MONTH, targetDay - 1)
             
             // Keep adding weekly lessons until we reach the far future date
             while (lessonCalendar.before(farFutureDate)) {

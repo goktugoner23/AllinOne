@@ -376,11 +376,15 @@ class CalendarFragment : Fragment() {
         // Set to the first day of the month
         tempCal.set(Calendar.DAY_OF_MONTH, 1)
         
-        // Determine the day of week for the first day of month (0 = Sunday, 1 = Monday, etc.)
+        // Determine the day of week for the first day of month (1 = Sunday, 2 = Monday, etc.)
         val firstDayOfMonth = tempCal.get(Calendar.DAY_OF_WEEK)
         
-        // Adjust to our calendar grid (assuming Sunday is the first day)
-        val firstDayPosition = if (firstDayOfMonth == Calendar.SUNDAY) 7 else firstDayOfMonth - 1
+        // Adjust to our calendar grid (Monday is the first day now)
+        // Monday = 1, Tuesday = 2, ..., Sunday = 7
+        val firstDayPosition = when (firstDayOfMonth) {
+            Calendar.SUNDAY -> 7  // Sunday becomes the 7th day
+            else -> firstDayOfMonth - 1  // Others shift left by 1
+        }
         
         // Get the number of days in the month
         val daysInMonth = tempCal.getActualMaximum(Calendar.DAY_OF_MONTH)

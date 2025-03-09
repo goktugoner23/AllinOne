@@ -67,14 +67,6 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:gravity="center"
-            android:text="SUN"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
             android:text="MON"
             android:textStyle="bold" />
 
@@ -116,6 +108,14 @@
             android:layout_weight="1"
             android:gravity="center"
             android:text="SAT"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="SUN"
             android:textStyle="bold" />
 
     </LinearLayout>
