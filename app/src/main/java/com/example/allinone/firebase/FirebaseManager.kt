@@ -278,7 +278,8 @@ class FirebaseManager(private val context: Context? = null) {
             
             Log.d(TAG, "Setting student document with ID: ${student.id}")
             
-            // Use a task with timeout
+            // Always use the student ID directly as a string for the document ID
+            // This ensures consistency between saving and loading
             val task = studentsCollection.document(student.id.toString()).set(studentMap)
             Tasks.await(task, 15, TimeUnit.SECONDS)
             
@@ -294,7 +295,15 @@ class FirebaseManager(private val context: Context? = null) {
             try {
                 val snapshot = studentsCollection.whereEqualTo("deviceId", deviceId).get().await()
                 snapshot.documents.mapNotNull { doc ->
-                    val id = doc.id.hashCode().toLong()
+                    // Parse the document ID as a Long directly instead of using hashCode
+                    val id = try {
+                        doc.id.toLong()
+                    } catch (e: NumberFormatException) {
+                        // Fallback to hashCode if the ID cannot be parsed as a Long
+                        Log.w(TAG, "Failed to parse student ID as Long: ${doc.id}, using hashCode instead")
+                        doc.id.hashCode().toLong()
+                    }
+                    
                     val name = doc.getString("name") ?: ""
                     val phoneNumber = doc.getString("phoneNumber") ?: ""
                     val email = doc.getString("email")

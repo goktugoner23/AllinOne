@@ -1,5 +1,6 @@
 package com.example.allinone.adapters
 
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
@@ -78,13 +79,20 @@ class WTStudentAdapter(
                 } ?: profileImage.setImageResource(R.drawable.default_profile)
                 
                 // Set active status indicator color
-                statusIndicator.setBackgroundColor(
-                    ContextCompat.getColor(
-                        itemView.context,
-                        if (student.isActive) android.R.color.holo_green_light 
-                        else android.R.color.holo_red_light
-                    )
+                val color = ContextCompat.getColor(
+                    itemView.context,
+                    if (student.isActive) android.R.color.holo_green_light 
+                    else android.R.color.holo_red_light
                 )
+                
+                // Create a new GradientDrawable with the selected color
+                val circleDrawable = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(color)
+                }
+                
+                // Apply the drawable
+                statusIndicator.background = circleDrawable
                 
                 // Make status indicator clickable if payment callback is provided
                 if (onPaymentStatusClick != null) {

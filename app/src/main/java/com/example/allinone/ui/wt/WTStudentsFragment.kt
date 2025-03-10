@@ -407,18 +407,33 @@ class WTStudentsFragment : Fragment() {
         }
         val isActive = dialogBinding.activeSwitch.isChecked
         
-        val student = if (editingStudent != null) {
-            // Update existing student
-            editingStudent!!.copy(
+        // First, try to find if this student already exists in our records
+        val existingStudentByEdit = editingStudent
+        val existingStudentByName = viewModel.allStudents.value?.find { 
+            it.name.equals(name, ignoreCase = true) || it.phoneNumber == phone 
+        }
+        
+        // Determine which existing student to use (prefer the one being edited)
+        val existingStudent = existingStudentByEdit ?: existingStudentByName
+        
+        val student = if (existingStudent != null) {
+            // Update existing student - make sure to preserve registration info!
+            existingStudent.copy(
                 name = name,
                 phoneNumber = phone,
                 email = email,
                 instagram = instagram,
                 isActive = isActive,
-                profileImageUri = selectedImageUri?.toString() ?: editingStudent!!.profileImageUri
+                profileImageUri = selectedImageUri?.toString() ?: existingStudent.profileImageUri,
+                // Preserve these registration fields from the existing student
+                startDate = existingStudent.startDate,
+                endDate = existingStudent.endDate,
+                amount = existingStudent.amount,
+                isPaid = existingStudent.isPaid,
+                paymentDate = existingStudent.paymentDate
             )
         } else {
-            // Create new student
+            // Create new student only if not found
             WTStudent(
                 id = abs(UUID.randomUUID().mostSignificantBits),
                 name = name,
@@ -430,12 +445,8 @@ class WTStudentsFragment : Fragment() {
             )
         }
         
-        // Save student via view model
-        if (editingStudent != null) {
-            viewModel.updateStudent(student)
-        } else {
-            viewModel.addStudent(student)
-        }
+        // Save student via view model - always use updateStudent for more robust handling
+        viewModel.updateStudent(student)
         
         // Reset temporary fields
         editingStudent = null

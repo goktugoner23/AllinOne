@@ -33,7 +33,6 @@
                 android:layout_height="32dp"
                 android:layout_alignEnd="@id/profileImageView"
                 android:layout_alignBottom="@id/profileImageView"
-                android:background="@drawable/circle_shape"
                 android:contentDescription="@string/add_photo"
                 android:src="@drawable/ic_add_photo" />
         </RelativeLayout>

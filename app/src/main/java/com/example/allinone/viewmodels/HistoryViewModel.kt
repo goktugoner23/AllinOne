@@ -41,8 +41,10 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                 // Add notes
                 historyItems.addAll(notes.map { it.toHistoryItem() })
                 
-                // Add students
-                historyItems.addAll(students.map { it.toHistoryItem() })
+                // Add students - only those with a registration
+                // Only include students with a startDate (registered for a course) and with an amount
+                val registeredStudents = students.filter { it.startDate != null && it.amount > 0 }
+                historyItems.addAll(registeredStudents.map { it.toHistoryItem() })
                 
                 // Sort by date (newest first)
                 historyItems.sortByDescending { it.date }

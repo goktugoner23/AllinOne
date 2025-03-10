@@ -922,30 +922,57 @@ class FirebaseRepository(private val context: Context) {
      * Update a student
      * @param student The student to update
      */
-    fun updateStudent(student: WTStudent) {
-        // Update local cache
-        val currentList = _students.value.toMutableList()
-        val index = currentList.indexOfFirst { it.id == student.id }
-        
-        if (index != -1) {
-            currentList[index] = student
-        } else {
-            currentList.add(student)
-        }
-        
-        _students.value = currentList
-        
-        // Save to Firebase if network is available
-        if (networkUtils.isActiveNetworkConnected()) {
-            CoroutineScope(Dispatchers.IO).launch {
+    suspend fun updateStudent(student: WTStudent) {
+        try {
+            // Check for existing students first by ID or name
+            val existingStudents = _students.value.filter { 
+                it.id == student.id || it.name.equals(student.name, ignoreCase = true)
+            }
+            
+            // Get latest local cache copy
+            val currentList = _students.value.toMutableList()
+            
+            // Flag to track if we found and updated an existing student
+            var studentUpdated = false
+            var studentToSave = student
+            
+            if (existingStudents.isNotEmpty()) {
+                // Update all matching students to prevent duplicates
+                existingStudents.forEach { existingStudent ->
+                    val index = currentList.indexOfFirst { it.id == existingStudent.id }
+                    if (index != -1) {
+                        // Keep the same ID but update all other fields
+                        val updatedStudent = student.copy(id = existingStudent.id)
+                        currentList[index] = updatedStudent
+                        
+                        // Use the updated student for saving to Firebase
+                        studentToSave = updatedStudent
+                        studentUpdated = true
+                    }
+                }
+            }
+            
+            // If no students were updated, add as new
+            if (!studentUpdated) {
+                currentList.add(studentToSave)
+            }
+            
+            // Update local cache, ensuring no duplicates by ID
+            _students.value = currentList.distinctBy { it.id }
+            
+            // Then update Firebase if network is available
+            if (networkUtils.isActiveNetworkConnected()) {
                 try {
-                    firebaseManager.saveStudent(student)
+                    val success = firebaseManager.saveStudent(studentToSave)
+                    if (!success) {
+                        throw Exception("Firebase save operation failed")
+                    }
                 } catch (e: Exception) {
                     // Add to offline queue
                     offlineQueue.enqueue(
                         OfflineQueue.DataType.STUDENT,
                         OfflineQueue.Operation.UPDATE,
-                        gson.toJson(student)
+                        gson.toJson(studentToSave)
                     )
                     
                     // Update pending operations count
@@ -954,19 +981,19 @@ class FirebaseRepository(private val context: Context) {
                     // Show error message
                     _errorMessage.postValue("Failed to save student: ${e.message}")
                 }
-            }
-        } else {
-            // Add to offline queue
-            CoroutineScope(Dispatchers.IO).launch {
+            } else {
+                // Add to offline queue
                 offlineQueue.enqueue(
                     OfflineQueue.DataType.STUDENT,
                     OfflineQueue.Operation.UPDATE,
-                    gson.toJson(student)
+                    gson.toJson(studentToSave)
                 )
                 
                 // Update pending operations count
                 updatePendingOperationsCount()
             }
+        } catch (e: Exception) {
+            _errorMessage.postValue("Error updating student: ${e.message}")
         }
     }
     

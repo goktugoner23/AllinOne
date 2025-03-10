@@ -91,13 +91,53 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
             // Calculate accurate end date based on lesson schedule
             val calculatedEndDate = calculateEndDateBasedOnLessons(startDate)
             
-            val updatedStudent = student.copy(
-                startDate = startDate,
-                endDate = calculatedEndDate ?: endDate, // Use calculated date or fallback
-                amount = amount,
-                isPaid = isPaid,
-                paymentDate = if (isPaid) Date() else null
-            )
+            // Find the existing student in our database to make sure we're using the most recent version
+            val existingStudent = _allStudents.value?.find { it.id == student.id }
+            
+            // If student doesn't exist in our records, use the provided student
+            val studentToUpdate = existingStudent ?: student
+            
+            // Check if this student is already registered for a course
+            val alreadyRegistered = _registeredStudents.value?.any { 
+                it.id == studentToUpdate.id && it.startDate != null 
+            } ?: false
+            
+            // When updating a student who is already registered, we need to be careful
+            // not to override important fields with default values
+            val updatedStudent = if (alreadyRegistered) {
+                // Find the registered version of this student
+                val registeredStudent = _registeredStudents.value?.find { it.id == studentToUpdate.id }
+                
+                // Only update fields that were explicitly provided and preserve existing values
+                studentToUpdate.copy(
+                    // Only update dates if they were explicitly provided and different
+                    startDate = startDate,
+                    endDate = calculatedEndDate ?: endDate,
+                    
+                    // For amount, only update if a non-zero value was provided
+                    amount = if (amount > 0) amount else registeredStudent?.amount ?: 0.0,
+                    
+                    // For payment status, update based on provided value
+                    isPaid = isPaid,
+                    
+                    // Set payment date only if paid and no existing payment date
+                    paymentDate = if (isPaid && registeredStudent?.paymentDate == null) 
+                                    Date() 
+                                  else 
+                                    registeredStudent?.paymentDate
+                )
+            } else {
+                // For new registrations, use all provided values
+                studentToUpdate.copy(
+                    startDate = startDate,
+                    endDate = calculatedEndDate ?: endDate,
+                    amount = amount,
+                    isPaid = isPaid,
+                    paymentDate = if (isPaid) Date() else null
+                )
+            }
+            
+            // Update the student in the repository
             repository.updateStudent(updatedStudent)
         }
     }
@@ -114,25 +154,34 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
 
     fun updateStudent(student: WTStudent) {
         viewModelScope.launch {
-            // If start date was changed and not null, recalculate the end date
+            // Get the existing student to ensure we're not losing information
             val existingStudent = _allStudents.value?.find { it.id == student.id }
             
-            if (existingStudent != null && 
-                student.startDate != null && 
-                existingStudent.startDate != student.startDate) {
-                // Calculate new end date
-                val calculatedEndDate = calculateEndDateBasedOnLessons(student.startDate)
+            // If the student exists, we need to be careful to preserve fields that 
+            // aren't explicitly being updated
+            if (existingStudent != null) {
+                // Create a properly merged student object
+                val updatedStudent = student.copy(
+                    // Keep registration info if not explicitly changed
+                    startDate = student.startDate ?: existingStudent.startDate,
+                    endDate = if (student.startDate != existingStudent.startDate && student.startDate != null) {
+                        // If start date changed, recalculate end date
+                        calculateEndDateBasedOnLessons(student.startDate) ?: student.endDate ?: existingStudent.endDate
+                    } else {
+                        student.endDate ?: existingStudent.endDate
+                    },
+                    // Keep payment info if not explicitly changed
+                    amount = if (student.amount > 0) student.amount else existingStudent.amount,
+                    isPaid = student.isPaid,
+                    paymentDate = student.paymentDate ?: existingStudent.paymentDate
+                )
                 
-                if (calculatedEndDate != null) {
-                    // Use the calculated end date
-                    val updatedStudent = student.copy(endDate = calculatedEndDate)
-                    repository.updateStudent(updatedStudent)
-                    return@launch
-                }
+                // Update the student with merged information
+                repository.updateStudent(updatedStudent)
+            } else {
+                // For new students, just use the provided student object
+                repository.updateStudent(student)
             }
-            
-            // If no recalculation needed or not possible
-            repository.updateStudent(student)
         }
     }
 

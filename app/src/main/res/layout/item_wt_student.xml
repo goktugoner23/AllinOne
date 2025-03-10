@@ -65,11 +65,13 @@
 
         <View
             android:id="@+id/statusIndicator"
-            android:layout_width="12dp"
-            android:layout_height="12dp"
-            android:background="@drawable/circle_shape"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="4dp"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

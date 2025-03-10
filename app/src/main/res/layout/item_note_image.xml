@@ -18,7 +18,6 @@
         android:layout_height="24dp"
         android:layout_gravity="top|end"
         android:layout_margin="4dp"
-        android:background="@drawable/circle_background"
         android:src="@drawable/ic_close"
         app:tint="@color/white"/>
 </FrameLayout> 
