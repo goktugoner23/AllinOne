@@ -32,5 +32,9 @@
             android:id="@+id/nav_clear_data"
             android:icon="@drawable/ic_clear_data"
             android:title="Clear Data" />
+        <item
+            android:id="@+id/nav_clear_db"
+            android:icon="@drawable/ic_clear_data"
+            android:title="Clear DB" />
     </group>
 </menu> 

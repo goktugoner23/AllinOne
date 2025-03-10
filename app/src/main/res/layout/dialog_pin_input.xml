@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="WARNING: This is a dangerous operation!"
+        android:textStyle="bold"
+        android:textColor="#F44336"
+        android:textSize="16sp" 
+        android:layout_marginBottom="8dp"/>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="You are about to delete ALL data from the Firestore database, including data that might be used by other users or instances of the app."
+        android:textSize="14sp" 
+        android:layout_marginBottom="16dp"/>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Enter the PIN code to proceed:"
+        android:textSize="16sp" 
+        android:layout_marginBottom="16dp"/>
+
+    <EditText
+        android:id="@+id/pinEditText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="numberPassword"
+        android:maxLength="4"
+        android:hint="PIN Code"
+        android:gravity="center"/>
+
+</LinearLayout> 

@@ -37,6 +37,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
@@ -48,6 +49,9 @@ import androidx.lifecycle.ViewModelProvider
 import com.example.allinone.viewmodels.CalendarViewModel
 import com.example.allinone.viewmodels.WTLessonsViewModel
 import com.example.allinone.viewmodels.LessonChangeEvent
+import android.widget.EditText
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 
 class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedListener {
     private lateinit var binding: ActivityMainBinding
@@ -269,6 +273,12 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                     drawerLayout.closeDrawers()
                     true
                 }
+                R.id.nav_clear_db -> {
+                    // Clear Firestore database
+                    clearFirestoreDatabase()
+                    drawerLayout.closeDrawers()
+                    true
+                }
                 else -> false
             }
         }
@@ -372,6 +382,119 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             .setNegativeButton("Cancel", null)
             .show()
     }
+    
+    private fun clearFirestoreDatabase() {
+        // Show confirmation dialog before clearing Firestore data
+        AlertDialog.Builder(this)
+            .setTitle("Clear Firestore Database")
+            .setMessage("Are you sure you want to delete ALL data from the Firestore database? This action cannot be undone.")
+            .setPositiveButton("Continue") { _, _ ->
+                // Ask for PIN code
+                showPinDialog()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+    
+    private fun showPinDialog() {
+        // Create a PIN input dialog
+        val dialogView = layoutInflater.inflate(R.layout.dialog_pin_input, null)
+        val pinEditText = dialogView.findViewById<EditText>(R.id.pinEditText)
+        
+        AlertDialog.Builder(this)
+            .setTitle("Enter PIN Code")
+            .setView(dialogView)
+            .setPositiveButton("Submit") { _, _ ->
+                val enteredPin = pinEditText.text.toString()
+                validatePin(enteredPin)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+    
+    private fun validatePin(enteredPin: String) {
+        val correctPin = "1111"
+        
+        if (enteredPin == correctPin) {
+            // PIN is correct - proceed with clearing Firestore data
+            performFirestoreClear()
+        } else {
+            // PIN is incorrect - show error
+            Toast.makeText(this, "Incorrect PIN. Database was not cleared.", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun performFirestoreClear() {
+        // Show loading indicator with progress information
+        val loadingDialog = AlertDialog.Builder(this)
+            .setTitle("Clearing Database")
+            .setMessage("Please wait while we delete all data from Firestore...\n\nThis may take some time depending on the amount of data.")
+            .setCancelable(false)
+            .create()
+        
+        loadingDialog.show()
+        
+        // Use coroutine to perform the clearing operation
+        lifecycleScope.launch {
+            try {
+                // Add Google Play Services check
+                try {
+                    // Check if Google Play Services is available
+                    val availability = GoogleApiAvailability.getInstance()
+                    val resultCode = availability.isGooglePlayServicesAvailable(this@MainActivity)
+                    
+                    if (resultCode != ConnectionResult.SUCCESS) {
+                        loadingDialog.dismiss()
+                        if (availability.isUserResolvableError(resultCode)) {
+                            availability.getErrorDialog(this@MainActivity, resultCode, 1001)?.show()
+                        } else {
+                            showError("Google Play Services is not available on this device")
+                        }
+                        return@launch
+                    }
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Error checking Play Services: ${e.message}", e)
+                    // Continue anyway
+                }
+                
+                // Add a small delay to ensure the dialog is shown
+                delay(500)
+                
+                val result = firebaseRepository.clearAllFirestoreData()
+                
+                // Add a small delay to make the operation feel more substantial
+                delay(1000)
+                
+                // Dismiss the loading dialog
+                loadingDialog.dismiss()
+                
+                if (result) {
+                    // Success - show confirmation with details
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("Database Cleared")
+                        .setMessage("All data has been successfully deleted from the Firestore database. The app will now show empty data sets. Note that empty collections will still appear in the Firebase Console. You may need to restart the app to see all changes take effect.")
+                        .setPositiveButton("OK", null)
+                        .show()
+                } else {
+                    // Failed - show error with more details
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("Operation Failed")
+                        .setMessage("Failed to clear all database data. This might be due to network issues or insufficient permissions. Please check your internet connection and try again.")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
+            } catch (e: Exception) {
+                // Handle exception with detailed error
+                loadingDialog.dismiss()
+                
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Error")
+                    .setMessage("An error occurred while clearing the database: ${e.message}\n\nSome data may have been partially deleted.")
+                    .setPositiveButton("OK", null)
+                    .show()
+            }
+        }
+    }
 
     private fun showFirebaseProjectError() {
         AlertDialog.Builder(this)
@@ -445,6 +568,17 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         if (::drawerLayout.isInitialized) {
             drawerLayout.openDrawer(navigationView)
         }
+    }
+
+    /**
+     * Display an error message to the user
+     */
+    private fun showError(message: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Error")
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     /**

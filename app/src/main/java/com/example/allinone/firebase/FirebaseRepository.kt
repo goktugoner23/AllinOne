@@ -465,6 +465,40 @@ class FirebaseRepository(private val context: Context) {
         }
     }
     
+    /**
+     * Delete all data from Firestore database
+     */
+    suspend fun clearAllFirestoreData(): Boolean {
+        return try {
+            if (networkUtils.isActiveNetworkConnected()) {
+                // Clear all data in Firestore
+                firebaseManager.clearAllFirestoreData()
+                
+                // Clear local cache
+                cacheManager.clearAllCache()
+                
+                // Clear offline queue
+                offlineQueue.clearQueue()
+                
+                // Reset local data collections
+                _transactions.value = emptyList()
+                _investments.value = emptyList()
+                _notes.value = emptyList()
+                _students.value = emptyList()
+                _events.value = emptyList()
+                _wtLessons.value = emptyList()
+                
+                true
+            } else {
+                _errorMessage.postValue("Network unavailable. Cannot clear Firestore data.")
+                false
+            }
+        } catch (e: Exception) {
+            _errorMessage.postValue("Error clearing Firestore data: ${e.message}")
+            false
+        }
+    }
+    
     // Transaction methods
     suspend fun refreshTransactions() {
         if (!networkUtils.isActiveNetworkConnected()) {

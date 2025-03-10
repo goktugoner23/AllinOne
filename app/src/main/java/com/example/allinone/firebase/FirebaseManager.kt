@@ -476,6 +476,60 @@ class FirebaseManager(private val context: Context? = null) {
     }
     
     /**
+     * Delete all data in Firestore for this device
+     */
+    suspend fun clearAllFirestoreData() = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Starting to delete all Firestore data for device: $deviceId")
+            
+            // Delete all transactions (including those without deviceId)
+            deleteAllDocumentsInCollection(transactionsCollection)
+            
+            // Delete all investments (including those without deviceId)
+            deleteAllDocumentsInCollection(investmentsCollection)
+            
+            // Delete all notes (including those without deviceId)
+            deleteAllDocumentsInCollection(notesCollection)
+            
+            // Delete all students (including those without deviceId)
+            deleteAllDocumentsInCollection(studentsCollection)
+            
+            // Delete all events (including those without deviceId)
+            deleteAllDocumentsInCollection(eventsCollection)
+            
+            // Delete all WT lessons (including those without deviceId)
+            deleteAllDocumentsInCollection(wtLessonsCollection)
+            
+            // Also clear test_connection collection
+            deleteAllDocumentsInCollection(firestore.collection("test_connection"))
+            
+            Log.d(TAG, "Successfully deleted all Firestore data")
+            return@withContext true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting Firestore data: ${e.message}", e)
+            throw e
+        }
+    }
+    
+    /**
+     * Helper method to delete all documents in a collection
+     */
+    private suspend fun deleteAllDocumentsInCollection(collection: com.google.firebase.firestore.CollectionReference) {
+        try {
+            // Get all documents (not just those with matching deviceId)
+            val allDocs = collection.get().await()
+            Log.d(TAG, "Deleting ${allDocs.size()} documents from ${collection.path}")
+            
+            for (doc in allDocs) {
+                doc.reference.delete().await()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error clearing collection ${collection.path}: ${e.message}", e)
+            // Continue with other collections rather than failing completely
+        }
+    }
+    
+    /**
      * Test Firebase connection and project setup
      */
     suspend fun testConnection(): Boolean {
