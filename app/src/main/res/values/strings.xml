@@ -113,4 +113,5 @@
     <string name="tap_to_view_attachment">Tap to view attachment</string>
     <string name="no_app_for_file_type">No app found to open this file type</string>
     <string name="error_opening_file">Error opening file: %1$s</string>
+    <string name="title_seminars">Seminars</string>
 </resources>

@@ -22,6 +22,7 @@
         app:itemTextColor="@color/wt_bottom_nav_item_color"
         app:itemRippleColor="@color/bright_tab_selected"
         app:itemActiveIndicatorStyle="@null"
+        app:labelVisibilityMode="labeled"
         app:layout_constraintBottom_toBottomOf="parent"
         app:menu="@menu/wt_bottom_nav_menu" />
 

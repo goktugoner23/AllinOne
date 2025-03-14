@@ -35,6 +35,9 @@ class WTRegistryFragment : Fragment() {
     private val lessonsFragment: Fragment by lazy { 
         childFragmentManager.findFragmentByTag("lessons") ?: WTLessonsFragment()
     }
+    private val seminarsFragment: Fragment by lazy { 
+        childFragmentManager.findFragmentByTag("seminars") ?: WTSeminarsFragment()
+    }
     
     // Track the current fragment
     private var currentFragment: Fragment? = null
@@ -57,7 +60,7 @@ class WTRegistryFragment : Fragment() {
         // Setup network status indicator
         setupNetworkStatusIndicator()
         
-        // Setup navigation between Students, Register, and Lessons
+        // Setup navigation between Students, Register, Lessons, and Seminars
         binding.wtBottomNavigation.setOnItemSelectedListener { item ->
             // Update title based on selected item
             updateTitle(item.itemId)
@@ -73,6 +76,10 @@ class WTRegistryFragment : Fragment() {
                 }
                 R.id.wtLessonsFragment -> {
                     switchFragment(lessonsFragment, "lessons")
+                    true
+                }
+                R.id.wtSeminarsFragment -> {
+                    switchFragment(seminarsFragment, "seminars")
                     true
                 }
                 else -> false
@@ -168,6 +175,7 @@ class WTRegistryFragment : Fragment() {
             R.id.wtStudentsFragment -> getString(R.string.title_students)
             R.id.wtRegisterFragment -> getString(R.string.title_register)
             R.id.wtLessonsFragment -> getString(R.string.title_lesson_schedule)
+            R.id.wtSeminarsFragment -> getString(R.string.title_seminars)
             else -> getString(R.string.title_wing_tzun_registry)
         }
         

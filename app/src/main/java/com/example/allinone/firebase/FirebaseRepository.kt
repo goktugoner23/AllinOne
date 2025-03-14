@@ -755,9 +755,8 @@ class FirebaseRepository(private val context: Context) {
                 updatePendingOperationsCount()
             }
             
-            // Force refresh balance calculations
-            // This ensures HomeViewModel is notified of the change
-            viewModelScope.launch {
+            // Force refresh balance calculations using a proper coroutine scope
+            CoroutineScope(Dispatchers.Main).launch {
                 delay(100) // Brief delay to ensure operations complete
                 notifyInvestmentChange()
             }
