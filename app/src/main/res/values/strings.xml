@@ -92,4 +92,11 @@
     
     <!-- Form validation -->
     <string name="field_required">This field is required</string>
+    
+    <!-- New strings from the code block -->
+    <string name="edit">Edit</string>
+    <string name="delete">Delete</string>
+    <string name="delete_registration">Delete Registration</string>
+    <string name="delete_registration_confirmation">Are you sure you want to delete %1$s\'s registration?</string>
+    <string name="registration_deleted">Registration deleted</string>
 </resources>

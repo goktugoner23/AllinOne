@@ -18,6 +18,9 @@
         <item name="windowNoTitle">true</item>
         <!-- Ensure background is not black by default -->
         <item name="android:windowBackground">@color/white</item>
+        <!-- Navigation colors -->
+        <item name="colorNavigationItem">@color/black</item>
+        <item name="colorNavigationItemSelected">@color/gray_dark</item>
     </style>
 
     <!-- Theme for app startup with a real proper text -->

@@ -14,11 +14,10 @@ import androidx.fragment.app.viewModels
 import com.example.allinone.R
 import com.example.allinone.databinding.FragmentWtRegistryBinding
 import com.example.allinone.data.WTLesson
+import com.example.allinone.data.WTStudent
 import com.example.allinone.viewmodels.WTRegisterViewModel
-// Import all needed WT fragment classes
-import com.example.allinone.ui.wt.WTStudentsFragment
-import com.example.allinone.ui.wt.WTRegisterFragment
-import com.example.allinone.ui.wt.WTLessonsFragment
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 
 class WTRegistryFragment : Fragment() {
     private var _binding: FragmentWtRegistryBinding? = null
@@ -133,19 +132,13 @@ class WTRegistryFragment : Fragment() {
         viewModel.isNetworkAvailable.observe(viewLifecycleOwner) { isAvailable ->
             // Update with a delay to prevent false network status changes
             Handler(Looper.getMainLooper()).postDelayed({
-                if (view != null && isAdded && networkStatusText != null) {
-                    networkStatusText?.visibility = if (isAvailable) View.GONE else View.VISIBLE
-                    
+                if (view != null && isAdded) {
                     if (!isAvailable) {
-                        // Only show toast if network is newly unavailable
-                        Toast.makeText(
-                            context, 
-                            "Network unavailable. Using cached data.",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        // If network becomes unavailable, show message
+                        networkStatusText?.visibility = View.VISIBLE
                     } else {
-                        // When network becomes available, refresh data
-                        viewModel.refreshData()
+                        // When network becomes available, hide message
+                        networkStatusText?.visibility = View.GONE
                     }
                 }
             }, 1000) // 1-second delay

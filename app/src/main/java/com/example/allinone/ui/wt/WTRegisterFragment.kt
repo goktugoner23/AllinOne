@@ -11,6 +11,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
+import android.widget.PopupMenu
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
@@ -129,6 +130,7 @@ class WTRegisterFragment : Fragment() {
     private fun setupRecyclerView() {
         adapter = WTRegistrationAdapter(
             onItemClick = { student -> showEditDialog(student) },
+            onLongPress = { student, view -> showContextMenu(student, view) },
             onPaymentStatusClick = { student -> 
                 if (!student.isPaid) {
                     showPaymentConfirmation(student)
@@ -549,6 +551,46 @@ class WTRegisterFragment : Fragment() {
                 }
             }, 1000) // 1-second delay
         }
+    }
+
+    private fun showContextMenu(student: WTStudent, view: View) {
+        val popup = PopupMenu(requireContext(), view)
+        popup.menuInflater.inflate(R.menu.wt_registration_context_menu, popup.menu)
+        
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.id.action_edit -> {
+                    showEditDialog(student)
+                    true
+                }
+                R.id.action_delete -> {
+                    showDeleteConfirmation(student)
+                    true
+                }
+                else -> false
+            }
+        }
+        popup.show()
+    }
+
+    private fun showDeleteConfirmation(student: WTStudent) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.delete_registration)
+            .setMessage(getString(R.string.delete_registration_confirmation, student.name))
+            .setPositiveButton(R.string.delete) { _, _ ->
+                deleteFromHistory(student)
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun deleteFromHistory(student: WTStudent) {
+        viewModel.deleteRegistration(student)
+        Snackbar.make(
+            binding.root,
+            getString(R.string.registration_deleted),
+            Snackbar.LENGTH_LONG
+        ).show()
     }
 
     override fun onDestroyView() {

@@ -2,6 +2,7 @@ package com.example.allinone.adapters
 
 import android.net.Uri
 import android.text.Html
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -43,11 +44,17 @@ class NotesAdapter(private val onNoteClick: (Note) -> Unit) :
             
             // Always render content as HTML to ensure proper display
             if (note.content.isNotEmpty()) {
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-                    contentTextView.text = Html.fromHtml(note.content, Html.FROM_HTML_MODE_COMPACT)
-                } else {
-                    @Suppress("DEPRECATION")
-                    contentTextView.text = Html.fromHtml(note.content)
+                try {
+                    val processedContent = processNoteContent(note.content)
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                        contentTextView.text = Html.fromHtml(processedContent, Html.FROM_HTML_MODE_COMPACT)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        contentTextView.text = Html.fromHtml(processedContent)
+                    }
+                } catch (e: Exception) {
+                    Log.e("NotesAdapter", "Error rendering note content: ${e.message}", e)
+                    contentTextView.text = note.content
                 }
             } else {
                 contentTextView.text = ""
@@ -62,22 +69,45 @@ class NotesAdapter(private val onNoteClick: (Note) -> Unit) :
                     try {
                         imageView.setImageURI(Uri.parse(firstImageUri))
                     } catch (e: Exception) {
+                        Log.e("NotesAdapter", "Error loading image: ${e.message}", e)
                         imageView.visibility = View.GONE
                     }
                 } else {
                     imageView.visibility = View.GONE
                 }
-            } else if (note.imageUri != null) {
-                // For backward compatibility with older notes
-                imageView.visibility = View.VISIBLE
-                try {
-                    imageView.setImageURI(Uri.parse(note.imageUri))
-                } catch (e: Exception) {
-                    imageView.visibility = View.GONE
-                }
             } else {
                 imageView.visibility = View.GONE
             }
+        }
+
+        private fun processNoteContent(content: String): String {
+            var processedContent = content
+
+            // Make "Attached Images:" text bold
+            processedContent = processedContent.replace(
+                "Attached Images:",
+                "<b>Attached Images:</b>"
+            )
+
+            // Fix numbered lists by ensuring proper HTML format
+            processedContent = processedContent.replace(
+                Regex("\\n\\d+\\.\\s"),
+                "<br/><ol><li>"
+            ).replace(
+                Regex("(?<=</li>)(?!\\n\\d+\\.\\s)"),
+                "</ol>"
+            )
+
+            // Fix bullet lists
+            processedContent = processedContent.replace(
+                Regex("\\n•\\s"),
+                "<br/><ul><li>"
+            ).replace(
+                Regex("(?<=</li>)(?!\\n•\\s)"),
+                "</ul>"
+            )
+
+            return processedContent
         }
     }
 

@@ -18,6 +18,7 @@ import java.util.Date
 import java.util.UUID
 import androidx.lifecycle.ViewModelProvider
 import com.example.allinone.config.TransactionCategories
+import android.util.Log
 
 class WTRegisterViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FirebaseRepository(application)
@@ -263,6 +264,60 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
     fun refreshData() {
         viewModelScope.launch {
             repository.refreshStudents()
+        }
+    }
+
+    fun registerStudent(student: WTStudent) {
+        viewModelScope.launch {
+            try {
+                // Check for existing registration with same date
+                val existingRegistration = _registeredStudents.value?.find { 
+                    it.id == student.id && 
+                    it.startDate?.time == student.startDate?.time 
+                }
+                
+                if (existingRegistration != null) {
+                    _errorMessage.value = "Student already has a registration for this date"
+                    return@launch
+                }
+                
+                // Check for overlapping active registrations
+                val hasActiveRegistration = _registeredStudents.value?.any { 
+                    it.id == student.id && 
+                    !it.isPaid &&
+                    it.startDate != null &&
+                    it.startDate!!.time <= (student.startDate?.time ?: 0) &&
+                    (it.endDate?.time ?: Long.MAX_VALUE) >= (student.startDate?.time ?: 0)
+                } ?: false
+                
+                if (hasActiveRegistration) {
+                    _errorMessage.value = "Student already has an active registration for this period"
+                    return@launch
+                }
+                
+                // Proceed with registration
+                repository.updateStudent(student)
+                _errorMessage.value = null
+            } catch (e: Exception) {
+                Log.e("WTRegisterViewModel", "Error registering student: ${e.message}", e)
+                _errorMessage.value = "Error registering student: ${e.message}"
+            }
+        }
+    }
+
+    // Delete a student's registration
+    fun deleteRegistration(student: WTStudent) {
+        viewModelScope.launch {
+            // Create a copy of the student with registration data cleared
+            val updatedStudent = student.copy(
+                startDate = null,
+                endDate = null,
+                amount = 0.0,
+                isPaid = false,
+                paymentDate = null,
+                attachmentUri = null
+            )
+            repository.updateStudent(updatedStudent)
         }
     }
 } 
