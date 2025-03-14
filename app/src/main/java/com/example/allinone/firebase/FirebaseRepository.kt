@@ -737,9 +737,13 @@ class FirebaseRepository(private val context: Context) {
             currentInvestments.removeIf { it.id == investment.id }
             _investments.value = currentInvestments
             
+            // Log the deletion for debugging
+            Log.d(TAG, "Deleting investment with ID: ${investment.id}, Name: ${investment.name}, Amount: ${investment.amount}")
+            
             // Then delete from Firebase if network is available
             if (networkUtils.isActiveNetworkConnected()) {
                 firebaseManager.deleteInvestment(investment)
+                Log.d(TAG, "Successfully deleted investment from Firebase")
             } else {
                 // Add to offline queue
                 offlineQueue.enqueue(
@@ -750,9 +754,23 @@ class FirebaseRepository(private val context: Context) {
                 _errorMessage.postValue("Investment deleted locally. Will sync when network is available.")
                 updatePendingOperationsCount()
             }
+            
+            // Force refresh balance calculations
+            // This ensures HomeViewModel is notified of the change
+            viewModelScope.launch {
+                delay(100) // Brief delay to ensure operations complete
+                notifyInvestmentChange()
+            }
         } catch (e: Exception) {
+            Log.e(TAG, "Error deleting investment: ${e.message}", e)
             _errorMessage.postValue("Error deleting investment: ${e.message}")
         }
+    }
+    
+    // Helper method to notify listeners of investment changes
+    private fun notifyInvestmentChange() {
+        val currentInvestments = _investments.value
+        _investments.value = currentInvestments // Trigger updates by resetting the same value
     }
     
     // Note methods

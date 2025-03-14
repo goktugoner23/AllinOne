@@ -426,9 +426,21 @@ class FirebaseManager(private val context: Context? = null) {
     
     suspend fun deleteInvestment(investment: Investment) {
         try {
-            investmentsCollection.document(investment.id.toString()).delete().await()
+            Log.d(TAG, "Starting investment deletion in FirebaseManager. ID: ${investment.id}, Name: ${investment.name}")
+            
+            // Be explicit about which document to delete by using the exact ID
+            val docId = investment.id.toString()
+            Log.d(TAG, "Deleting investment document with ID: $docId")
+            
+            // Use await with timeout to ensure operation completes
+            val task = investmentsCollection.document(docId).delete()
+            Tasks.await(task, 10, TimeUnit.SECONDS)
+            
+            Log.d(TAG, "Successfully deleted investment with ID: ${investment.id}")
+            return
         } catch (e: Exception) {
-            // Handle error
+            Log.e(TAG, "Error deleting investment: ${e.message}", e)
+            throw e
         }
     }
     

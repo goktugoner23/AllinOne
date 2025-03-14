@@ -1,6 +1,7 @@
 package com.example.allinone.viewmodels
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.*
 import com.example.allinone.data.*
 import com.example.allinone.firebase.FirebaseRepository
@@ -75,19 +76,30 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
     
     fun deleteInvestmentAndTransaction(investment: Investment) {
         viewModelScope.launch {
+            // First step: Delete the investment
             repository.deleteInvestment(investment)
             
-            // For backward compatibility: find and delete any corresponding transaction
+            // Second step: Find and delete the corresponding transaction with exact matching
             // This handles investments created before the code change
             val transactions = repository.transactions.value
-            val matchingTransaction = transactions.find { 
-                it.description.contains(investment.name) && 
-                it.type == "Investment" 
+            
+            // Find a transaction that exactly matches this investment (using exact ID or exact name)
+            val matchingTransaction = transactions.find { transaction ->
+                transaction.type == "Investment" && 
+                (transaction.description == "Investment in ${investment.name}" || 
+                 transaction.description == "Investment: ${investment.name}")
             }
             
+            // Only delete the transaction if we found an exact match
             if (matchingTransaction != null) {
                 repository.deleteTransaction(matchingTransaction)
+                
+                // Log the deletion to make troubleshooting easier
+                Log.d("InvestmentsViewModel", "Deleted matching transaction: ${matchingTransaction.description} with ID: ${matchingTransaction.id}")
             }
+            
+            // Explicitly trigger data refresh to ensure UI is updated correctly
+            refreshData()
         }
     }
     
