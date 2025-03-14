@@ -585,12 +585,47 @@ class WTRegisterFragment : Fragment() {
     }
 
     private fun deleteFromHistory(student: WTStudent) {
-        viewModel.deleteRegistration(student)
-        Snackbar.make(
+        // Show loading indicator
+        val loadingSnackbar = Snackbar.make(
             binding.root,
-            getString(R.string.registration_deleted),
-            Snackbar.LENGTH_LONG
-        ).show()
+            getString(R.string.deleting),
+            Snackbar.LENGTH_INDEFINITE
+        )
+        loadingSnackbar.show()
+        
+        viewModel.deleteRegistration(student)
+        
+        // Observe changes to registeredStudents to update UI
+        viewModel.registeredStudents.observe(viewLifecycleOwner) { students ->
+            loadingSnackbar.dismiss()
+            
+            // Check if student was successfully removed
+            val stillExists = students.any { it.id == student.id && it.startDate != null }
+            if (!stillExists) {
+                // Success - show success message
+                Snackbar.make(
+                    binding.root,
+                    getString(R.string.registration_deleted),
+                    Snackbar.LENGTH_LONG
+                ).show()
+                
+                // Update adapter
+                adapter.submitList(students)
+            } else {
+                // Failed to remove - show error
+                Snackbar.make(
+                    binding.root,
+                    getString(R.string.error_deleting_registration),
+                    Snackbar.LENGTH_LONG
+                ).setAction(R.string.retry) {
+                    // Try again
+                    deleteFromHistory(student)
+                }.show()
+            }
+            
+            // Remove the observer to prevent multiple callbacks
+            viewModel.registeredStudents.removeObservers(viewLifecycleOwner)
+        }
     }
 
     override fun onDestroyView() {

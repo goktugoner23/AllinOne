@@ -921,8 +921,9 @@ class FirebaseRepository(private val context: Context) {
     /**
      * Update a student
      * @param student The student to update
+     * @return A boolean indicating whether the update was successful
      */
-    suspend fun updateStudent(student: WTStudent) {
+    suspend fun updateStudent(student: WTStudent): Boolean {
         try {
             // Check for existing students first by ID or name
             val existingStudents = _students.value.filter { 
@@ -967,6 +968,7 @@ class FirebaseRepository(private val context: Context) {
                     if (!success) {
                         throw Exception("Firebase save operation failed")
                     }
+                    return true
                 } catch (e: Exception) {
                     // Add to offline queue
                     offlineQueue.enqueue(
@@ -980,6 +982,7 @@ class FirebaseRepository(private val context: Context) {
                     
                     // Show error message
                     _errorMessage.postValue("Failed to save student: ${e.message}")
+                    return false
                 }
             } else {
                 // Add to offline queue
@@ -991,9 +994,11 @@ class FirebaseRepository(private val context: Context) {
                 
                 // Update pending operations count
                 updatePendingOperationsCount()
+                return true // Consider it a success since it's queued for later
             }
         } catch (e: Exception) {
             _errorMessage.postValue("Error updating student: ${e.message}")
+            return false
         }
     }
     

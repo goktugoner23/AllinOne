@@ -19,6 +19,7 @@ import java.util.UUID
 import androidx.lifecycle.ViewModelProvider
 import com.example.allinone.config.TransactionCategories
 import android.util.Log
+import kotlinx.coroutines.delay
 
 class WTRegisterViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FirebaseRepository(application)
@@ -320,7 +321,7 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                 )
                 
                 // Update the student in the repository
-                repository.updateStudent(updatedStudent)
+                val success = repository.updateStudent(updatedStudent)
                 
                 // If the student was paid, add a transaction to reverse the payment
                 if (student.isPaid) {
@@ -342,8 +343,21 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                     )
                 }
                 
-                // Force refresh the data
+                // Force refresh the data to ensure UI is updated
                 refreshData()
+                
+                // Give LiveData a moment to propagate changes
+                delay(100)
+                
+                // Check if the student is still in the registered list
+                val stillRegistered = _registeredStudents.value?.any { it.id == student.id && it.startDate != null } ?: false
+                if (stillRegistered) {
+                    // If student is still registered, try once more with a direct deletion
+                    Log.d("WTRegisterViewModel", "Student still registered after update, trying direct deletion")
+                    repository.deleteStudent(student)
+                    repository.insertStudent(updatedStudent)
+                    refreshData()
+                }
             } catch (e: Exception) {
                 Log.e("WTRegisterViewModel", "Error deleting registration: ${e.message}", e)
                 _errorMessage.value = "Error deleting registration: ${e.message}"
