@@ -34,4 +34,7 @@
     <!-- Bright tab color for better visibility in dark theme -->
     <color name="bright_tab_selected">#0466C8</color>  <!-- Bright blue for selected tabs -->
     <color name="bright_tab_unselected">#7FB5DE</color> <!-- Light blue for unselected tabs -->
+    
+    <color name="error_light">#FFCDD2</color>
+    <color name="warning_light">#FFF9C4</color>
 </resources>

@@ -6,11 +6,13 @@ import android.util.Log
 import com.example.allinone.cache.CacheManager
 import com.example.allinone.utils.GooglePlayServicesHelper
 import com.example.allinone.utils.NetworkUtils
-import com.google.android.gms.common.api.GoogleApiClient
 import com.google.firebase.FirebaseApp
-import com.google.firebase.FirebaseOptions
 import androidx.work.Configuration
 import androidx.appcompat.app.AppCompatDelegate
+import com.example.allinone.utils.LogcatHelper
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class AllinOneApplication : Application(), Configuration.Provider {
     
@@ -20,8 +22,9 @@ class AllinOneApplication : Application(), Configuration.Provider {
     // Lazy initialization of CacheManager
     val cacheManager by lazy { CacheManager(this) }
     
-    // Google API Client for the application
-    private var mGoogleApiClient: GoogleApiClient? = null
+    // Initialize the logcat helper
+    lateinit var logcatHelper: LogcatHelper
+        private set
     
     companion object {
         private const val PREFS_NAME = "app_preferences"
@@ -64,26 +67,27 @@ class AllinOneApplication : Application(), Configuration.Provider {
         // By default, most data expires after 10 minutes
         // For frequently changing data, we use shorter expiration times
         cacheManager.setCacheExpiration("events", 5 * 60 * 1000L) // 5 minutes for events
+        
+        // Initialize logcat helper
+        logcatHelper = LogcatHelper(this)
+        
+        // Register to capture errors periodically
+        CoroutineScope(Dispatchers.IO).launch {
+            logcatHelper.captureLogcat()
+        }
     }
     
     private fun initGooglePlayServices() {
         try {
             // Check if Google Play Services is available
             if (GooglePlayServicesHelper.isGooglePlayServicesAvailable(this)) {
-                // Initialize GoogleApiClient
-                mGoogleApiClient = GooglePlayServicesHelper.getGoogleApiClient(this)
-                mGoogleApiClient?.connect()
-                Log.d(TAG, "Google Play Services initialized successfully")
+                Log.d(TAG, "Google Play Services is available")
             } else {
                 Log.w(TAG, "Google Play Services is not available on this device")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error initializing Google Play Services: ${e.message}", e)
+            Log.e(TAG, "Error checking Google Play Services: ${e.message}", e)
         }
-    }
-    
-    fun getGoogleApiClient(): GoogleApiClient? {
-        return mGoogleApiClient
     }
     
     private fun applyUserTheme() {

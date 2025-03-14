@@ -52,6 +52,7 @@ import com.example.allinone.viewmodels.LessonChangeEvent
 import android.widget.EditText
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
+import com.example.allinone.workers.LogcatCaptureWorker
 
 class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedListener {
     private lateinit var binding: ActivityMainBinding
@@ -267,6 +268,11 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                     drawerLayout.closeDrawers()
                     true
                 }
+                R.id.nav_error_logs -> {
+                    navController.navigate(R.id.nav_error_logs)
+                    drawerLayout.closeDrawers()
+                    true
+                }
                 R.id.nav_clear_data -> {
                     // Clear app data instead of logging out
                     clearAppData()
@@ -332,6 +338,17 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             ExpirationNotificationWorker.WORK_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
             expirationWorkRequest
+        )
+        
+        // Schedule logcat capture worker to run every 30 minutes
+        val logcatWorkRequest = PeriodicWorkRequestBuilder<LogcatCaptureWorker>(
+            30, TimeUnit.MINUTES
+        ).build()
+        
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "logcat_capture_work",
+            ExistingPeriodicWorkPolicy.KEEP,
+            logcatWorkRequest
         )
     }
     

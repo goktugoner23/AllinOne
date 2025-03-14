@@ -29,6 +29,10 @@
             android:icon="@drawable/ic_backup"
             android:title="Backup &amp; Restore" />
         <item
+            android:id="@+id/nav_error_logs"
+            android:icon="@drawable/ic_error"
+            android:title="Error Logs" />
+        <item
             android:id="@+id/nav_clear_data"
             android:icon="@drawable/ic_clear_data"
             android:title="Clear Data" />
