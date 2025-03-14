@@ -239,11 +239,6 @@ class EditNoteActivity : AppCompatActivity() {
             getContent.launch("image/*")
         }
         
-        // Setup share button
-        binding.shareNoteButton.setOnClickListener {
-            shareNote()
-        }
-        
         // Setup save FAB
         binding.saveFab.setOnClickListener {
             saveNote()
@@ -264,11 +259,6 @@ class EditNoteActivity : AppCompatActivity() {
             // In light mode, keep it black and white
             binding.saveFab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.BLACK))
             binding.saveFab.imageTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE)
-        }
-        
-        // Hide share button for new notes
-        if (isNewNote) {
-            binding.shareNoteButton.visibility = View.GONE
         }
     }
     
@@ -334,28 +324,6 @@ class EditNoteActivity : AppCompatActivity() {
         }
         
         finish()
-    }
-    
-    private fun shareNote() {
-        val title = binding.editNoteTitle.text.toString()
-        val content = binding.editNoteContent.toHtml()
-        
-        val plainText = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-            Html.fromHtml(content, Html.FROM_HTML_MODE_COMPACT).toString()
-        } else {
-            @Suppress("DEPRECATION")
-            Html.fromHtml(content).toString()
-        }
-        
-        val shareIntent = Intent().apply {
-            action = Intent.ACTION_SEND
-            putExtra(Intent.EXTRA_TITLE, title)
-            putExtra(Intent.EXTRA_SUBJECT, title)
-            putExtra(Intent.EXTRA_TEXT, plainText)
-            type = "text/plain"
-        }
-        
-        startActivity(Intent.createChooser(shareIntent, getString(R.string.share_note)))
     }
     
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

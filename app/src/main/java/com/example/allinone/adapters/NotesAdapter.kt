@@ -1,5 +1,6 @@
 package com.example.allinone.adapters
 
+import android.content.Intent
 import android.net.Uri
 import android.text.Html
 import android.util.Log
@@ -7,6 +8,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.ImageButton
 import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -36,11 +38,17 @@ class NotesAdapter(private val onNoteClick: (Note) -> Unit) :
         private val dateTextView: TextView = itemView.findViewById(R.id.noteDate)
         private val contentTextView: TextView = itemView.findViewById(R.id.noteContent)
         private val imageView: ImageView = itemView.findViewById(R.id.noteImage)
+        private val shareButton: ImageButton = itemView.findViewById(R.id.shareButton)
         private val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
 
         fun bind(note: Note) {
             titleTextView.text = note.title
             dateTextView.text = dateFormat.format(note.lastEdited)
+            
+            // Set up share button
+            shareButton.setOnClickListener {
+                shareNote(note)
+            }
             
             // Always render content as HTML to ensure proper display
             if (note.content.isNotEmpty()) {
@@ -108,6 +116,25 @@ class NotesAdapter(private val onNoteClick: (Note) -> Unit) :
             )
 
             return processedContent
+        }
+
+        private fun shareNote(note: Note) {
+            val plainText = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                Html.fromHtml(note.content, Html.FROM_HTML_MODE_COMPACT).toString()
+            } else {
+                @Suppress("DEPRECATION")
+                Html.fromHtml(note.content).toString()
+            }
+            
+            val shareIntent = Intent().apply {
+                action = Intent.ACTION_SEND
+                putExtra(Intent.EXTRA_TITLE, note.title)
+                putExtra(Intent.EXTRA_SUBJECT, note.title)
+                putExtra(Intent.EXTRA_TEXT, plainText)
+                type = "text/plain"
+            }
+            
+            itemView.context.startActivity(Intent.createChooser(shareIntent, "Share Note"))
         }
     }
 
