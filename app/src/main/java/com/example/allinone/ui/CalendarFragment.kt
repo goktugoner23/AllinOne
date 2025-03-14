@@ -756,6 +756,10 @@ class CalendarFragment : Fragment() {
     
     override fun onDestroyView() {
         super.onDestroyView()
+        // Remove observers to prevent the "Cannot add the same observer with different lifecycles" error
+        viewModel.events.removeObservers(viewLifecycleOwner)
+        viewModel.isLoading.removeObservers(viewLifecycleOwner)
+        viewModel.errorMessage.removeObservers(viewLifecycleOwner)
         _binding = null
     }
 } 
