@@ -2,7 +2,8 @@
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:background="@color/navy_surface">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -14,14 +15,18 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            android:hint="Title">
+            android:hint="Title"
+            android:textColorHint="@color/white"
+            app:hintTextColor="@color/white"
+            style="@style/Widget.App.TextInputLayout">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/editNoteTitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="text"
-                android:maxLines="1" />
+                android:maxLines="1"
+                android:textColor="@color/white" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- Rich Text Editor Toolbar -->
@@ -41,7 +46,8 @@
                     android:layout_height="40dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Bold"
-                    android:src="@drawable/ic_format_bold" />
+                    android:src="@drawable/ic_format_bold"
+                    app:tint="@color/white" />
 
                 <ImageButton
                     android:id="@+id/italicButton"
@@ -49,7 +55,8 @@
                     android:layout_height="40dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Italic"
-                    android:src="@drawable/ic_format_italic" />
+                    android:src="@drawable/ic_format_italic"
+                    app:tint="@color/white" />
 
                 <ImageButton
                     android:id="@+id/underlineButton"
@@ -57,7 +64,8 @@
                     android:layout_height="40dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Underline"
-                    android:src="@drawable/ic_format_underline" />
+                    android:src="@drawable/ic_format_underline"
+                    app:tint="@color/white" />
 
                 <View
                     android:layout_width="1dp"
@@ -71,7 +79,8 @@
                     android:layout_height="40dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Bullet List"
-                    android:src="@drawable/ic_format_list_bulleted" />
+                    android:src="@drawable/ic_format_list_bulleted"
+                    app:tint="@color/white" />
 
                 <ImageButton
                     android:id="@+id/numberedListButton"
@@ -79,7 +88,8 @@
                     android:layout_height="40dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Numbered List"
-                    android:src="@drawable/ic_format_list_numbered" />
+                    android:src="@drawable/ic_format_list_numbered"
+                    app:tint="@color/white" />
 
                 <View
                     android:layout_width="1dp"
@@ -93,7 +103,8 @@
                     android:layout_height="40dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Add Image"
-                    android:src="@drawable/ic_image" />
+                    android:src="@drawable/ic_image"
+                    app:tint="@color/white" />
             </LinearLayout>
         </HorizontalScrollView>
 
@@ -110,7 +121,9 @@
             android:minHeight="200dp"
             android:padding="8dp"
             android:scrollbars="vertical"
-            android:textSize="16sp" />
+            android:textSize="16sp"
+            android:textColor="@color/white"
+            android:textColorHint="@color/navy_text_secondary" />
 
         <!-- Image Attachments -->
         <TextView
@@ -119,6 +132,7 @@
             android:layout_marginTop="16dp"
             android:text="Attached Images"
             android:textStyle="bold"
+            android:textColor="@color/white"
             android:textAppearance="?attr/textAppearanceSubtitle1"
             android:visibility="visible" />
 
@@ -137,8 +151,11 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="Add Image"
+            android:textColor="@color/white"
             android:drawableStart="@drawable/ic_add_photo"
-            android:drawablePadding="8dp" />
+            android:drawablePadding="8dp"
+            app:strokeColor="@color/white"
+            app:iconTint="@color/white" />
 
         <Button
             android:id="@+id/shareNoteButton"
@@ -147,8 +164,11 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="Share Note"
+            android:textColor="@color/white"
             android:drawableStart="@drawable/ic_share"
-            android:drawablePadding="8dp" />
+            android:drawablePadding="8dp"
+            app:strokeColor="@color/white"
+            app:iconTint="@color/white" />
 
     </LinearLayout>
 </androidx.core.widget.NestedScrollView> 

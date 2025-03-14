@@ -151,6 +151,12 @@ class NotesFragment : Fragment() {
         // Set the positive button click listener after creating the dialog
         dialog.setOnShowListener {
             val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            val negativeButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+            
+            // Set button colors
+            positiveButton.setTextColor(requireContext().getColor(R.color.white))
+            negativeButton.setTextColor(requireContext().getColor(R.color.white))
+            
             positiveButton.setOnClickListener {
                 val title = dialogBinding.editNoteTitle.text.toString()
                 val content = dialogBinding.editNoteContent.html
@@ -234,6 +240,14 @@ class NotesFragment : Fragment() {
         // Set the positive button click listener after creating the dialog
         dialog.setOnShowListener {
             val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            val negativeButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+            val neutralButton = dialog.getButton(AlertDialog.BUTTON_NEUTRAL)
+            
+            // Set button colors
+            positiveButton.setTextColor(requireContext().getColor(R.color.white))
+            negativeButton.setTextColor(requireContext().getColor(R.color.white))
+            neutralButton.setTextColor(requireContext().getColor(R.color.red))
+            
             positiveButton.setOnClickListener {
                 val title = dialogBinding.editNoteTitle.text.toString()
                 val content = dialogBinding.editNoteContent.html

@@ -21,21 +21,76 @@
         <item name="colorSurface">@color/navy_surface</item>
         <item name="android:colorBackground">@color/navy_background</item>
         <!-- Text colors for dark theme -->
+        <item name="android:textColor">@color/white</item>
         <item name="android:textColorPrimary">@color/white</item>
-        <item name="android:textColorSecondary">@color/navy_text_secondary</item>
+        <item name="android:textColorSecondary">@color/white</item>
+        <item name="android:textColorHint">@color/white</item>
+        <item name="android:editTextColor">@color/white</item>
+        <!-- Text Input styles -->
+        <item name="textInputStyle">@style/Widget.App.TextInputLayout</item>
+        <item name="editTextStyle">@style/Widget.App.EditText</item>
+        <!-- Button text colors -->
+        <item name="materialButtonStyle">@style/Widget.App.Button</item>
+        <!-- Dialog text colors -->
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.App.MaterialAlertDialog</item>
         <!-- Navigation and component colors -->
         <item name="colorNavigationItem">@color/drawer_item_color</item>
         <item name="colorNavigationItemSelected">@color/bright_tab_selected</item>
         <item name="android:navigationBarColor">@color/navy_surface</item>
         <item name="android:itemBackground">@color/navy_surface</item>
-        <item name="android:textColor">@color/white</item>
-        <item name="android:editTextColor">@color/white</item>
-        <item name="android:textColorHint">@color/navy_text_secondary</item>
         <!-- Navigation drawer colors -->
         <item name="colorControlHighlight">@color/bright_tab_selected</item>
         <item name="android:listChoiceBackgroundIndicator">@color/bright_tab_selected</item>
     </style>
     
+    <!-- Custom TextInputLayout style for dark theme -->
+    <style name="Widget.App.TextInputLayout" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="android:textColorHint">@color/white</item>
+        <item name="hintTextColor">@color/white</item>
+        <item name="android:textColor">@color/text_input_text_color</item>
+        <item name="boxStrokeColor">@color/text_input_box_stroke</item>
+        <item name="boxStrokeWidth">1dp</item>
+        <item name="boxStrokeWidthFocused">2dp</item>
+        <item name="endIconTint">@color/white</item>
+        <item name="startIconTint">@color/white</item>
+        <item name="helperTextTextColor">@color/white</item>
+        <item name="errorTextColor">@color/red</item>
+        <item name="counterTextColor">@color/white</item>
+        <item name="android:editTextColor">@color/text_input_text_color</item>
+        <item name="boxBackgroundColor">@android:color/transparent</item>
+    </style>
+
+    <!-- Custom EditText style for dark theme -->
+    <style name="Widget.App.EditText" parent="Widget.MaterialComponents.TextInputEditText.OutlinedBox">
+        <item name="android:textColor">@color/text_input_text_color</item>
+        <item name="android:textColorHint">@color/white</item>
+        <item name="android:backgroundTint">@color/white</item>
+    </style>
+
+    <!-- Box Stroke Color State List -->
+    <color name="mtrl_textinput_default_box_stroke_color">@color/white</color>
+
+    <!-- Custom Button style for dark theme -->
+    <style name="Widget.App.Button" parent="Widget.MaterialComponents.Button">
+        <item name="android:textColor">@color/white</item>
+    </style>
+
+    <!-- Custom Dialog style for dark theme -->
+    <style name="ThemeOverlay.App.MaterialAlertDialog" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog">
+        <item name="android:textColorPrimary">@color/white</item>
+        <item name="android:textColorSecondary">@color/white</item>
+        <item name="materialAlertDialogTitleTextStyle">@style/MaterialAlertDialog.App.Title.Text</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/MaterialAlertDialog.App.Body.Text</item>
+    </style>
+
+    <style name="MaterialAlertDialog.App.Title.Text" parent="MaterialAlertDialog.MaterialComponents.Title.Text">
+        <item name="android:textColor">@color/white</item>
+    </style>
+
+    <style name="MaterialAlertDialog.App.Body.Text" parent="MaterialAlertDialog.MaterialComponents.Body.Text">
+        <item name="android:textColor">@color/white</item>
+    </style>
+
     <!-- Custom bottom navigation style for dark theme -->
     <style name="Widget.App.BottomNavigationView" parent="Widget.MaterialComponents.BottomNavigationView">
         <item name="itemIconTint">@color/bottom_nav_item_color</item>
@@ -50,5 +105,22 @@
         <item name="itemTextColor">@color/drawer_item_color</item>
         <item name="itemBackground">?attr/selectableItemBackground</item>
         <item name="itemIconPadding">16dp</item>
+    </style>
+
+    <!-- Custom Dialog Button Styles -->
+    <style name="Widget.App.Button.TextButton.Dialog.Delete" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:textColor">@color/dialog_delete_button_color</item>
+        <item name="rippleColor">@color/red</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:textAppearance">@style/TextAppearance.MaterialComponents.Button</item>
+        <item name="backgroundTint">@android:color/transparent</item>
+    </style>
+
+    <style name="Widget.App.Button.TextButton.Dialog.Action" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:textColor">@color/dialog_action_button_color</item>
+        <item name="rippleColor">@color/white</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:textAppearance">@style/TextAppearance.MaterialComponents.Button</item>
+        <item name="backgroundTint">@android:color/transparent</item>
     </style>
 </resources>
