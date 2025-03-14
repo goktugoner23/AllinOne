@@ -8,6 +8,8 @@ import com.example.allinone.data.Investment
 import com.example.allinone.data.Note
 import com.example.allinone.data.Transaction
 import com.example.allinone.data.WTStudent
+import com.example.allinone.data.WTLesson
+import com.example.allinone.data.Event
 import com.example.allinone.firebase.FirebaseRepository
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -63,6 +65,8 @@ class BackupHelper(private val context: Context, private val repository: Firebas
             val investmentsFile = File(tempDir, "investments.json")
             val notesFile = File(tempDir, "notes.json")
             val studentsFile = File(tempDir, "students.json")
+            val lessonsFile = File(tempDir, "lessons.json")
+            val eventsFile = File(tempDir, "events.json")
             
             // Write data to JSON files
             OutputStreamWriter(FileOutputStream(transactionsFile)).use { writer ->
@@ -79,6 +83,16 @@ class BackupHelper(private val context: Context, private val repository: Firebas
             
             OutputStreamWriter(FileOutputStream(studentsFile)).use { writer ->
                 writer.write(gson.toJson(repository.students.value))
+            }
+            
+            // Add lesson schedule data
+            OutputStreamWriter(FileOutputStream(lessonsFile)).use { writer ->
+                writer.write(gson.toJson(repository.wtLessons.value))
+            }
+            
+            // Add calendar events data
+            OutputStreamWriter(FileOutputStream(eventsFile)).use { writer ->
+                writer.write(gson.toJson(repository.events.value))
             }
             
             // Create a ZIP file with all the JSON files
@@ -168,10 +182,13 @@ class BackupHelper(private val context: Context, private val repository: Firebas
             val investmentsFile = File(tempDir, "investments.json")
             val notesFile = File(tempDir, "notes.json")
             val studentsFile = File(tempDir, "students.json")
+            val lessonsFile = File(tempDir, "lessons.json")
+            val eventsFile = File(tempDir, "events.json")
             
             // Check if at least one file exists
             if (!transactionsFile.exists() && !investmentsFile.exists() && 
-                !notesFile.exists() && !studentsFile.exists()) {
+                !notesFile.exists() && !studentsFile.exists() &&
+                !lessonsFile.exists() && !eventsFile.exists()) {
                 errorMessage = "No valid data found in backup"
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Error: No valid data found in backup", Toast.LENGTH_LONG).show()
@@ -225,6 +242,32 @@ class BackupHelper(private val context: Context, private val repository: Firebas
                     }
                 } catch (e: Exception) {
                     errorMessage = "Error parsing students: ${e.message}"
+                    null
+                }
+            } else null
+            
+            // Parse lesson schedule data
+            val lessons = if (lessonsFile.exists()) {
+                try {
+                    InputStreamReader(FileInputStream(lessonsFile)).use { reader ->
+                        val type = object : TypeToken<List<WTLesson>>() {}.type
+                        gson.fromJson<List<WTLesson>>(reader, type)
+                    }
+                } catch (e: Exception) {
+                    errorMessage = "Error parsing lessons: ${e.message}"
+                    null
+                }
+            } else null
+            
+            // Parse calendar events data
+            val events = if (eventsFile.exists()) {
+                try {
+                    InputStreamReader(FileInputStream(eventsFile)).use { reader ->
+                        val type = object : TypeToken<List<Event>>() {}.type
+                        gson.fromJson<List<Event>>(reader, type)
+                    }
+                } catch (e: Exception) {
+                    errorMessage = "Error parsing events: ${e.message}"
                     null
                 }
             } else null
@@ -290,6 +333,34 @@ class BackupHelper(private val context: Context, private val repository: Firebas
                     }
                 }
                 
+                // Update lesson schedule in batches
+                lessons?.chunked(10)?.forEach { batch ->
+                    batch.forEach { lesson ->
+                        try {
+                            repository.insertWTLesson(lesson)
+                            // Small delay to avoid overwhelming Firebase
+                            kotlinx.coroutines.delay(50)
+                        } catch (e: Exception) {
+                            // Log error but continue with other items
+                            e.printStackTrace()
+                        }
+                    }
+                }
+                
+                // Update events in batches
+                events?.chunked(10)?.forEach { batch ->
+                    batch.forEach { event ->
+                        try {
+                            repository.insertEvent(event)
+                            // Small delay to avoid overwhelming Firebase
+                            kotlinx.coroutines.delay(50)
+                        } catch (e: Exception) {
+                            // Log error but continue with other items
+                            e.printStackTrace()
+                        }
+                    }
+                }
+                
                 // Try to refresh data, but don't fail if it doesn't work
                 try {
                     // Use a timeout to prevent hanging
@@ -331,7 +402,8 @@ class BackupHelper(private val context: Context, private val repository: Firebas
             
             // If we got here with parsed data, consider it at least a partial success
             val success = transactions != null || investments != null || 
-                         notes != null || students != null
+                         notes != null || students != null ||
+                         lessons != null || events != null
             
             if (success) {
                 if (firebaseUpdateSuccess) {
