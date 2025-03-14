@@ -286,7 +286,7 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                     it.id == student.id && 
                     !it.isPaid &&
                     it.startDate != null &&
-                    it.startDate!!.time <= (student.startDate?.time ?: 0) &&
+                    it.startDate.time <= (student.startDate?.time ?: 0) &&
                     (it.endDate?.time ?: Long.MAX_VALUE) >= (student.startDate?.time ?: 0)
                 } ?: false
                 

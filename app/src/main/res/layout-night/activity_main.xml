@@ -62,7 +62,8 @@
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
         android:layout_gravity="start"
-        app:headerLayout="@layout/nav_header"
+        android:fitsSystemWindows="true"
+        style="@style/Widget.App.NavigationView"
         app:menu="@menu/drawer_menu">
 
         <!-- Theme switch at the bottom of the drawer -->

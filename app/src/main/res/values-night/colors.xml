@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="gray_dark">#FF444444</color>
+    <color name="gray_light">#FF666666</color>
+    
+    <!-- Dark theme base colors -->
+    <color name="colorPrimary">@color/navy_primary</color>
+    <color name="default_event_color">@color/navy_surface</color>
+    
+    <!-- Event colors for dark theme -->
+    <color name="expiration_color">#3E2828</color>  <!-- Dark red background -->
+    <color name="start_color">#2E3B2E</color>      <!-- Dark green background -->
+    <color name="lesson_event_color">#2C3440</color><!-- Dark blue background -->
+    
+    <!-- Text colors for dark theme -->
+    <color name="textPrimary">@color/white</color>
+    
+    <!-- History page colors -->
+    <color name="red">#CF6679</color>              <!-- Material dark theme error color -->
+    <color name="dark_gray">#CCCCCC</color>        <!-- Lighter gray for dark theme -->
+    <color name="medium_gray">#999999</color>
+    
+    <!-- Network status colors for dark theme -->
+    <color name="colorError">#CF6679</color>       <!-- Material dark theme error color -->
+    <color name="colorSuccess">#03DAC6</color>     <!-- Material dark theme success color -->
+    <color name="colorWarning">#FFB74D</color>     <!-- Softer warning color for dark theme -->
+    
+    <!-- Dark theme colors - Professional Navy Blue theme -->
+    <color name="navy_primary">#4DA8DA</color>     <!-- Lighter blue for better visibility -->
+    <color name="navy_background">#001D3D</color>  <!-- Deep navy background -->
+    <color name="navy_surface">#002B59</color>     <!-- Slightly lighter navy for surfaces -->
+    <color name="navy_variant">#004E92</color>     <!-- Accent color -->
+    <color name="navy_accent">#64B5F6</color>      <!-- Bright accent for important elements -->
+    <color name="navy_text_secondary">#B0BEC5</color> <!-- Muted text color -->
+    
+    <!-- Bright tab colors for dark theme -->
+    <color name="bright_tab_selected">#64B5F6</color>   <!-- Bright blue for selected tabs -->
+    <color name="bright_tab_unselected">#4F5B62</color> <!-- Muted color for unselected -->
+</resources> 
