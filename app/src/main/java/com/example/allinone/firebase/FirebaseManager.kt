@@ -119,12 +119,21 @@ class FirebaseManager(private val context: Context? = null) {
         
         if (!imageUri.isNullOrEmpty()) {
             try {
-                val uri = Uri.parse(imageUri)
-                val imageRef = imagesRef.child("${UUID.randomUUID()}")
-                imageRef.putFile(uri).await()
-                uploadedImageUrl = imageRef.downloadUrl.await().toString()
+                // Only upload if it's a content URI
+                if (imageUri.startsWith("content://")) {
+                    val uri = Uri.parse(imageUri)
+                    val imageRef = imagesRef.child("${UUID.randomUUID()}")
+                    imageRef.putFile(uri).await()
+                    uploadedImageUrl = imageRef.downloadUrl.await().toString()
+                } else if (imageUri.startsWith("http")) {
+                    // If it's already a remote URL, just use it
+                    uploadedImageUrl = imageUri
+                } else {
+                    Log.w(TAG, "Skipping investment image upload - invalid URI format: ${imageUri.take(10)}...")
+                }
             } catch (e: Exception) {
                 // Skip failed upload
+                Log.e(TAG, "Failed to upload investment image: ${e.message}", e)
             }
         }
         
@@ -175,13 +184,25 @@ class FirebaseManager(private val context: Context? = null) {
             val uriList = imageUris.split(",").filter { it.isNotEmpty() }
             for (uriString in uriList) {
                 try {
-                    val uri = Uri.parse(uriString)
-                    val imageRef = imagesRef.child("${UUID.randomUUID()}")
-                    imageRef.putFile(uri).await()
-                    val downloadUrl = imageRef.downloadUrl.await().toString()
-                    uploadedImageUrls.add(downloadUrl)
+                    // Skip urls that are already uploaded (http/https)
+                    if (uriString.startsWith("http")) {
+                        uploadedImageUrls.add(uriString)
+                        continue
+                    }
+                    
+                    // Only process valid content URIs
+                    if (uriString.startsWith("content://")) {
+                        val uri = Uri.parse(uriString)
+                        val imageRef = imagesRef.child("${UUID.randomUUID()}")
+                        imageRef.putFile(uri).await()
+                        val downloadUrl = imageRef.downloadUrl.await().toString()
+                        uploadedImageUrls.add(downloadUrl)
+                    } else {
+                        Log.w(TAG, "Skipping image upload - invalid URI format: ${uriString.take(10)}...")
+                    }
                 } catch (e: Exception) {
                     // Skip failed uploads
+                    Log.e(TAG, "Failed to upload image: ${e.message}", e)
                     continue
                 }
             }
@@ -193,7 +214,7 @@ class FirebaseManager(private val context: Context? = null) {
             "content" to note.content,
             "date" to note.date,
             "imageUri" to note.imageUri,
-            "imageUris" to note.imageUris,
+            "imageUris" to uploadedImageUrls.joinToString(","),
             "lastEdited" to note.lastEdited,
             "isRichText" to note.isRichText,
             "deviceId" to deviceId
@@ -233,11 +254,21 @@ class FirebaseManager(private val context: Context? = null) {
             var attachmentUrl = ""
             if (student.attachmentUri != null) {
                 try {
-                    val uri = Uri.parse(student.attachmentUri)
-                    val attachmentRef = attachmentsRef.child("${UUID.randomUUID()}")
-                    attachmentRef.putFile(uri).await()
-                    attachmentUrl = attachmentRef.downloadUrl.await().toString()
-                    Log.d(TAG, "Uploaded attachment for student: $attachmentUrl")
+                    val attachmentUri = student.attachmentUri
+                    // Only process valid content URIs
+                    if (attachmentUri.startsWith("content://")) {
+                        val uri = Uri.parse(attachmentUri)
+                        val attachmentRef = attachmentsRef.child("${UUID.randomUUID()}")
+                        attachmentRef.putFile(uri).await()
+                        attachmentUrl = attachmentRef.downloadUrl.await().toString()
+                        Log.d(TAG, "Uploaded attachment for student: $attachmentUrl")
+                    } else if (attachmentUri.startsWith("http")) {
+                        // If it's already a remote URL, just use it
+                        attachmentUrl = attachmentUri
+                        Log.d(TAG, "Using existing remote attachment URL: $attachmentUrl")
+                    } else {
+                        Log.w(TAG, "Skipping attachment upload - invalid URI format: ${attachmentUri.take(10)}...")
+                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to upload attachment: ${e.message}", e)
                     // Skip failed upload
@@ -246,13 +277,23 @@ class FirebaseManager(private val context: Context? = null) {
             
             // Upload profile image if any and it's a local file
             var profileImageUrl = student.profileImageUri
-            if (student.profileImageUri != null && student.profileImageUri.startsWith("content://")) {
+            if (student.profileImageUri != null) {
                 try {
-                    val uri = Uri.parse(student.profileImageUri)
-                    val imageRef = imagesRef.child("profiles/${UUID.randomUUID()}")
-                    imageRef.putFile(uri).await()
-                    profileImageUrl = imageRef.downloadUrl.await().toString()
-                    Log.d(TAG, "Uploaded profile image for student: $profileImageUrl")
+                    val imageUri = student.profileImageUri
+                    // Only process valid content URIs
+                    if (imageUri.startsWith("content://")) {
+                        val uri = Uri.parse(imageUri)
+                        val imageRef = imagesRef.child("profiles/${UUID.randomUUID()}")
+                        imageRef.putFile(uri).await()
+                        profileImageUrl = imageRef.downloadUrl.await().toString()
+                        Log.d(TAG, "Uploaded profile image for student: $profileImageUrl")
+                    } else if (imageUri.startsWith("http")) {
+                        // If it's already a remote URL, just use it
+                        profileImageUrl = imageUri
+                        Log.d(TAG, "Using existing remote profile image URL: $profileImageUrl")
+                    } else {
+                        Log.w(TAG, "Skipping profile image upload - invalid URI format: ${imageUri.take(10)}...")
+                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to upload profile image: ${e.message}", e)
                     // Keep the original URI on failure
@@ -342,20 +383,34 @@ class FirebaseManager(private val context: Context? = null) {
     // Storage
     suspend fun uploadImage(uri: Uri): String? {
         return try {
+            // Verify the URI is a content URI
+            if (!uri.toString().startsWith("content://")) {
+                Log.w(TAG, "Invalid image URI format: ${uri.toString().take(10)}...")
+                return null
+            }
+            
             val imageRef = imagesRef.child("${UUID.randomUUID()}")
             imageRef.putFile(uri).await()
             imageRef.downloadUrl.await().toString()
         } catch (e: Exception) {
+            Log.e(TAG, "Failed to upload image: ${e.message}", e)
             null
         }
     }
     
     suspend fun uploadAttachment(uri: Uri): String? {
         return try {
+            // Verify the URI is a content URI
+            if (!uri.toString().startsWith("content://")) {
+                Log.w(TAG, "Invalid attachment URI format: ${uri.toString().take(10)}...")
+                return null
+            }
+            
             val attachmentRef = attachmentsRef.child("${UUID.randomUUID()}")
             attachmentRef.putFile(uri).await()
             attachmentRef.downloadUrl.await().toString()
         } catch (e: Exception) {
+            Log.e(TAG, "Failed to upload attachment: ${e.message}", e)
             null
         }
     }
