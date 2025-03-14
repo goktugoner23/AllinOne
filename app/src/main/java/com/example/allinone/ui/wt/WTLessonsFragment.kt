@@ -6,6 +6,7 @@ import android.text.Editable
 import android.text.InputType
 import android.text.TextUtils
 import android.text.TextWatcher
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -56,14 +57,26 @@ class WTLessonsFragment : Fragment() {
             onSaveLessonsClick()
         }
         
+        // Set up loading indicator
+        binding.progressBar.visibility = View.VISIBLE
+        
         // Observe lessons
         viewModel.lessons.observe(viewLifecycleOwner) { lessons ->
+            binding.progressBar.visibility = View.GONE
             updateLessonsList(lessons)
         }
         
+        // Observe loading state
+        viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
+            binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+        }
+        
         // Observe network availability
-        viewModel.isNetworkAvailable.observe(viewLifecycleOwner) { _ ->
-            // Handle network status changes if needed
+        viewModel.isNetworkAvailable.observe(viewLifecycleOwner) { isAvailable ->
+            // Refresh data if network becomes available
+            if (isAvailable) {
+                viewModel.refreshLessons()
+            }
         }
         
         // Observe error messages
@@ -80,6 +93,9 @@ class WTLessonsFragment : Fragment() {
                 showEditDialog(it)
             }
         }
+        
+        // Initially load lessons
+        viewModel.refreshLessons()
     }
 
     private fun setupTimeInputFields(editText: EditText) {
@@ -334,7 +350,9 @@ class WTLessonsFragment : Fragment() {
     }
     
     /**
-     * Get all lessons from the selected chips
+     * Get the current lessons from the ViewModel
+     * Note: This method name is misleading as it doesn't actually use the chip selections.
+     * It simply returns the current lessons from the ViewModel.
      */
     private fun getLessonsFromChips(): List<WTLesson> {
         return viewModel.lessons.value ?: emptyList()
@@ -354,5 +372,15 @@ class WTLessonsFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    override fun onResume() {
+        super.onResume()
+        
+        // Force refresh the lessons data from Firebase when the fragment becomes visible
+        viewModel.refreshLessons()
+        
+        // Log for debugging
+        Log.d("WTLessonsFragment", "onResume: Refreshing lessons data")
     }
 } 

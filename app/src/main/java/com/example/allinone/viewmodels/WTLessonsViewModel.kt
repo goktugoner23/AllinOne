@@ -1,6 +1,7 @@
 package com.example.allinone.viewmodels
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -30,6 +31,9 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
     
     // Network availability
     val isNetworkAvailable = repository.isNetworkAvailable
+    
+    // Loading state
+    val isLoading = repository.isLoading
     
     // Error message
     private val _errorMessage = MutableLiveData<String?>(null)
@@ -167,7 +171,13 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
     // Refresh lessons data
     fun refreshLessons() {
         viewModelScope.launch {
-            repository.refreshWTLessons()
+            try {
+                Log.d("WTLessonsViewModel", "Refreshing lessons data from Firebase")
+                repository.refreshWTLessons(forceRefresh = true)
+            } catch (e: Exception) {
+                Log.e("WTLessonsViewModel", "Error refreshing lessons: ${e.message}", e)
+                _errorMessage.value = "Failed to refresh lessons: ${e.message}"
+            }
         }
     }
 } 

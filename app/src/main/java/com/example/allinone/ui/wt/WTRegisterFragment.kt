@@ -3,10 +3,12 @@ package com.example.allinone.ui.wt
 import android.app.DatePickerDialog
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.OpenableColumns
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -342,6 +344,13 @@ class WTRegisterFragment : Fragment() {
             if (student.attachmentUri != null) {
                 try {
                     updateAttachmentPreview(dialogBinding, Uri.parse(student.attachmentUri))
+                    
+                    // Add a note to indicate it's clickable using a less intrusive Snackbar
+                    Snackbar.make(
+                        dialogBinding.root,
+                        getString(R.string.tap_to_view_attachment),
+                        Snackbar.LENGTH_SHORT
+                    ).show()
                 } catch (e: Exception) {
                     Toast.makeText(
                         requireContext(),
@@ -423,8 +432,11 @@ class WTRegisterFragment : Fragment() {
 
     private fun updateAttachmentPreview(dialogBinding: DialogEditWtStudentBinding, uri: Uri) {
         val fileName = getFileNameFromUri(uri)
-        dialogBinding.attachmentNameText.text = "Attachment: $fileName"
+        dialogBinding.attachmentNameText.text = getString(R.string.attachment_click_to_open, fileName)
         dialogBinding.attachmentNameText.visibility = View.VISIBLE
+        
+        // Apply styling to make it look clickable
+        dialogBinding.attachmentNameText.setTextColor(resources.getColor(android.R.color.holo_blue_dark, null))
         
         // Check if it's an image
         val mimeType = context?.contentResolver?.getType(uri)
@@ -433,6 +445,16 @@ class WTRegisterFragment : Fragment() {
                 // For images, show the preview
                 dialogBinding.attachmentPreview.setImageURI(uri)
                 dialogBinding.attachmentPreview.visibility = View.VISIBLE
+                
+                // Make the image preview clickable to view full-size
+                dialogBinding.attachmentPreview.setOnClickListener {
+                    openAttachment(uri)
+                }
+                
+                // Add a slight elevation to make it look clickable
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    dialogBinding.attachmentPreview.elevation = 4f
+                }
             } catch (e: SecurityException) {
                 // If we can't load the image, just show the name
                 dialogBinding.attachmentPreview.visibility = View.GONE
@@ -447,17 +469,46 @@ class WTRegisterFragment : Fragment() {
             dialogBinding.attachmentPreview.visibility = View.GONE
         }
         
-        // Add tooltip to inform user about removal option
+        // Add click listener to open the file when the name is clicked
         dialogBinding.attachmentNameText.setOnClickListener {
-            Toast.makeText(context, "Long press to remove attachment", Toast.LENGTH_SHORT).show()
+            openAttachment(uri)
         }
         
         // Add long press listener to remove attachment
         dialogBinding.attachmentNameText.setOnLongClickListener {
             selectedAttachmentUri = null
             dialogBinding.attachmentNameText.text = "No attachment"
+            dialogBinding.attachmentNameText.setTextColor(resources.getColor(android.R.color.darker_gray, null))
             dialogBinding.attachmentPreview.visibility = View.GONE
             true
+        }
+    }
+
+    private fun openAttachment(uri: Uri) {
+        try {
+            val mimeType = requireContext().contentResolver.getType(uri) ?: "*/*"
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, mimeType)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            
+            // Check if there's an app that can handle this file type
+            if (intent.resolveActivity(requireContext().packageManager) != null) {
+                startActivity(intent)
+            } else {
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.no_app_for_file_type),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        } catch (e: Exception) {
+            Toast.makeText(
+                requireContext(),
+                getString(R.string.error_opening_file, e.message),
+                Toast.LENGTH_SHORT
+            ).show()
+            Log.e("WTRegisterFragment", "Error opening attachment", e)
         }
     }
 

@@ -1301,9 +1301,11 @@ class FirebaseRepository(private val context: Context) {
     
     /**
      * Refreshes WT lessons from Firestore with robust error handling
+     * @param forceRefresh If true, will attempt to refresh from Firebase even if network is unavailable
      */
-    suspend fun refreshWTLessons() {
-        if (!networkUtils.isActiveNetworkConnected()) {
+    suspend fun refreshWTLessons(forceRefresh: Boolean = false) {
+        if (!networkUtils.isActiveNetworkConnected() && !forceRefresh) {
+            Log.d(TAG, "Network unavailable, using cached lessons data")
             return // Use cached data
         }
         
@@ -1313,7 +1315,13 @@ class FirebaseRepository(private val context: Context) {
                 _isLoading.value = true
             }
             
+            // Log the refresh attempt
+            Log.d(TAG, "Refreshing WT lessons from Firebase")
+            
             val lessonList = firebaseManager.getAllWTLessons()
+            
+            // Log the fetch result
+            Log.d(TAG, "Retrieved ${lessonList.size} lessons from Firebase")
             
             // Update cache first
             cacheManager.cacheLessons(lessonList)
@@ -1325,6 +1333,7 @@ class FirebaseRepository(private val context: Context) {
             }
             
         } catch (e: Exception) {
+            Log.e(TAG, "Error loading lessons: ${e.message}", e)
             withContext(Dispatchers.Main) {
                 _errorMessage.value = "Error loading lessons: ${e.message}"
                 _isLoading.value = false
