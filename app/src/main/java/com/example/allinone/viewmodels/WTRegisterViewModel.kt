@@ -308,16 +308,46 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
     // Delete a student's registration
     fun deleteRegistration(student: WTStudent) {
         viewModelScope.launch {
-            // Create a copy of the student with registration data cleared
-            val updatedStudent = student.copy(
-                startDate = null,
-                endDate = null,
-                amount = 0.0,
-                isPaid = false,
-                paymentDate = null,
-                attachmentUri = null
-            )
-            repository.updateStudent(updatedStudent)
+            try {
+                // Create a copy of the student with registration data cleared
+                val updatedStudent = student.copy(
+                    startDate = null,
+                    endDate = null,
+                    amount = 0.0,
+                    isPaid = false,
+                    paymentDate = null,
+                    attachmentUri = null
+                )
+                
+                // Update the student in the repository
+                repository.updateStudent(updatedStudent)
+                
+                // If the student was paid, add a transaction to reverse the payment
+                if (student.isPaid) {
+                    val transaction = Transaction(
+                        id = UUID.randomUUID().mostSignificantBits,
+                        amount = -student.amount, // Negative amount
+                        type = "Wing Tzun",
+                        description = "Registration deleted for ${student.name} (Payment reversed)",
+                        isIncome = true,  // This ensures it's not counted as an expense
+                        date = Date(),
+                        category = "Wing Tzun Adjustment"
+                    )
+                    repository.insertTransaction(
+                        amount = transaction.amount,
+                        type = transaction.type,
+                        description = transaction.description,
+                        isIncome = transaction.isIncome,
+                        category = transaction.category
+                    )
+                }
+                
+                // Force refresh the data
+                refreshData()
+            } catch (e: Exception) {
+                Log.e("WTRegisterViewModel", "Error deleting registration: ${e.message}", e)
+                _errorMessage.value = "Error deleting registration: ${e.message}"
+            }
         }
     }
 } 

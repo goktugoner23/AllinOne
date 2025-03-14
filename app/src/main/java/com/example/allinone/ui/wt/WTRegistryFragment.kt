@@ -26,9 +26,15 @@ class WTRegistryFragment : Fragment() {
     private var networkStatusText: TextView? = null
     
     // Keep fragment instances to reuse them
-    private val studentsFragment by lazy { WTStudentsFragment() }
-    private val registerFragment by lazy { WTRegisterFragment() }
-    private val lessonsFragment by lazy { WTLessonsFragment() }
+    private val studentsFragment: Fragment by lazy { 
+        childFragmentManager.findFragmentByTag("students") ?: WTStudentsFragment()
+    }
+    private val registerFragment: Fragment by lazy { 
+        childFragmentManager.findFragmentByTag("register") ?: WTRegisterFragment()
+    }
+    private val lessonsFragment: Fragment by lazy { 
+        childFragmentManager.findFragmentByTag("lessons") ?: WTLessonsFragment()
+    }
     
     // Track the current fragment
     private var currentFragment: Fragment? = null
@@ -58,15 +64,15 @@ class WTRegistryFragment : Fragment() {
             
             when (item.itemId) {
                 R.id.wtStudentsFragment -> {
-                    switchFragment(studentsFragment)
+                    switchFragment(studentsFragment, "students")
                     true
                 }
                 R.id.wtRegisterFragment -> {
-                    switchFragment(registerFragment)
+                    switchFragment(registerFragment, "register")
                     true
                 }
                 R.id.wtLessonsFragment -> {
-                    switchFragment(lessonsFragment)
+                    switchFragment(lessonsFragment, "lessons")
                     true
                 }
                 else -> false
@@ -79,7 +85,7 @@ class WTRegistryFragment : Fragment() {
         }
     }
     
-    private fun switchFragment(fragment: Fragment) {
+    private fun switchFragment(fragment: Fragment, tag: String) {
         if (currentFragment == fragment) {
             // Fragment already displayed, no need to switch
             return
@@ -94,7 +100,7 @@ class WTRegistryFragment : Fragment() {
         } else {
             // First time showing this fragment
             currentFragment?.let { transaction.hide(it) }
-            transaction.add(R.id.wtFragmentContainer, fragment)
+            transaction.add(R.id.wtFragmentContainer, fragment, tag)
         }
         
         transaction.commit()
