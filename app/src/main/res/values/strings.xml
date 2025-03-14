@@ -17,7 +17,7 @@
     <string name="navigation_drawer_close">Close Navigation Drawer</string>
     
     <!-- Google Play Services -->
-    <string name="app_id">YOUR_APP_ID_HERE</string>
+    <string name="app_id">954911141967</string>
     
     <!-- Offline status -->
     <string name="offline_mode">Offline Mode</string>
@@ -99,4 +99,11 @@
     <string name="delete_registration">Delete Registration</string>
     <string name="delete_registration_confirmation">Are you sure you want to delete %1$s\'s registration?</string>
     <string name="registration_deleted">Registration deleted</string>
+    <string name="create_note">Create Note</string>
+    <string name="edit_note">Edit Note</string>
+    <string name="please_enter_title">Please enter a title</string>
+    <string name="note_saved">Note saved</string>
+    <string name="note_updated">Note updated</string>
+    <string name="note_deleted">Note deleted</string>
+    <string name="share_note">Share Note</string>
 </resources>

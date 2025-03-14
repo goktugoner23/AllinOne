@@ -88,7 +88,9 @@ class NotesFragment : Fragment() {
     
     private fun setupRecyclerView() {
         notesAdapter = NotesAdapter(
-            onNoteClick = { note -> showEditNoteDialog(note) }
+            onNoteClick = { note -> 
+                startActivity(EditNoteActivity.newIntent(requireContext(), note.id))
+            }
         )
         
         binding.notesRecyclerView.apply {
@@ -99,7 +101,7 @@ class NotesFragment : Fragment() {
     
     private fun setupFab() {
         binding.addNoteFab.setOnClickListener {
-            showAddNoteDialog()
+            startActivity(EditNoteActivity.newIntent(requireContext()))
         }
     }
     
@@ -110,175 +112,6 @@ class NotesFragment : Fragment() {
             notesAdapter.submitList(sortedNotes)
             binding.emptyStateText.visibility = if (notes.isEmpty()) View.VISIBLE else View.GONE
         }
-    }
-    
-    private fun showAddNoteDialog() {
-        // Reset selected images
-        selectedImages.clear()
-        
-        val dialogBinding = DialogEditNoteBinding.inflate(layoutInflater)
-        this.dialogBinding = dialogBinding
-        
-        // Setup image recycler view
-        imageAdapter = NoteImageAdapter(
-            onDeleteClick = { uri -> 
-                selectedImages.remove(uri)
-                imageAdapter.submitList(selectedImages.toList())
-                dialogBinding.imagesRecyclerView.visibility = if (selectedImages.isEmpty()) View.GONE else View.VISIBLE
-            }
-        )
-        dialogBinding.imagesRecyclerView.adapter = imageAdapter
-        dialogBinding.imagesRecyclerView.visibility = View.GONE
-        
-        // Setup rich text editor
-        setupRichTextEditor(dialogBinding)
-        
-        // Setup image attachment
-        dialogBinding.addAttachmentButton.setOnClickListener {
-            getContent.launch("image/*")
-        }
-        
-        // Setup share button - disabled for new notes
-        dialogBinding.shareNoteButton.visibility = View.GONE
-        
-        val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Add New Note")
-            .setView(dialogBinding.root)
-            .setPositiveButton("Save", null) // We'll set this later to prevent auto-dismiss
-            .setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }
-            .create()
-            
-        // Set the positive button click listener after creating the dialog
-        dialog.setOnShowListener {
-            val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-            val negativeButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
-            
-            // Set button colors
-            positiveButton.setTextColor(requireContext().getColor(R.color.white))
-            negativeButton.setTextColor(requireContext().getColor(R.color.white))
-            
-            positiveButton.setOnClickListener {
-                val title = dialogBinding.editNoteTitle.text.toString()
-                val content = dialogBinding.editNoteContent.html
-                
-                if (title.isBlank()) {
-                    Toast.makeText(requireContext(), "Please enter a title", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-                
-                // Convert selected images to comma-separated string
-                val imageUris = if (selectedImages.isNotEmpty()) {
-                    selectedImages.joinToString(",") { it.toString() }
-                } else {
-                    null
-                }
-                
-                viewModel.addNote(
-                    title = title,
-                    content = content,
-                    imageUris = imageUris
-                )
-                
-                dialog.dismiss()
-                Toast.makeText(requireContext(), "Note saved", Toast.LENGTH_SHORT).show()
-            }
-        }
-        
-        dialog.show()
-    }
-    
-    private fun showEditNoteDialog(note: Note) {
-        // Reset and populate selected images
-        selectedImages.clear()
-        note.imageUris?.split(",")?.forEach { uriString ->
-            selectedImages.add(Uri.parse(uriString))
-        }
-        
-        val dialogBinding = DialogEditNoteBinding.inflate(layoutInflater)
-        this.dialogBinding = dialogBinding
-        
-        // Pre-fill the form
-        dialogBinding.editNoteTitle.setText(note.title)
-        dialogBinding.editNoteContent.fromHtml(note.content)
-        
-        // Setup image recycler view
-        imageAdapter = NoteImageAdapter(
-            onDeleteClick = { uri -> 
-                selectedImages.remove(uri)
-                imageAdapter.submitList(selectedImages.toList())
-                dialogBinding.imagesRecyclerView.visibility = if (selectedImages.isEmpty()) View.GONE else View.VISIBLE
-            }
-        )
-        dialogBinding.imagesRecyclerView.adapter = imageAdapter
-        imageAdapter.submitList(selectedImages.toList())
-        dialogBinding.imagesRecyclerView.visibility = if (selectedImages.isEmpty()) View.GONE else View.VISIBLE
-        
-        // Setup rich text editor
-        setupRichTextEditor(dialogBinding)
-        
-        // Setup image attachment
-        dialogBinding.addAttachmentButton.setOnClickListener {
-            getContent.launch("image/*")
-        }
-        
-        // Setup share button
-        dialogBinding.shareNoteButton.setOnClickListener {
-            shareNote(note, dialogBinding.editNoteTitle.text.toString(), dialogBinding.editNoteContent.html)
-        }
-        
-        val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Edit Note")
-            .setView(dialogBinding.root)
-            .setPositiveButton("Save", null) // We'll set this later to prevent auto-dismiss
-            .setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }
-            .setNeutralButton("Delete") { dialog, _ ->
-                showDeleteConfirmation(note)
-                dialog.dismiss()
-            }
-            .create()
-            
-        // Set the positive button click listener after creating the dialog
-        dialog.setOnShowListener {
-            val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-            val negativeButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
-            val neutralButton = dialog.getButton(AlertDialog.BUTTON_NEUTRAL)
-            
-            // Set button colors
-            positiveButton.setTextColor(requireContext().getColor(R.color.white))
-            negativeButton.setTextColor(requireContext().getColor(R.color.white))
-            neutralButton.setTextColor(requireContext().getColor(R.color.red))
-            
-            positiveButton.setOnClickListener {
-                val title = dialogBinding.editNoteTitle.text.toString()
-                val content = dialogBinding.editNoteContent.html
-                
-                if (title.isBlank()) {
-                    Toast.makeText(requireContext(), "Please enter a title", Toast.LENGTH_SHORT).show()
-                    return@setOnClickListener
-                }
-                
-                // Convert selected images to comma-separated string
-                val imageUris = if (selectedImages.isNotEmpty()) {
-                    selectedImages.joinToString(",") { it.toString() }
-                } else {
-                    null
-                }
-                
-                val updatedNote = note.copy(
-                    title = title,
-                    content = content,
-                    imageUris = imageUris,
-                    lastEdited = Date()
-                )
-                
-                viewModel.updateNote(updatedNote)
-                
-                dialog.dismiss()
-                Toast.makeText(requireContext(), "Note updated", Toast.LENGTH_SHORT).show()
-            }
-        }
-        
-        dialog.show()
     }
     
     @Suppress("UNUSED_PARAMETER")
