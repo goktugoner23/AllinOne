@@ -506,14 +506,27 @@ class FirebaseRepository(private val context: Context) {
         }
         
         try {
-            val transactionList = firebaseManager.getTransactions()
-            _transactions.value = transactionList
+            // Show loading state
+            withContext(Dispatchers.Main) {
+                _isLoading.value = true
+            }
             
-            // Update cache
+            val transactionList = firebaseManager.getTransactions()
+            
+            // Update cache first
             cacheManager.cacheTransactions(transactionList)
             
+            // Then update LiveData on main thread
+            withContext(Dispatchers.Main) {
+                _transactions.value = transactionList
+                _isLoading.value = false
+            }
+            
         } catch (e: Exception) {
-            _errorMessage.postValue("Error loading transactions: ${e.message}")
+            withContext(Dispatchers.Main) {
+                _errorMessage.value = "Error loading transactions: ${e.message}"
+                _isLoading.value = false
+            }
         }
     }
     
@@ -779,14 +792,27 @@ class FirebaseRepository(private val context: Context) {
         }
         
         try {
-            val noteList = firebaseManager.getNotes()
-            _notes.value = noteList
+            // Show loading state
+            withContext(Dispatchers.Main) {
+                _isLoading.value = true
+            }
             
-            // Update cache
+            val noteList = firebaseManager.getNotes()
+            
+            // Update cache first
             cacheManager.cacheNotes(noteList)
             
+            // Then update LiveData on main thread
+            withContext(Dispatchers.Main) {
+                _notes.value = noteList
+                _isLoading.value = false
+            }
+            
         } catch (e: Exception) {
-            _errorMessage.postValue("Error loading notes: ${e.message}")
+            withContext(Dispatchers.Main) {
+                _errorMessage.value = "Error loading notes: ${e.message}"
+                _isLoading.value = false
+            }
         }
     }
     

@@ -64,6 +64,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         category: String
     ) {
         viewModelScope.launch {
+            // Add transaction to Firebase through repository
             repository.insertTransaction(
                 amount = amount,
                 type = type,
@@ -71,6 +72,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 isIncome = isIncome,
                 category = category
             )
+            
+            // Force refresh data to ensure UI consistency
+            repository.refreshTransactions()
         }
     }
 
@@ -84,7 +88,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteTransaction(transaction: Transaction) {
         viewModelScope.launch {
+            // Delete from repository
             repository.deleteTransaction(transaction)
+            
+            // Force refresh to ensure UI consistency
+            repository.refreshTransactions()
         }
     }
     

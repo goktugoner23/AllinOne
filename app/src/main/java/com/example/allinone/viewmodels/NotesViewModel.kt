@@ -39,19 +39,31 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                 lastEdited = Date(),
                 isRichText = true
             )
+            // Add note to Firebase
             repository.insertNote(note)
+            
+            // Refresh notes to ensure UI consistency
+            repository.refreshNotes()
         }
     }
 
     fun updateNote(note: Note) {
         viewModelScope.launch {
+            // Update note in Firebase
             repository.updateNote(note)
+            
+            // Refresh notes to ensure UI consistency
+            repository.refreshNotes()
         }
     }
 
     fun deleteNote(note: Note) {
         viewModelScope.launch {
+            // Delete note from Firebase
             repository.deleteNote(note)
+            
+            // Refresh notes to ensure UI consistency
+            repository.refreshNotes()
         }
     }
     
