@@ -49,14 +49,14 @@ class WTRegistrationAdapter(
 
         init {
             binding.root.setOnClickListener {
-                val position = adapterPosition
+                val position = bindingAdapterPosition
                 if (position != RecyclerView.NO_POSITION) {
                     onItemClick(getItem(position))
                 }
             }
 
             binding.root.setOnLongClickListener {
-                val position = adapterPosition
+                val position = bindingAdapterPosition
                 if (position != RecyclerView.NO_POSITION) {
                     onLongPress(getItem(position), it)
                 }
@@ -64,14 +64,14 @@ class WTRegistrationAdapter(
             }
 
             binding.paymentStatusChip.setOnClickListener {
-                val position = adapterPosition
+                val position = bindingAdapterPosition
                 if (position != RecyclerView.NO_POSITION) {
                     onPaymentStatusClick(getItem(position))
                 }
             }
 
             binding.shareButton.setOnClickListener {
-                val position = adapterPosition
+                val position = bindingAdapterPosition
                 if (position != RecyclerView.NO_POSITION) {
                     onShareClick(getItem(position))
                 }

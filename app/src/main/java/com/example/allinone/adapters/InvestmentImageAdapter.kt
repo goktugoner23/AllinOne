@@ -35,14 +35,14 @@ class InvestmentImageAdapter(
 
         init {
             binding.deleteButton.setOnClickListener {
-                val position = adapterPosition
+                val position = bindingAdapterPosition
                 if (position != RecyclerView.NO_POSITION) {
                     onDeleteClick(getItem(position))
                 }
             }
 
             binding.imageView.setOnClickListener {
-                val position = adapterPosition
+                val position = bindingAdapterPosition
                 if (position != RecyclerView.NO_POSITION) {
                     onImageClick(getItem(position))
                 }

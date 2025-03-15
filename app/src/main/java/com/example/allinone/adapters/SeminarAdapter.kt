@@ -35,7 +35,6 @@ class SeminarAdapter(
 
     override fun onBindViewHolder(holder: SeminarViewHolder, position: Int) {
         val seminar = getItem(position)
-        val context = holder.itemView.context
         
         // Set seminar name
         holder.nameText.text = seminar.name
@@ -46,7 +45,6 @@ class SeminarAdapter(
         
         // Format and set time
         holder.timeText.text = formatTimeRange(
-            context,
             seminar.startHour, seminar.startMinute,
             seminar.endHour, seminar.endMinute
         )
@@ -70,7 +68,6 @@ class SeminarAdapter(
     }
     
     private fun formatTimeRange(
-        context: Context,
         startHour: Int,
         startMinute: Int,
         endHour: Int,

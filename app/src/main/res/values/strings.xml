@@ -119,4 +119,33 @@
     <string name="status_active_desc">Active student without current registration</string>
     <string name="network_unavailable">Network unavailable. Using cached data.</string>
     <string name="notes">Notes</string>
+    
+    <!-- Error Messages -->
+    <string name="error_network">Network error occurred. Please check your connection and try again.</string>
+    <string name="error_network_unavailable">Network is unavailable. Please check your internet connection.</string>
+    <string name="error_unknown">An unexpected error occurred. Please try again later.</string>
+    <string name="error_firebase_network">Unable to connect to the server. Please check your connection.</string>
+    
+    <!-- Firebase Auth Errors -->
+    <string name="error_authentication">Authentication failed. Please try again.</string>
+    <string name="error_user_not_found">User account not found. Please check your credentials.</string>
+    <string name="error_wrong_password">Incorrect password. Please try again.</string>
+    <string name="error_user_disabled">This user account has been disabled.</string>
+    <string name="error_too_many_requests">Too many attempts. Please try again later.</string>
+    <string name="error_requires_recent_login">This operation requires recent authentication. Please log in again.</string>
+    
+    <!-- Firestore Errors -->
+    <string name="error_database">Database error. Please try again later.</string>
+    <string name="error_permission_denied">You don\'t have permission to perform this action.</string>
+    <string name="error_service_unavailable">Service is temporarily unavailable. Please try again later.</string>
+    <string name="error_document_already_exists">This record already exists.</string>
+    <string name="error_document_not_found">The requested record was not found.</string>
+    <string name="error_quota_exceeded">Service limit exceeded. Please try again later.</string>
+    
+    <!-- Storage Errors -->
+    <string name="error_storage">Storage error. Please try again later.</string>
+    <string name="error_file_not_found">The file you requested was not found.</string>
+    <string name="error_storage_quota_exceeded">Storage quota exceeded.</string>
+    <string name="error_not_authenticated">Authentication required. Please log in.</string>
+    <string name="error_not_authorized">You are not authorized to perform this action.</string>
 </resources>
