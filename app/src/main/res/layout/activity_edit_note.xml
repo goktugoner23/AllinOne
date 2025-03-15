@@ -155,7 +155,9 @@
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="16dp"
+                android:layout_gravity="center_horizontal"
                 android:text="Add Image"
                 android:drawableStart="@drawable/ic_add_photo"
                 android:drawablePadding="8dp" />

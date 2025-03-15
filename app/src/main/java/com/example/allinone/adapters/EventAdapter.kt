@@ -55,9 +55,9 @@ class EventAdapter(private val onItemClicked: (Event) -> Unit) :
             
             // Set different background colors based on event type
             when (event.type) {
-                "Lesson" -> eventTypeTag.setBackgroundResource(R.drawable.bg_tag_lesson)
-                "Seminar" -> eventTypeTag.setBackgroundResource(R.drawable.bg_tag_lesson) // Using the same style as lessons for now
-                else -> eventTypeTag.setBackgroundResource(R.drawable.bg_tag_event)
+                "Lesson" -> eventTypeTag.setBackgroundResource(R.drawable.bg_tag_blue)
+                "Seminar" -> eventTypeTag.setBackgroundResource(R.drawable.bg_tag_red)
+                else -> eventTypeTag.setBackgroundResource(R.drawable.bg_tag_green)
             }
         }
     }

@@ -7,6 +7,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.allinone.data.Event
 import com.example.allinone.data.WTLesson
+import com.example.allinone.firebase.FirebaseRepository
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Date
@@ -14,6 +15,8 @@ import kotlin.math.ceil
 import kotlin.math.floor
 
 class CalendarViewModel(application: Application) : AndroidViewModel(application) {
+    
+    private val repository = FirebaseRepository(application)
     
     // LiveData for events
     private val _events = MutableLiveData<List<Event>>(emptyList())
@@ -30,28 +33,58 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     // Lesson schedule from WT Registry
     private val _lessonSchedule = MutableLiveData<List<WTLesson>>(emptyList())
     
-    // In-memory storage for events since we don't have a proper database implementation yet
+    // In-memory storage to complement Firebase data
     private val eventsList = mutableListOf<Event>()
     
     init {
-        // Load events when the ViewModel is created
+        // Initial load
         loadEvents()
     }
     
     /**
-     * Load events from local storage or database
-     * This is a simple implementation that would be replaced with actual database calls
+     * Update our events list from Firebase data
+     */
+    private fun updateEventsFromFirebase(firebaseEvents: List<Event>) {
+        viewModelScope.launch {
+            try {
+                // Clear existing events from Firebase (keep only locally generated ones like lessons)
+                eventsList.removeIf { it.type != "Lesson" }
+                
+                // Add events from Firebase, avoiding duplicates
+                // Create a set of event IDs already in the list for fast lookup
+                val existingIds = eventsList.map { it.id }.toSet()
+                
+                // Only add events from Firebase that don't exist in our list
+                val newEvents = firebaseEvents.filter { !existingIds.contains(it.id) }
+                eventsList.addAll(newEvents)
+                
+                // Update the LiveData
+                _events.value = eventsList.toList()
+            } catch (e: Exception) {
+                _errorMessage.value = "Error updating events: ${e.message}"
+            }
+        }
+    }
+    
+    /**
+     * Load events from Firebase
      */
     private fun loadEvents() {
         _isLoading.value = true
         
         viewModelScope.launch {
             try {
-                // Simulate loading delay
-                kotlinx.coroutines.delay(500)
+                // Request a refresh from the repository
+                repository.refreshEvents()
                 
-                // In a real app, this would load from a database
-                _events.value = eventsList.toList()
+                // Get the events directly from the repository
+                val firebaseEvents = repository.events.value
+                
+                // Update our local events list
+                updateEventsFromFirebase(firebaseEvents)
+                
+                // Generate any additional events (like lessons)
+                generateLessonEvents()
                 
                 _isLoading.value = false
             } catch (e: Exception) {
@@ -75,11 +108,11 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                     type = "Event"
                 )
                 
-                // Add to our in-memory list
-                eventsList.add(newEvent)
+                // Add to Firebase repository only - our observer will add it to local list
+                repository.insertEvent(newEvent)
                 
-                // Update the LiveData
-                _events.value = eventsList.toList()
+                // Refresh repository data
+                repository.refreshEvents()
                 
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to add event: ${e.message}"
@@ -93,6 +126,9 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     fun deleteEvent(event: Event) {
         viewModelScope.launch {
             try {
+                // Remove from Firebase repository
+                repository.deleteEvent(event)
+                
                 // Remove from our in-memory list
                 eventsList.removeIf { it.id == event.id }
                 
@@ -272,14 +308,25 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     fun forceRefresh() {
         _isLoading.value = true
         viewModelScope.launch {
-            // Generate lesson events based on current lesson schedule
-            generateLessonEvents()
-            
-            // Update UI state
-            _isLoading.value = false
-            
-            // Notify observers that data has changed
-            _events.value = eventsList.toList()
+            try {
+                // Refresh events from Firebase
+                repository.refreshEvents()
+                
+                // Get the latest events directly
+                val firebaseEvents = repository.events.value
+                
+                // Update our local events
+                updateEventsFromFirebase(firebaseEvents)
+                
+                // Generate lesson events based on current lesson schedule
+                generateLessonEvents()
+                
+                // Update UI state
+                _isLoading.value = false
+            } catch (e: Exception) {
+                _errorMessage.value = "Failed to refresh events: ${e.message}"
+                _isLoading.value = false
+            }
         }
     }
     
@@ -316,5 +363,24 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         calendar.add(Calendar.WEEK_OF_YEAR, weeksNeeded)
         
         return calendar.time
+    }
+    
+    /**
+     * Add an event directly to the internal events list
+     * This is used to ensure events added from other view models show up immediately
+     * until the next Firebase refresh
+     */
+    fun addEventDirectly(event: Event) {
+        // Check if event with this ID already exists in our list
+        val eventExists = eventsList.any { it.id == event.id }
+        
+        // Only add if it doesn't already exist
+        if (!eventExists) {
+            // Add to our in-memory list
+            eventsList.add(event)
+            
+            // Update the LiveData
+            _events.value = eventsList.toList()
+        }
     }
 } 

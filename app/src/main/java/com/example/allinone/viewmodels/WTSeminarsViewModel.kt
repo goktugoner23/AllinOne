@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.allinone.data.WTSeminar
 import com.example.allinone.data.Event
 import com.example.allinone.firebase.FirebaseRepository
+import com.example.allinone.viewmodels.CalendarViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -18,6 +19,11 @@ import java.util.Locale
 class WTSeminarsViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FirebaseRepository(application)
     private val TAG = "WTSeminarsViewModel"
+    
+    // Reference to the CalendarViewModel to notify it of changes
+    private val calendarViewModel by lazy { 
+        CalendarViewModel(application)
+    }
     
     // LiveData for seminars
     private val _seminars = MutableLiveData<List<WTSeminar>>(emptyList())
@@ -147,8 +153,11 @@ class WTSeminarsViewModel(application: Application) : AndroidViewModel(applicati
                 // Save the event to the repository
                 repository.insertEvent(event)
                 
-                // Force refresh to ensure calendar updates
+                // Force refresh repositories to ensure calendar updates
                 repository.refreshEvents()
+                
+                // Make sure the calendar is refreshed
+                calendarViewModel.forceRefresh()
                 
                 // Refresh seminars to include the new one
                 refreshSeminars()
@@ -178,6 +187,9 @@ class WTSeminarsViewModel(application: Application) : AndroidViewModel(applicati
                 
                 // Force refresh to ensure calendar updates
                 repository.refreshEvents()
+                
+                // Make sure the calendar is refreshed
+                calendarViewModel.forceRefresh()
                 
                 // Refresh the seminars list
                 refreshSeminars()

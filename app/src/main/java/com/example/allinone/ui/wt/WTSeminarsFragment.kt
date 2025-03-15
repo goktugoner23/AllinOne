@@ -177,10 +177,18 @@ class WTSeminarsFragment : Fragment() {
             val endHour = endTimeParts[0].toInt()
             val endMinute = endTimeParts[1].toInt()
             
-            // Create seminar object
+            // Create seminar object with the correct date and time
+            // First, make sure calendar has the selected date
+            val seminarDate = Calendar.getInstance()
+            seminarDate.time = calendar.time
+            // Then set the start time for this seminar
+            seminarDate.set(Calendar.HOUR_OF_DAY, startHour)
+            seminarDate.set(Calendar.MINUTE, startMinute)
+            seminarDate.set(Calendar.SECOND, 0)
+            
             val seminar = WTSeminar(
                 name = name,
-                date = calendar.time, // We've already set this to the selected date
+                date = seminarDate.time, // Use the time that includes the hour/minute
                 startHour = startHour,
                 startMinute = startMinute,
                 endHour = endHour,

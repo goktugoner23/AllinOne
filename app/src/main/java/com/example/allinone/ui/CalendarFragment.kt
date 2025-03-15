@@ -762,4 +762,10 @@ class CalendarFragment : Fragment() {
         viewModel.errorMessage.removeObservers(viewLifecycleOwner)
         _binding = null
     }
+    
+    override fun onResume() {
+        super.onResume()
+        // Force refresh the calendar data when returning to this fragment
+        viewModel.forceRefresh()
+    }
 } 
