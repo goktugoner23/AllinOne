@@ -26,7 +26,13 @@ class OfflineQueue(context: Context) {
     
     // Data types
     enum class DataType {
-        TRANSACTION, INVESTMENT, NOTE, STUDENT, EVENT, WT_LESSON
+        TRANSACTION,
+        INVESTMENT,
+        NOTE,
+        STUDENT,
+        EVENT,
+        WT_LESSON,
+        REGISTRATION
     }
     
     // Queue item

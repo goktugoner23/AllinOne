@@ -114,4 +114,9 @@
     <string name="no_app_for_file_type">No app found to open this file type</string>
     <string name="error_opening_file">Error opening file: %1$s</string>
     <string name="title_seminars">Seminars</string>
+    <string name="status_inactive_desc">Inactive student</string>
+    <string name="status_registered_desc">Active student with current registration</string>
+    <string name="status_active_desc">Active student without current registration</string>
+    <string name="network_unavailable">Network unavailable. Using cached data.</string>
+    <string name="notes">Notes</string>
 </resources>

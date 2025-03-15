@@ -7,6 +7,7 @@ import com.example.allinone.data.HistoryItem
 import com.example.allinone.data.Investment
 import com.example.allinone.data.Note
 import com.example.allinone.data.Transaction
+import com.example.allinone.data.WTRegistration
 import com.example.allinone.data.WTStudent
 import com.example.allinone.firebase.FirebaseRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,8 +29,9 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                 repository.transactions,
                 repository.investments,
                 repository.notes,
-                repository.students
-            ) { transactions, investments, notes, students ->
+                repository.students,
+                repository.registrations
+            ) { transactions, investments, notes, students, registrations ->
                 val historyItems = mutableListOf<HistoryItem>()
                 
                 // Add transactions
@@ -41,10 +43,16 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                 // Add notes
                 historyItems.addAll(notes.map { it.toHistoryItem() })
                 
-                // Add students - only those with a registration
-                // Only include students with a startDate (registered for a course) and with an amount
-                val registeredStudents = students.filter { it.startDate != null && it.amount > 0 }
-                historyItems.addAll(registeredStudents.map { it.toHistoryItem() })
+                // Add registrations
+                // Create a map of student IDs to names for lookup
+                val studentNameMap = students.associateBy({ it.id }, { it.name })
+                
+                // Add registrations with student names
+                historyItems.addAll(registrations.mapNotNull { registration ->
+                    // Get student name from the map
+                    val studentName = studentNameMap[registration.studentId] ?: return@mapNotNull null
+                    registration.toHistoryItem(studentName)
+                })
                 
                 // Sort by date (newest first)
                 historyItems.sortByDescending { it.date }
@@ -103,18 +111,16 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                     )
                     repository.deleteNote(note)
                 }
-                HistoryItem.ItemType.STUDENT -> {
-                    val student = WTStudent(
+                HistoryItem.ItemType.REGISTRATION -> {
+                    val registration = WTRegistration(
                         id = item.id,
-                        name = item.title,
-                        startDate = item.date,
-                        endDate = item.date,
+                        studentId = 0, // We don't have this info in HistoryItem
                         amount = item.amount ?: 0.0,
-                        isPaid = false,
-                        paymentDate = null,
+                        startDate = item.date,
+                        endDate = null,
                         attachmentUri = item.imageUri
                     )
-                    repository.deleteStudent(student)
+                    repository.deleteRegistration(registration)
                 }
             }
         }
@@ -158,16 +164,16 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
         )
     }
     
-    private fun WTStudent.toHistoryItem(): HistoryItem {
+    private fun WTRegistration.toHistoryItem(studentName: String): HistoryItem {
         return HistoryItem(
             id = id,
-            title = name,
-            description = if (isPaid) "Paid" else "Not Paid",
+            title = "Registration: $studentName",
+            description = "Course Registration",
             date = startDate ?: Date(),
             amount = amount,
-            type = "Student",
+            type = "Registration",
             imageUri = attachmentUri,
-            itemType = HistoryItem.ItemType.STUDENT
+            itemType = HistoryItem.ItemType.REGISTRATION
         )
     }
 } 

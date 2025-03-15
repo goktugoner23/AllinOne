@@ -20,6 +20,6 @@ data class HistoryItem(
         TRANSACTION,
         INVESTMENT,
         NOTE,
-        STUDENT
+        REGISTRATION
     }
 } 

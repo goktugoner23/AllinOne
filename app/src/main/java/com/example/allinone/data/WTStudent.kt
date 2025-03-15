@@ -1,20 +1,20 @@
 package com.example.allinone.data
 
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
 import java.util.Date
 
+/**
+ * Data class representing a Wing Tzun student
+ */
+@Parcelize
 data class WTStudent(
     val id: Long = 0,
     val name: String,
-    val phoneNumber: String = "",
+    val phoneNumber: String? = null,
     val email: String? = null,
     val instagram: String? = null,
     val isActive: Boolean = true,
-    val profileImageUri: String? = null,
-    // The following fields are used for course registration
-    val startDate: Date? = null,
-    val endDate: Date? = null,
-    val amount: Double = 0.0,
-    val isPaid: Boolean = false,
-    val paymentDate: Date? = null,
-    val attachmentUri: String? = null
-) 
+    val deviceId: String? = null, // For identification purposes
+    val notes: String? = null     // Any additional notes
+) : Parcelable 

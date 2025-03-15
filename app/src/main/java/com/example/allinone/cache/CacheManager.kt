@@ -26,6 +26,7 @@ class CacheManager(private val context: Context) {
         private const val KEY_STUDENTS = "cache_students"
         private const val KEY_EVENTS = "cache_events"
         private const val KEY_LESSONS = "cache_lessons"
+        private const val KEY_REGISTRATIONS = "cache_registrations"
         
         // Last update timestamps
         private const val KEY_TRANSACTIONS_UPDATED = "cache_transactions_updated"
@@ -84,6 +85,7 @@ class CacheManager(private val context: Context) {
             KEY_STUDENTS -> studentCacheExpiration
             KEY_EVENTS -> eventCacheExpiration
             KEY_LESSONS -> lessonCacheExpiration
+            KEY_REGISTRATIONS -> DEFAULT_CACHE_EXPIRATION_MS
             else -> DEFAULT_CACHE_EXPIRATION_MS
         }
     }
@@ -96,6 +98,7 @@ class CacheManager(private val context: Context) {
             KEY_STUDENTS -> KEY_STUDENTS_UPDATED
             KEY_EVENTS -> KEY_EVENTS_UPDATED
             KEY_LESSONS -> KEY_LESSONS_UPDATED
+            KEY_REGISTRATIONS -> "${cacheType}_updated"
             else -> "${cacheType}_updated"
         }
     }
@@ -158,6 +161,16 @@ class CacheManager(private val context: Context) {
     fun getCachedLessons(): List<WTLesson> {
         val type = object : TypeToken<List<WTLesson>>() {}.type
         return getCachedData(KEY_LESSONS, type) ?: emptyList()
+    }
+    
+    // Cache Registration data
+    fun cacheRegistrations(registrations: List<WTRegistration>) {
+        cacheData(KEY_REGISTRATIONS, registrations)
+    }
+    
+    fun getCachedRegistrations(): List<WTRegistration> {
+        val type = object : TypeToken<List<WTRegistration>>() {}.type
+        return getCachedData(KEY_REGISTRATIONS, type) ?: emptyList()
     }
     
     // Generic methods for caching and retrieving data

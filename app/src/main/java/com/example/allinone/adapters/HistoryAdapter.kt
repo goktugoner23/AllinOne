@@ -84,7 +84,7 @@ class HistoryAdapter(
                     HistoryItem.ItemType.NOTE -> {
                         typeIcon.setImageResource(R.drawable.ic_note)
                     }
-                    HistoryItem.ItemType.STUDENT -> {
+                    HistoryItem.ItemType.REGISTRATION -> {
                         typeIcon.setImageResource(R.drawable.ic_student)
                     }
                 }

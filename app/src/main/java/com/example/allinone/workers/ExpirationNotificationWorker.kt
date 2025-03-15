@@ -11,7 +11,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.allinone.R
 import com.example.allinone.firebase.FirebaseRepository
-import com.example.allinone.data.WTStudent
+import com.example.allinone.data.WTRegistration
 import kotlinx.coroutines.flow.first
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
@@ -33,18 +33,18 @@ class ExpirationNotificationWorker(
         
         val today = Calendar.getInstance().time
         // Use first() to get the current value from the StateFlow
-        val students = repository.students.first()
+        val registrations = repository.registrations.first()
         
-        // Find students with expiring registrations (within 7 days)
-        val expiringStudents = students.filter { student ->
-            // Only check students with a valid end date
-            student.endDate?.let { endDate ->
+        // Find registrations that are expiring (within 7 days)
+        val expiringRegistrations = registrations.filter { registration ->
+            // Only check registrations with a valid end date
+            registration.endDate?.let { endDate ->
                 val daysUntilExpiration = (endDate.time - today.time) / TimeUnit.DAYS.toMillis(1)
                 daysUntilExpiration in 0..7
-            } ?: false // If endDate is null, don't include the student
+            } ?: false // If endDate is null, don't include the registration
         }
         
-        if (expiringStudents.isNotEmpty()) {
+        if (expiringRegistrations.isNotEmpty()) {
             // Check for notification permission on Android 13+
             val hasNotificationPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 ContextCompat.checkSelfPermission(
@@ -75,7 +75,7 @@ class ExpirationNotificationWorker(
                 val notificationBuilder = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
                     .setSmallIcon(R.drawable.ic_notification)
                     .setContentTitle("Registration Expiration")
-                    .setContentText("${expiringStudents.size} registrations are expiring soon")
+                    .setContentText("${expiringRegistrations.size} registrations are expiring soon")
                     .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                     .setAutoCancel(true)
                 

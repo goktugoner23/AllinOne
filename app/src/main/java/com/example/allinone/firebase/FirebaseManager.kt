@@ -2,24 +2,20 @@ package com.example.allinone.firebase
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
+import com.example.allinone.data.*
+import com.google.android.gms.tasks.Task
+import com.google.android.gms.tasks.Tasks
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.storage.FirebaseStorage
-import com.google.firebase.storage.StorageReference
-import kotlinx.coroutines.tasks.await
-import com.example.allinone.data.Transaction
-import com.example.allinone.data.Investment
-import com.example.allinone.data.Note
-import com.example.allinone.data.WTStudent
-import com.example.allinone.data.Event
-import com.example.allinone.data.WTLesson
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.util.UUID
-import java.util.Date
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
-import android.util.Log
-import com.google.android.gms.tasks.Tasks
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageReference
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+import java.util.*
 import java.util.concurrent.TimeUnit
 
 /**
@@ -44,6 +40,7 @@ class FirebaseManager(private val context: Context? = null) {
     // Constants
     companion object {
         private const val TAG = "FirebaseManager"
+        private const val REGISTRATIONS_COLLECTION = "registrations"
     }
     
     // Device ID for anonymous data storage
@@ -250,56 +247,6 @@ class FirebaseManager(private val context: Context? = null) {
         try {
             Log.d(TAG, "Starting to save student with ID: ${student.id}, name: ${student.name}, deviceId: $deviceId")
             
-            // Upload attachment if any
-            var attachmentUrl = ""
-            if (student.attachmentUri != null) {
-                try {
-                    val attachmentUri = student.attachmentUri
-                    // Only process valid content URIs
-                    if (attachmentUri.startsWith("content://")) {
-                        val uri = Uri.parse(attachmentUri)
-                        val attachmentRef = attachmentsRef.child("${UUID.randomUUID()}")
-                        attachmentRef.putFile(uri).await()
-                        attachmentUrl = attachmentRef.downloadUrl.await().toString()
-                        Log.d(TAG, "Uploaded attachment for student: $attachmentUrl")
-                    } else if (attachmentUri.startsWith("http")) {
-                        // If it's already a remote URL, just use it
-                        attachmentUrl = attachmentUri
-                        Log.d(TAG, "Using existing remote attachment URL: $attachmentUrl")
-                    } else {
-                        Log.w(TAG, "Skipping attachment upload - invalid URI format: ${attachmentUri.take(10)}...")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to upload attachment: ${e.message}", e)
-                    // Skip failed upload
-                }
-            }
-            
-            // Upload profile image if any and it's a local file
-            var profileImageUrl = student.profileImageUri
-            if (student.profileImageUri != null) {
-                try {
-                    val imageUri = student.profileImageUri
-                    // Only process valid content URIs
-                    if (imageUri.startsWith("content://")) {
-                        val uri = Uri.parse(imageUri)
-                        val imageRef = imagesRef.child("profiles/${UUID.randomUUID()}")
-                        imageRef.putFile(uri).await()
-                        profileImageUrl = imageRef.downloadUrl.await().toString()
-                        Log.d(TAG, "Uploaded profile image for student: $profileImageUrl")
-                    } else if (imageUri.startsWith("http")) {
-                        // If it's already a remote URL, just use it
-                        profileImageUrl = imageUri
-                        Log.d(TAG, "Using existing remote profile image URL: $profileImageUrl")
-                    } else {
-                        Log.w(TAG, "Skipping profile image upload - invalid URI format: ${imageUri.take(10)}...")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to upload profile image: ${e.message}", e)
-                    // Keep the original URI on failure
-                }
-            }
-            
             val studentMap = hashMapOf(
                 "id" to student.id,
                 "name" to student.name,
@@ -307,14 +254,8 @@ class FirebaseManager(private val context: Context? = null) {
                 "email" to student.email,
                 "instagram" to student.instagram,
                 "isActive" to student.isActive,
-                "profileImageUri" to profileImageUrl,
-                "startDate" to student.startDate,
-                "endDate" to student.endDate,
-                "amount" to student.amount,
-                "isPaid" to student.isPaid,
-                "paymentDate" to student.paymentDate,
-                "attachmentUri" to attachmentUrl,
-                "deviceId" to deviceId
+                "deviceId" to deviceId,
+                "notes" to student.notes
             )
             
             Log.d(TAG, "Setting student document with ID: ${student.id}")
@@ -346,17 +287,12 @@ class FirebaseManager(private val context: Context? = null) {
                     }
                     
                     val name = doc.getString("name") ?: ""
-                    val phoneNumber = doc.getString("phoneNumber") ?: ""
+                    val phoneNumber = doc.getString("phoneNumber") 
                     val email = doc.getString("email")
                     val instagram = doc.getString("instagram")
                     val isActive = doc.getBoolean("isActive") ?: true
-                    val profileImageUri = doc.getString("profileImageUri")
-                    val startDate = doc.getDate("startDate")
-                    val endDate = doc.getDate("endDate")
-                    val amount = doc.getDouble("amount") ?: 0.0
-                    val isPaid = doc.getBoolean("isPaid") ?: false
-                    val paymentDate = doc.getDate("paymentDate")
-                    val attachmentUri = doc.getString("attachmentUri")
+                    val deviceId = doc.getString("deviceId")
+                    val notes = doc.getString("notes")
                     
                     WTStudent(
                         id = id, 
@@ -365,13 +301,8 @@ class FirebaseManager(private val context: Context? = null) {
                         email = email,
                         instagram = instagram,
                         isActive = isActive,
-                        profileImageUri = profileImageUri,
-                        startDate = startDate,
-                        endDate = endDate,
-                        amount = amount,
-                        isPaid = isPaid,
-                        paymentDate = paymentDate,
-                        attachmentUri = attachmentUri
+                        deviceId = deviceId,
+                        notes = notes
                     )
                 }
             } catch (e: Exception) {
@@ -703,6 +634,129 @@ class FirebaseManager(private val context: Context? = null) {
             }
             // Some other error
             throw e
+        }
+    }
+    
+    // Get all registrations
+    suspend fun getRegistrations(): List<WTRegistration> {
+        val auth = FirebaseAuth.getInstance()
+        val userId = auth.currentUser?.uid ?: return emptyList()
+        
+        return try {
+            val snapshot = firestore.collection("users")
+                .document(userId)
+                .collection(REGISTRATIONS_COLLECTION)
+                .get()
+                .await()
+            
+            snapshot.documents.mapNotNull { doc ->
+                try {
+                    val id = doc.getLong("id") ?: doc.id.hashCode().toLong()
+                    val studentId = doc.getLong("studentId") ?: return@mapNotNull null
+                    val amount = doc.getDouble("amount") ?: 0.0
+                    val attachmentUri = doc.getString("attachmentUri")
+                    val startDate = doc.getDate("startDate")
+                    val endDate = doc.getDate("endDate")
+                    val paymentDate = doc.getDate("paymentDate") ?: Date()
+                    val notes = doc.getString("notes")
+                    
+                    WTRegistration(
+                        id = id,
+                        studentId = studentId,
+                        amount = amount,
+                        attachmentUri = attachmentUri,
+                        startDate = startDate,
+                        endDate = endDate,
+                        paymentDate = paymentDate,
+                        notes = notes
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing registration document: ${e.message}")
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting registrations: ${e.message}")
+            throw e
+        }
+    }
+    
+    // Save registration
+    suspend fun saveRegistration(registration: WTRegistration): Task<Void> {
+        val auth = FirebaseAuth.getInstance()
+        val userId = auth.currentUser?.uid ?: throw Exception("User not authenticated")
+        
+        val registrationMap = hashMapOf(
+            "id" to registration.id,
+            "studentId" to registration.studentId,
+            "amount" to registration.amount,
+            "attachmentUri" to registration.attachmentUri,
+            "startDate" to registration.startDate,
+            "endDate" to registration.endDate,
+            "paymentDate" to registration.paymentDate,
+            "notes" to registration.notes
+        )
+        
+        return firestore.collection("users")
+            .document(userId)
+            .collection(REGISTRATIONS_COLLECTION)
+            .document(registration.id.toString())
+            .set(registrationMap)
+    }
+    
+    // Delete registration
+    suspend fun deleteRegistration(registrationId: Long): Task<Void> {
+        val auth = FirebaseAuth.getInstance()
+        val userId = auth.currentUser?.uid ?: throw Exception("User not authenticated")
+        
+        return firestore.collection("users")
+            .document(userId)
+            .collection(REGISTRATIONS_COLLECTION)
+            .document(registrationId.toString())
+            .delete()
+    }
+    
+    // Get registrations for a specific student
+    suspend fun getRegistrationsForStudent(studentId: Long): List<WTRegistration> {
+        val auth = FirebaseAuth.getInstance()
+        val userId = auth.currentUser?.uid ?: return emptyList()
+        
+        return try {
+            val snapshot = firestore.collection("users")
+                .document(userId)
+                .collection(REGISTRATIONS_COLLECTION)
+                .whereEqualTo("studentId", studentId)
+                .get()
+                .await()
+            
+            snapshot.documents.mapNotNull { doc ->
+                try {
+                    val id = doc.getLong("id") ?: doc.id.hashCode().toLong()
+                    val amount = doc.getDouble("amount") ?: 0.0
+                    val attachmentUri = doc.getString("attachmentUri")
+                    val startDate = doc.getDate("startDate")
+                    val endDate = doc.getDate("endDate")
+                    val paymentDate = doc.getDate("paymentDate") ?: Date()
+                    val notes = doc.getString("notes")
+                    
+                    WTRegistration(
+                        id = id,
+                        studentId = studentId,
+                        amount = amount,
+                        attachmentUri = attachmentUri,
+                        startDate = startDate,
+                        endDate = endDate,
+                        paymentDate = paymentDate,
+                        notes = notes
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing registration document: ${e.message}")
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting registrations for student: ${e.message}")
+            emptyList()
         }
     }
 } 

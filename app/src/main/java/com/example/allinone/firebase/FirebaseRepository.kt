@@ -15,6 +15,7 @@ import com.example.allinone.data.Transaction
 import com.example.allinone.data.WTStudent
 import com.example.allinone.data.Event
 import com.example.allinone.data.WTLesson
+import com.example.allinone.data.WTRegistration
 import com.example.allinone.utils.NetworkUtils
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
@@ -62,6 +63,7 @@ class FirebaseRepository(private val context: Context) {
     private val _students = MutableStateFlow<List<WTStudent>>(emptyList())
     private val _events = MutableStateFlow<List<Event>>(emptyList())
     private val _wtLessons = MutableStateFlow<List<WTLesson>>(emptyList())
+    private val _registrations = MutableStateFlow<List<WTRegistration>>(emptyList())
     
     // Public flows
     val transactions: StateFlow<List<Transaction>> = _transactions
@@ -70,6 +72,7 @@ class FirebaseRepository(private val context: Context) {
     val students: StateFlow<List<WTStudent>> = _students
     val events: StateFlow<List<Event>> = _events
     val wtLessons: StateFlow<List<WTLesson>> = _wtLessons
+    val registrations: StateFlow<List<WTRegistration>> = _registrations
     
     // Error handling
     private val _errorMessage = MutableLiveData<String>()
@@ -201,6 +204,13 @@ class FirebaseRepository(private val context: Context) {
                 _wtLessons.value = cachedLessons
                 Log.d(TAG, "Loaded ${cachedLessons.size} lessons from cache")
             }
+            
+            // Load registrations
+            val cachedRegistrations = cacheManager.getCachedRegistrations()
+            if (cachedRegistrations.isNotEmpty()) {
+                _registrations.value = cachedRegistrations
+                Log.d(TAG, "Loaded ${cachedRegistrations.size} registrations from cache")
+            }
         }
     }
     
@@ -315,6 +325,7 @@ class FirebaseRepository(private val context: Context) {
                     OfflineQueue.DataType.STUDENT -> processStudentQueueItem(queueItem)
                     OfflineQueue.DataType.EVENT -> processEventQueueItem(queueItem)
                     OfflineQueue.DataType.WT_LESSON -> processWTLessonQueueItem(queueItem)
+                    OfflineQueue.DataType.REGISTRATION -> processRegistrationQueueItem(queueItem)
                 }
                 true // Operation succeeded
             } catch (e: Exception) {
@@ -417,6 +428,21 @@ class FirebaseRepository(private val context: Context) {
         }
     }
     
+    private suspend fun processRegistrationQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
+        return when (queueItem.operation) {
+            OfflineQueue.Operation.INSERT, OfflineQueue.Operation.UPDATE -> {
+                val registration = gson.fromJson(queueItem.jsonData, WTRegistration::class.java)
+                insertRegistration(registration)
+                true
+            }
+            OfflineQueue.Operation.DELETE -> {
+                val registration = gson.fromJson(queueItem.jsonData, WTRegistration::class.java)
+                deleteRegistration(registration)
+                true
+            }
+        }
+    }
+    
     /**
      * Update the count of pending operations
      */
@@ -443,6 +469,7 @@ class FirebaseRepository(private val context: Context) {
             refreshStudents()
             refreshEvents()
             refreshWTLessons()
+            refreshRegistrations()
             
         } catch (e: Exception) {
             _errorMessage.postValue("Error refreshing data: ${e.message}")
@@ -487,6 +514,7 @@ class FirebaseRepository(private val context: Context) {
                 _students.value = emptyList()
                 _events.value = emptyList()
                 _wtLessons.value = emptyList()
+                _registrations.value = emptyList()
                 
                 true
             } else {
@@ -1450,6 +1478,170 @@ class FirebaseRepository(private val context: Context) {
                 }
             }
         }
+    }
+
+    // WT Registrations
+    suspend fun refreshRegistrations() {
+        if (!networkUtils.isActiveNetworkConnected()) {
+            return // Use cached data
+        }
+        
+        try {
+            // Show loading state
+            withContext(Dispatchers.Main) {
+                _isLoading.value = true
+            }
+            
+            val registrationList = firebaseManager.getRegistrations()
+            
+            // Update cache first
+            cacheManager.cacheRegistrations(registrationList)
+            
+            // Then update LiveData on main thread
+            withContext(Dispatchers.Main) {
+                _registrations.value = registrationList
+                _isLoading.value = false
+            }
+            
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                _errorMessage.value = "Error loading registrations: ${e.message}"
+                _isLoading.value = false
+            }
+        }
+    }
+    
+    suspend fun insertRegistration(registration: WTRegistration) {
+        withContext(Dispatchers.IO) {
+            try {
+                if (networkUtils.isActiveNetworkConnected()) {
+                    // Generate ID if not present
+                    val registrationWithId = if (registration.id == 0L) {
+                        registration.copy(id = UUID.randomUUID().mostSignificantBits and Long.MAX_VALUE)
+                    } else {
+                        registration
+                    }
+                    
+                    // Save to Firebase
+                    firebaseManager.saveRegistration(registrationWithId).await()
+                    
+                    // Update cache
+                    val currentRegistrations = _registrations.value.toMutableList()
+                    val index = currentRegistrations.indexOfFirst { it.id == registrationWithId.id }
+                    if (index >= 0) {
+                        currentRegistrations[index] = registrationWithId
+                    } else {
+                        currentRegistrations.add(registrationWithId)
+                    }
+                    withContext(Dispatchers.Main) {
+                        _registrations.value = currentRegistrations
+                    }
+                } else {
+                    // Queue for later
+                    offlineQueue.enqueue(
+                        OfflineQueue.DataType.REGISTRATION,
+                        OfflineQueue.Operation.INSERT,
+                        gson.toJson(registration)
+                    )
+                }
+            } catch (e: Exception) {
+                // Handle error
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = "Error saving registration: ${e.message}"
+                }
+            }
+        }
+    }
+    
+    suspend fun updateRegistration(registration: WTRegistration) {
+        withContext(Dispatchers.IO) {
+            try {
+                if (networkUtils.isActiveNetworkConnected()) {
+                    // Save to Firebase
+                    firebaseManager.saveRegistration(registration).await()
+                    
+                    // Update local cache
+                    val currentRegistrations = _registrations.value.toMutableList()
+                    val index = currentRegistrations.indexOfFirst { it.id == registration.id }
+                    if (index >= 0) {
+                        currentRegistrations[index] = registration
+                    } else {
+                        currentRegistrations.add(registration)
+                    }
+                    withContext(Dispatchers.Main) {
+                        _registrations.value = currentRegistrations
+                    }
+                    
+                    // Refresh to ensure data consistency
+                    refreshRegistrations()
+                } else {
+                    // Queue for later
+                    offlineQueue.enqueue(
+                        OfflineQueue.DataType.REGISTRATION,
+                        OfflineQueue.Operation.UPDATE,
+                        gson.toJson(registration)
+                    )
+                }
+            } catch (e: Exception) {
+                // Handle error
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = "Error updating registration: ${e.message}"
+                }
+            }
+        }
+    }
+    
+    suspend fun deleteRegistration(registration: WTRegistration) {
+        withContext(Dispatchers.IO) {
+            try {
+                if (networkUtils.isActiveNetworkConnected()) {
+                    // Delete from Firebase
+                    firebaseManager.deleteRegistration(registration.id).await()
+                    
+                    // Update local cache
+                    val currentRegistrations = _registrations.value.toMutableList()
+                    currentRegistrations.removeIf { it.id == registration.id }
+                    withContext(Dispatchers.Main) {
+                        _registrations.value = currentRegistrations
+                    }
+                    
+                    // Refresh to ensure data consistency
+                    refreshRegistrations()
+                } else {
+                    // Queue for later
+                    offlineQueue.enqueue(
+                        OfflineQueue.DataType.REGISTRATION,
+                        OfflineQueue.Operation.DELETE,
+                        gson.toJson(registration)
+                    )
+                }
+            } catch (e: Exception) {
+                // Handle error
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = "Error deleting registration: ${e.message}"
+                }
+            }
+        }
+    }
+    
+    // Get registrations for a specific student
+    fun getRegistrationsForStudent(studentId: Long): List<WTRegistration> {
+        return _registrations.value.filter { it.studentId == studentId }
+    }
+    
+    // Get current active registration for a student (if any)
+    fun getCurrentRegistrationForStudent(studentId: Long): WTRegistration? {
+        val now = Date()
+        return _registrations.value.find { 
+            it.studentId == studentId && 
+            (it.startDate?.before(now) ?: true) && 
+            (it.endDate?.after(now) ?: true)
+        }
+    }
+    
+    // Check if a student has an active registration
+    fun isStudentCurrentlyRegistered(studentId: Long): Boolean {
+        return getCurrentRegistrationForStudent(studentId) != null
     }
 
     // Constants

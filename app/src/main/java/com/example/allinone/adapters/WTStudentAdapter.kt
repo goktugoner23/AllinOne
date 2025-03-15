@@ -17,7 +17,7 @@ import java.util.Locale
 
 class WTStudentAdapter(
     private val onItemClick: (WTStudent) -> Unit,
-    private val onPaymentStatusClick: ((WTStudent) -> Unit)? = null
+    private val isStudentRegistered: ((Long) -> Boolean)? = null
 ) : ListAdapter<WTStudent, WTStudentAdapter.WTStudentViewHolder>(WTStudentDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): WTStudentViewHolder {
@@ -45,13 +45,11 @@ class WTStudentAdapter(
                 }
             }
             
-            // Add payment status click listener only if callback is provided
-            onPaymentStatusClick?.let { callback ->
-                binding.statusIndicator.setOnClickListener {
-                    val position = adapterPosition
-                    if (position != RecyclerView.NO_POSITION) {
-                        callback(getItem(position))
-                    }
+            // We keep the status indicator clickable but change what it represents
+            binding.statusIndicator.setOnClickListener {
+                val position = adapterPosition
+                if (position != RecyclerView.NO_POSITION) {
+                    onItemClick(getItem(position))
                 }
             }
         }
@@ -59,7 +57,7 @@ class WTStudentAdapter(
         fun bind(student: WTStudent) {
             binding.apply {
                 studentName.text = student.name
-                phoneNumber.text = student.phoneNumber
+                phoneNumber.text = student.phoneNumber ?: ""
                 
                 // Show email if available
                 if (!student.email.isNullOrEmpty()) {
@@ -69,20 +67,20 @@ class WTStudentAdapter(
                     email.visibility = View.GONE
                 }
                 
-                // Set profile image if available
-                student.profileImageUri?.let { imageUri ->
-                    try {
-                        profileImage.setImageURI(Uri.parse(imageUri))
-                    } catch (e: Exception) {
-                        profileImage.setImageResource(R.drawable.default_profile)
-                    }
-                } ?: profileImage.setImageResource(R.drawable.default_profile)
+                // We no longer have profile image in the student class
+                profileImage.setImageResource(R.drawable.default_profile)
                 
-                // Set active status indicator color
+                // Set registration status indicator color
+                // Green if active, blue if registered, red if inactive
+                val isRegistered = isStudentRegistered?.invoke(student.id) ?: false
+                
                 val color = ContextCompat.getColor(
                     itemView.context,
-                    if (student.isActive) android.R.color.holo_green_light 
-                    else android.R.color.holo_red_light
+                    when {
+                        !student.isActive -> android.R.color.holo_red_light
+                        isRegistered -> android.R.color.holo_blue_light
+                        else -> android.R.color.holo_green_light
+                    }
                 )
                 
                 // Create a new GradientDrawable with the selected color
@@ -94,17 +92,16 @@ class WTStudentAdapter(
                 // Apply the drawable
                 statusIndicator.background = circleDrawable
                 
-                // Make status indicator clickable if payment callback is provided
-                if (onPaymentStatusClick != null) {
-                    statusIndicator.isClickable = true
-                    statusIndicator.isFocusable = true
-                    statusIndicator.contentDescription = itemView.context.getString(
-                        if (student.isPaid) 
-                            R.string.status_paid_desc 
-                        else 
-                            R.string.status_unpaid_desc
-                    )
-                }
+                // Status indicator is now showing active + registration status
+                statusIndicator.isClickable = true
+                statusIndicator.isFocusable = true
+                statusIndicator.contentDescription = itemView.context.getString(
+                    when {
+                        !student.isActive -> R.string.status_inactive_desc
+                        isRegistered -> R.string.status_registered_desc
+                        else -> R.string.status_active_desc
+                    }
+                )
             }
         }
     }
@@ -121,8 +118,7 @@ class WTStudentAdapter(
                    oldItem.name == newItem.name &&
                    oldItem.phoneNumber == newItem.phoneNumber &&
                    oldItem.email == newItem.email &&
-                   oldItem.isActive == newItem.isActive &&
-                   oldItem.profileImageUri == newItem.profileImageUri
+                   oldItem.isActive == newItem.isActive
         }
     }
 } 

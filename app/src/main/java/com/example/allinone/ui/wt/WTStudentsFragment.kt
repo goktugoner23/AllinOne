@@ -39,69 +39,8 @@ class WTStudentsFragment : Fragment() {
     private val binding get() = _binding!!
     private val viewModel: WTRegisterViewModel by viewModels()
     private lateinit var adapter: WTStudentAdapter
-    private var selectedImageUri: Uri? = null
     private var editingStudent: WTStudent? = null
-    private var temporaryCameraImageUri: Uri? = null
-    private var pendingImageSource: ImageSource? = null
     
-    private enum class ImageSource {
-        CAMERA, GALLERY
-    }
-
-    // Gallery picker launcher
-    private val getImageFromGallery = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            result.data?.data?.let { uri ->
-                selectedImageUri = uri
-                // Update the image in the dialog if it's open
-                dialogBinding?.profileImageView?.setImageURI(uri)
-            }
-        }
-    }
-    
-    // Camera launcher
-    private val getImageFromCamera = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        if (success && temporaryCameraImageUri != null) {
-            selectedImageUri = temporaryCameraImageUri
-            // Update the image in the dialog if it's open
-            dialogBinding?.profileImageView?.setImageURI(selectedImageUri)
-        }
-    }
-    
-    // Permission launcher
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val cameraPermissionGranted = permissions[Manifest.permission.CAMERA] ?: false
-        val storagePermissionGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions[Manifest.permission.READ_MEDIA_IMAGES] ?: false
-        } else {
-            permissions[Manifest.permission.READ_EXTERNAL_STORAGE] ?: false
-        }
-        
-        when (pendingImageSource) {
-            ImageSource.CAMERA -> {
-                if (cameraPermissionGranted) {
-                    openCamera()
-                } else {
-                    showPermissionDeniedMessage("Camera")
-                }
-            }
-            ImageSource.GALLERY -> {
-                if (storagePermissionGranted) {
-                    openGallery()
-                } else {
-                    showPermissionDeniedMessage("Storage")
-                }
-            }
-            null -> {}
-        }
-        
-        pendingImageSource = null
-    }
-
-    private var dialogBinding: DialogAddStudentBinding? = null
-
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentWtStudentsBinding.inflate(inflater, container, false)
         return binding.root
@@ -112,6 +51,7 @@ class WTStudentsFragment : Fragment() {
         setupRecyclerView()
         setupFab()
         observeStudents()
+        observeNetworkStatus()
     }
 
     private fun setupRecyclerView() {
@@ -132,31 +72,23 @@ class WTStudentsFragment : Fragment() {
     }
 
     private fun observeStudents() {
-        viewModel.allStudents.observe(viewLifecycleOwner) { students ->
+        viewModel.students.observe(viewLifecycleOwner) { students ->
             // Deduplicate students by ID before submitting to adapter
             val uniqueStudents = students.distinctBy { it.id }
             adapter.submitList(uniqueStudents)
             
             // Show or hide empty state
-            if (uniqueStudents.isEmpty()) {
-                binding.emptyState.visibility = View.VISIBLE
-                binding.studentsRecyclerView.visibility = View.GONE
-            } else {
-                binding.emptyState.visibility = View.GONE
-                binding.studentsRecyclerView.visibility = View.VISIBLE
-            }
+            binding.emptyState.visibility = if (uniqueStudents.isEmpty()) View.VISIBLE else View.GONE
         }
     }
 
     private fun showAddStudentDialog() {
         editingStudent = null
-        selectedImageUri = null
         showStudentDialog(null)
     }
 
     private fun showEditStudentDialog(student: WTStudent) {
-        editingStudent = student
-        selectedImageUri = student.profileImageUri?.let { Uri.parse(it) }
+        // Use the common showStudentDialog method to edit a student
         showStudentDialog(student)
     }
 
@@ -166,7 +98,6 @@ class WTStudentsFragment : Fragment() {
         
         val dialogInflater = LayoutInflater.from(requireContext())
         val dialogBinding = DialogAddStudentBinding.inflate(dialogInflater, null, false)
-        this.dialogBinding = dialogBinding
         
         // Set existing values if editing
         if (isEdit) {
@@ -176,21 +107,7 @@ class WTStudentsFragment : Fragment() {
                 emailEditText.setText(student.email ?: "")
                 instagramEditText.setText(student.instagram ?: "")
                 activeSwitch.isChecked = student.isActive
-                
-                // Set profile image
-                student.profileImageUri?.let { imageUri ->
-                    try {
-                        profileImageView.setImageURI(Uri.parse(imageUri))
-                    } catch (e: Exception) {
-                        profileImageView.setImageResource(R.drawable.default_profile)
-                    }
-                }
             }
-        }
-        
-        // Set up image picker
-        dialogBinding.addImageButton.setOnClickListener {
-            showImageSourceDialog()
         }
         
         // Create dialog without buttons (we'll use our own buttons)
@@ -251,13 +168,13 @@ class WTStudentsFragment : Fragment() {
         
         // Check for duplicates if not editing
         if (isValid && editingStudent == null) {
-            val existingStudentWithName = viewModel.allStudents.value?.find { it.name == name }
+            val existingStudentWithName = viewModel.students.value?.find { it.name == name }
             if (existingStudentWithName != null) {
                 dialogBinding.nameInputLayout.error = "A student with this name already exists"
                 isValid = false
             }
             
-            val existingStudentWithPhone = viewModel.allStudents.value?.find { it.phoneNumber == phone }
+            val existingStudentWithPhone = viewModel.students.value?.find { it.phoneNumber == phone }
             if (existingStudentWithPhone != null) {
                 dialogBinding.phoneInputLayout.error = "A student with this phone number already exists"
                 isValid = false
@@ -265,135 +182,6 @@ class WTStudentsFragment : Fragment() {
         }
         
         return isValid
-    }
-    
-    private fun showImageSourceDialog() {
-        val options = arrayOf(
-            getString(R.string.take_photo), 
-            getString(R.string.choose_from_gallery)
-        )
-        
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.select_profile_photo)
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> {
-                        pendingImageSource = ImageSource.CAMERA
-                        checkAndRequestCameraPermission()
-                    }
-                    1 -> {
-                        pendingImageSource = ImageSource.GALLERY
-                        checkAndRequestStoragePermission()
-                    }
-                }
-            }
-            .show()
-    }
-    
-    private fun checkAndRequestCameraPermission() {
-        when {
-            ContextCompat.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.CAMERA
-            ) == PackageManager.PERMISSION_GRANTED -> {
-                openCamera()
-            }
-            shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) -> {
-                showPermissionRationaleDialog(
-                    getString(R.string.camera_permission_title),
-                    getString(R.string.camera_permission_message),
-                    arrayOf(Manifest.permission.CAMERA)
-                )
-            }
-            else -> {
-                requestPermissionLauncher.launch(arrayOf(Manifest.permission.CAMERA))
-            }
-        }
-    }
-    
-    private fun checkAndRequestStoragePermission() {
-        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Manifest.permission.READ_MEDIA_IMAGES
-        } else {
-            Manifest.permission.READ_EXTERNAL_STORAGE
-        }
-        
-        when {
-            ContextCompat.checkSelfPermission(
-                requireContext(),
-                permission
-            ) == PackageManager.PERMISSION_GRANTED -> {
-                openGallery()
-            }
-            shouldShowRequestPermissionRationale(permission) -> {
-                showPermissionRationaleDialog(
-                    getString(R.string.storage_permission_title),
-                    getString(R.string.storage_permission_message),
-                    arrayOf(permission)
-                )
-            }
-            else -> {
-                requestPermissionLauncher.launch(arrayOf(permission))
-            }
-        }
-    }
-    
-    private fun showPermissionRationaleDialog(title: String, message: String, permissions: Array<String>) {
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(title)
-            .setMessage(message)
-            .setPositiveButton(R.string.grant_permission) { _, _ ->
-                requestPermissionLauncher.launch(permissions)
-            }
-            .setNegativeButton(R.string.cancel) { _, _ ->
-                pendingImageSource = null
-            }
-            .show()
-    }
-    
-    private fun showPermissionDeniedMessage(permissionType: String) {
-        Toast.makeText(
-            requireContext(),
-            getString(R.string.permission_denied, permissionType),
-            Toast.LENGTH_LONG
-        ).show()
-    }
-    
-    private fun openCamera() {
-        try {
-            val photoFile = createImageFile()
-            photoFile.also {
-                temporaryCameraImageUri = FileProvider.getUriForFile(
-                    requireContext(),
-                    "${requireContext().packageName}.fileprovider",
-                    it
-                )
-                getImageFromCamera.launch(temporaryCameraImageUri)
-            }
-        } catch (e: Exception) {
-            Toast.makeText(
-                requireContext(),
-                getString(R.string.error_camera, e.message),
-                Toast.LENGTH_LONG
-            ).show()
-            e.printStackTrace()
-        }
-    }
-    
-    private fun openGallery() {
-        val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-        getImageFromGallery.launch(intent)
-    }
-    
-    private fun createImageFile(): File {
-        // Create an image file name with timestamp to avoid duplicates
-        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        val storageDir = requireContext().getExternalFilesDir(null)
-        return File.createTempFile(
-            "JPEG_${timeStamp}_", /* prefix */
-            ".jpg", /* suffix */
-            storageDir /* directory */
-        )
     }
     
     private fun saveStudent(dialogBinding: DialogAddStudentBinding) {
@@ -409,56 +197,52 @@ class WTStudentsFragment : Fragment() {
         
         // First, try to find if this student already exists in our records
         val existingStudentByEdit = editingStudent
-        val existingStudentByName = viewModel.allStudents.value?.find { 
+        val existingStudentByName = viewModel.students.value?.find { 
             it.name.equals(name, ignoreCase = true) || it.phoneNumber == phone 
         }
         
         // Determine which existing student to use (prefer the one being edited)
         val existingStudent = existingStudentByEdit ?: existingStudentByName
         
-        val student = if (existingStudent != null) {
-            // Update existing student - make sure to preserve registration info!
-            existingStudent.copy(
+        if (existingStudent != null) {
+            // Update existing student
+            val updatedStudent = existingStudent.copy(
                 name = name,
                 phoneNumber = phone,
                 email = email,
                 instagram = instagram,
                 isActive = isActive,
-                profileImageUri = selectedImageUri?.toString() ?: existingStudent.profileImageUri,
-                // Preserve these registration fields from the existing student
-                startDate = existingStudent.startDate,
-                endDate = existingStudent.endDate,
-                amount = existingStudent.amount,
-                isPaid = existingStudent.isPaid,
-                paymentDate = existingStudent.paymentDate
+                notes = existingStudent.notes
             )
+            viewModel.updateStudent(updatedStudent)
         } else {
             // Create new student only if not found
-            WTStudent(
-                id = abs(UUID.randomUUID().mostSignificantBits),
+            viewModel.addStudent(
                 name = name,
                 phoneNumber = phone,
                 email = email,
                 instagram = instagram,
-                isActive = isActive,
-                profileImageUri = selectedImageUri?.toString()
+                isActive = isActive
             )
         }
         
-        // Save student via view model - always use updateStudent for more robust handling
-        viewModel.updateStudent(student)
-        
         // Reset temporary fields
         editingStudent = null
-        selectedImageUri = null
-        temporaryCameraImageUri = null
-        pendingImageSource = null
-        this.dialogBinding = null
+    }
+
+    private fun observeNetworkStatus() {
+        viewModel.isNetworkAvailable.observe(viewLifecycleOwner) { isAvailable ->
+            val offlineView = binding.offlineStatusView.root
+            if (isAvailable) {
+                offlineView.visibility = View.GONE
+            } else {
+                offlineView.visibility = View.VISIBLE
+            }
+        }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
-        dialogBinding = null
         _binding = null
     }
 } 

@@ -58,4 +58,17 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:tint="@color/white" />
 
+    <!-- Network status banner -->
+    <TextView
+        android:id="@+id/networkStatusBanner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/colorWarning"
+        android:padding="8dp"
+        android:text="@string/network_unavailable"
+        android:textAlignment="center"
+        android:textColor="@android:color/white"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent" />
+
 </androidx.constraintlayout.widget.ConstraintLayout> 
