@@ -17,6 +17,7 @@ import java.util.Locale
 
 class WTStudentAdapter(
     private val onItemClick: (WTStudent) -> Unit,
+    private val onLongPress: (WTStudent, View) -> Unit,
     private val isStudentRegistered: ((Long) -> Boolean)? = null
 ) : ListAdapter<WTStudent, WTStudentAdapter.WTStudentViewHolder>(WTStudentDiffCallback()) {
 
@@ -38,10 +39,22 @@ class WTStudentAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
 
         init {
-            binding.root.setOnClickListener {
-                val position = bindingAdapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    onItemClick(getItem(position))
+            binding.root.apply {
+                setOnClickListener {
+                    val position = bindingAdapterPosition
+                    if (position != RecyclerView.NO_POSITION) {
+                        onItemClick(getItem(position))
+                    }
+                }
+                
+                setOnLongClickListener {
+                    val position = bindingAdapterPosition
+                    if (position != RecyclerView.NO_POSITION) {
+                        onLongPress(getItem(position), it)
+                        true
+                    } else {
+                        false
+                    }
                 }
             }
             
@@ -67,8 +80,17 @@ class WTStudentAdapter(
                     email.visibility = View.GONE
                 }
                 
-                // We no longer have profile image in the student class
-                profileImage.setImageResource(R.drawable.default_profile)
+                // Load profile image if available
+                if (!student.photoUri.isNullOrEmpty()) {
+                    try {
+                        profileImage.setImageURI(Uri.parse(student.photoUri))
+                    } catch (e: Exception) {
+                        // Fallback to default image if there's an error
+                        profileImage.setImageResource(R.drawable.default_profile)
+                    }
+                } else {
+                    profileImage.setImageResource(R.drawable.default_profile)
+                }
                 
                 // Set registration status indicator color
                 // Green if active, blue if registered, red if inactive
@@ -118,7 +140,8 @@ class WTStudentAdapter(
                    oldItem.name == newItem.name &&
                    oldItem.phoneNumber == newItem.phoneNumber &&
                    oldItem.email == newItem.email &&
-                   oldItem.isActive == newItem.isActive
+                   oldItem.isActive == newItem.isActive &&
+                   oldItem.photoUri == newItem.photoUri
         }
     }
 } 

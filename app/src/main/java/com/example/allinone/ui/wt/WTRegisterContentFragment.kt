@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.os.Handler
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -152,8 +153,25 @@ class WTRegisterContentFragment : Fragment() {
     }
     
     private fun observeNetworkStatus() {
+        // Handler for delayed operations
+        val handler = Handler(android.os.Looper.getMainLooper())
+        var isOfflineViewShown = false
+        
         viewModel.isNetworkAvailable.observe(viewLifecycleOwner) { isAvailable ->
-            binding.networkStatusBanner.visibility = if (isAvailable) View.GONE else View.VISIBLE
+            if (!isAvailable) {
+                // When offline, show the banner
+                binding.networkStatusBanner.visibility = View.VISIBLE
+                isOfflineViewShown = true
+            } else if (isOfflineViewShown) {
+                // When online and banner was shown, hide it after 2 seconds
+                handler.postDelayed({
+                    // Check if fragment is still attached before changing visibility
+                    if (isAdded && _binding != null) {
+                        binding.networkStatusBanner.visibility = View.GONE
+                        isOfflineViewShown = false
+                    }
+                }, 2000)
+            }
         }
     }
     

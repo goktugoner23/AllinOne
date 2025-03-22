@@ -75,6 +75,23 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             scheduleExpirationNotifications()
         }
     }
+    
+    // Multiple permissions launcher
+    private val requestMultiplePermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        // Log the permissions status
+        permissions.entries.forEach {
+            Log.d("MainActivity", "Permission: ${it.key}, granted: ${it.value}")
+        }
+        
+        // Handle notification permission separately as it's critical for app function
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (permissions[Manifest.permission.POST_NOTIFICATIONS] == true) {
+                scheduleExpirationNotifications()
+            }
+        }
+    }
 
     // ViewModels
     private lateinit var calendarViewModel: CalendarViewModel
@@ -156,8 +173,8 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         // Setup navigation
         setupNavigation()
         
-        // Check for permissions
-        checkAndRequestPermissions()
+        // Ask for necessary permissions right at the start
+        requestAppPermissions()
         
         // Schedule workers
         scheduleBackup()
@@ -203,117 +220,42 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         }
     }
     
-    private fun setupNavigation() {
-        // Initialize drawer layout and navigation view
-        drawerLayout = binding.drawerLayout
-        navigationView = binding.navView
-
-        // Set the toolbar as the support action bar
-        setSupportActionBar(binding.toolbar)
-
-        // Set up the drawer toggle
-        toggle = ActionBarDrawerToggle(
-            this,
-            drawerLayout,
-            binding.toolbar,
-            R.string.navigation_drawer_open,
-            R.string.navigation_drawer_close
-        )
-        drawerLayout.addDrawerListener(toggle)
-        toggle.syncState()
-
-        // Get NavHostFragment and NavController
-        val navHostFragment = supportFragmentManager
-            .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
-        navController = navHostFragment.navController
+    private fun requestAppPermissions() {
+        val permissionsToRequest = mutableListOf<String>()
         
-        // Add destination changed listener
-        navController.addOnDestinationChangedListener(this)
-
-        // Setup bottom navigation with NavController
-        binding.bottomNavigation.setupWithNavController(navController)
-
-        // Handle navigation item selection
-        navigationView.setNavigationItemSelectedListener { menuItem ->
-            when (menuItem.itemId) {
-                R.id.nav_transactions -> {
-                    navController.navigate(R.id.homeFragment)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_wt_registry -> {
-                    navController.navigate(R.id.nav_wt_registry)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_calendar -> {
-                    navController.navigate(R.id.nav_calendar)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_notes -> {
-                    navController.navigate(R.id.nav_notes)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_history -> {
-                    navController.navigate(R.id.nav_history)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_backup -> {
-                    // Navigate to backup activity
-                    val intent = Intent(this, BackupActivity::class.java)
-                    startActivity(intent)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_error_logs -> {
-                    navController.navigate(R.id.nav_error_logs)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_clear_data -> {
-                    // Clear app data instead of logging out
-                    clearAppData()
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_clear_db -> {
-                    // Clear Firestore database
-                    clearFirestoreDatabase()
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                else -> false
+        // Storage permissions based on Android version
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+ uses more specific permissions
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.READ_MEDIA_IMAGES)
             }
+        } else {
+            // Android 12 and below use general storage permission
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
+        }
+        
+        // Camera permission
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.CAMERA)
+        }
+        
+        // Notification permission for Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        
+        // Request permissions if needed
+        if (permissionsToRequest.isNotEmpty()) {
+            requestMultiplePermissionsLauncher.launch(permissionsToRequest.toTypedArray())
         }
     }
     
-    private fun checkAndRequestPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            when {
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED -> {
-                    // Permission already granted, schedule notifications
-                    scheduleExpirationNotifications()
-                }
-                shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
-                    // Explain why the app needs this permission
-                    // For simplicity, we're just requesting directly here
-                    requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
-                else -> {
-                    // Request the permission directly
-                    requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
-            }
-        } else {
-            // For Android 12 and below, no runtime permission needed
-            scheduleExpirationNotifications()
-        }
+    private fun checkGooglePlayServices() {
+        firebaseRepository.checkGooglePlayServicesAvailability()
     }
     
     private fun scheduleBackup() {
@@ -536,7 +478,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         destination: NavDestination,
         arguments: Bundle?
     ) {
-        // Show bottom navigation only for Home and Investments fragments
+        // Hide bottom navigation for certain screens
         when (destination.id) {
             R.id.homeFragment, R.id.nav_investments -> {
                 binding.bottomNavigation.visibility = View.VISIBLE
@@ -546,7 +488,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             }
         }
         
-        // Show/hide toolbar based on destination
+        // Hide/show toolbar for certain screens
         when (destination.id) {
             R.id.nav_history -> {
                 binding.toolbar.visibility = View.GONE
@@ -617,6 +559,93 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                     // When individual lessons change, update the calendar
                     calendarViewModel.setLessonSchedule(wtLessonsViewModel.lessons.value ?: emptyList())
                 }
+            }
+        }
+    }
+
+    private fun setupNavigation() {
+        // Initialize drawer layout and navigation view
+        drawerLayout = binding.drawerLayout
+        navigationView = binding.navView
+
+        // Set the toolbar as the support action bar
+        setSupportActionBar(binding.toolbar)
+
+        // Set up the drawer toggle
+        toggle = ActionBarDrawerToggle(
+            this,
+            drawerLayout,
+            binding.toolbar,
+            R.string.navigation_drawer_open,
+            R.string.navigation_drawer_close
+        )
+        drawerLayout.addDrawerListener(toggle)
+        toggle.syncState()
+
+        // Get NavHostFragment and NavController
+        val navHostFragment = supportFragmentManager
+            .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+        navController = navHostFragment.navController
+        
+        // Add destination changed listener
+        navController.addOnDestinationChangedListener(this)
+
+        // Setup bottom navigation with NavController
+        binding.bottomNavigation.setupWithNavController(navController)
+
+        // Handle navigation item selection
+        navigationView.setNavigationItemSelectedListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.nav_transactions -> {
+                    navController.navigate(R.id.homeFragment)
+                    drawerLayout.closeDrawers()
+                    true
+                }
+                R.id.nav_wt_registry -> {
+                    navController.navigate(R.id.nav_wt_registry)
+                    drawerLayout.closeDrawers()
+                    true
+                }
+                R.id.nav_calendar -> {
+                    navController.navigate(R.id.nav_calendar)
+                    drawerLayout.closeDrawers()
+                    true
+                }
+                R.id.nav_notes -> {
+                    navController.navigate(R.id.nav_notes)
+                    drawerLayout.closeDrawers()
+                    true
+                }
+                R.id.nav_history -> {
+                    navController.navigate(R.id.nav_history)
+                    drawerLayout.closeDrawers()
+                    true
+                }
+                R.id.nav_backup -> {
+                    // Navigate to backup activity
+                    val intent = Intent(this, BackupActivity::class.java)
+                    startActivity(intent)
+                    drawerLayout.closeDrawers()
+                    true
+                }
+                R.id.nav_error_logs -> {
+                    navController.navigate(R.id.nav_error_logs)
+                    drawerLayout.closeDrawers()
+                    true
+                }
+                R.id.nav_clear_data -> {
+                    // Clear app data instead of logging out
+                    clearAppData()
+                    drawerLayout.closeDrawers()
+                    true
+                }
+                R.id.nav_clear_db -> {
+                    // Clear Firestore database
+                    clearFirestoreDatabase()
+                    drawerLayout.closeDrawers()
+                    true
+                }
+                else -> false
             }
         }
     }

@@ -25,16 +25,11 @@
                 android:contentDescription="@string/profile_image"
                 android:scaleType="centerCrop"
                 android:src="@drawable/default_profile"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
                 app:shapeAppearanceOverlay="@style/circleImageView" />
 
-            <ImageButton
-                android:id="@+id/addImageButton"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_alignEnd="@id/profileImageView"
-                android:layout_alignBottom="@id/profileImageView"
-                android:contentDescription="@string/add_photo"
-                android:src="@drawable/ic_add_photo" />
         </RelativeLayout>
 
         <com.google.android.material.textfield.TextInputLayout

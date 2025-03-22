@@ -56,7 +56,7 @@ class HistoryAdapter(
             
             val formattedDateText = when {
                 isSameDay(calendar, today) -> "Today at ${dateFormat.format(item.date)}"
-                isYesterday(calendar, today) -> "Yesterday at ${dateFormat.format(item.date)}"
+                isYesterday(calendar) -> "Yesterday at ${dateFormat.format(item.date)}"
                 else -> fullDateFormat.format(item.date)
             }
             
@@ -104,7 +104,7 @@ class HistoryAdapter(
                    cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
         }
         
-        private fun isYesterday(cal1: Calendar, unused: Calendar): Boolean {
+        private fun isYesterday(cal1: Calendar): Boolean {
             val yesterday = Calendar.getInstance()
             yesterday.add(Calendar.DAY_OF_YEAR, -1)
             return cal1.get(Calendar.YEAR) == yesterday.get(Calendar.YEAR) &&

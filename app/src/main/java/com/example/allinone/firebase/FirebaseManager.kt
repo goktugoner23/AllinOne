@@ -267,7 +267,8 @@ class FirebaseManager(private val context: Context? = null) {
                 "instagram" to student.instagram,
                 "isActive" to student.isActive,
                 "deviceId" to deviceId,
-                "notes" to student.notes
+                "notes" to student.notes,
+                "photoUri" to student.photoUri
             )
             
             Log.d(TAG, "Setting student document with ID: ${student.id}")
@@ -305,6 +306,7 @@ class FirebaseManager(private val context: Context? = null) {
                     val isActive = doc.getBoolean("isActive") ?: true
                     val deviceId = doc.getString("deviceId")
                     val notes = doc.getString("notes")
+                    val photoUri = doc.getString("photoUri")
                     
                     WTStudent(
                         id = id, 
@@ -314,7 +316,8 @@ class FirebaseManager(private val context: Context? = null) {
                         instagram = instagram,
                         isActive = isActive,
                         deviceId = deviceId,
-                        notes = notes
+                        notes = notes,
+                        photoUri = photoUri
                     )
                 }
             } catch (e: Exception) {

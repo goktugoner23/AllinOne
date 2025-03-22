@@ -148,4 +148,12 @@
     <string name="error_storage_quota_exceeded">Storage quota exceeded.</string>
     <string name="error_not_authenticated">Authentication required. Please log in.</string>
     <string name="error_not_authorized">You are not authorized to perform this action.</string>
+    
+    <!-- Student Deletion -->
+    <string name="delete_student">Delete Student</string>
+    <string name="delete_student_confirmation">Are you sure you want to delete %1$s from your student list?</string>
+    <string name="student_deleted">Student deleted successfully</string>
+    <string name="cannot_delete">Cannot Delete</string>
+    <string name="student_has_active_registrations">This student has active registrations and cannot be deleted.</string>
+    <string name="ok">OK</string>
 </resources>

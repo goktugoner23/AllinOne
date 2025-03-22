@@ -16,5 +16,6 @@ data class WTStudent(
     val instagram: String? = null,
     val isActive: Boolean = true,
     val deviceId: String? = null, // For identification purposes
-    val notes: String? = null     // Any additional notes
+    val notes: String? = null,    // Any additional notes
+    val photoUri: String? = null  // URI string for profile picture
 ) : Parcelable 

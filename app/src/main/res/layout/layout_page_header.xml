@@ -12,7 +12,6 @@
         android:layout_width="40dp"
         android:layout_height="40dp"
         android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Open navigation drawer"
         android:padding="8dp"
         android:scaleType="fitCenter"
         android:src="@drawable/ic_menu"

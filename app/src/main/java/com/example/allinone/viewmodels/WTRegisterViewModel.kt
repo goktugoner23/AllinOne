@@ -76,7 +76,8 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
         instagram: String? = null,
         isActive: Boolean = true,
         deviceId: String? = null,
-        notes: String? = null
+        notes: String? = null,
+        photoUri: String? = null
     ) {
         val student = WTStudent(
             id = UUID.randomUUID().mostSignificantBits,
@@ -86,7 +87,8 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
             instagram = instagram,
             isActive = isActive,
             deviceId = deviceId,
-            notes = notes
+            notes = notes,
+            photoUri = photoUri
         )
         
         viewModelScope.launch {
@@ -319,13 +321,16 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun deleteStudent(student: WTStudent) {
+    fun deleteStudent(studentId: Long) {
         viewModelScope.launch {
+            // Get the student object
+            val student = repository.students.value.find { it.id == studentId } ?: return@launch
+            
             // Delete the student
             repository.deleteStudent(student)
             
             // Also delete all registrations for this student
-            val studentRegistrations = repository.getRegistrationsForStudent(student.id)
+            val studentRegistrations = repository.getRegistrationsForStudent(studentId)
             studentRegistrations.forEach { registration ->
                 repository.deleteRegistration(registration)
             }
