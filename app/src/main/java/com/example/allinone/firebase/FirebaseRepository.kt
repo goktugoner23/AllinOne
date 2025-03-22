@@ -457,13 +457,17 @@ class FirebaseRepository(private val context: Context) {
      */
     suspend fun refreshAllData() {
         _isLoading.postValue(true)
+        Log.d(TAG, "Starting refreshAllData()")
         
         try {
             // First check if we should refresh from network
             if (!networkUtils.isActiveNetworkConnected()) {
+                Log.d(TAG, "Network not connected, using cached data")
                 _isLoading.postValue(false)
                 return // Use cached data
             }
+            
+            Log.d(TAG, "Network connected, refreshing all data from Firebase")
             
             refreshTransactions()
             refreshInvestments()
@@ -473,7 +477,16 @@ class FirebaseRepository(private val context: Context) {
             refreshWTLessons()
             refreshRegistrations()
             
+            // Log state after refresh
+            Log.d(TAG, "All data refreshed. Current counts - " +
+                "Transactions: ${_transactions.value.size}, " +
+                "Investments: ${_investments.value.size}, " +
+                "Notes: ${_notes.value.size}, " +
+                "Students: ${_students.value.size}, " +
+                "Registrations: ${_registrations.value.size}")
+            
         } catch (e: Exception) {
+            Log.e(TAG, "Error refreshing data: ${e.message}", e)
             _errorMessage.postValue("Error refreshing data: ${e.message}")
         } finally {
             _isLoading.postValue(false)

@@ -1,6 +1,7 @@
 package com.example.allinone.viewmodels
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.allinone.data.HistoryItem
@@ -18,11 +19,13 @@ import java.util.*
 
 class HistoryViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FirebaseRepository(application)
+    private val TAG = "HistoryViewModel"
     
     private val _historyItems = MutableStateFlow<List<HistoryItem>>(emptyList())
     val historyItems: StateFlow<List<HistoryItem>> = _historyItems
     
     init {
+        Log.d(TAG, "Initializing HistoryViewModel")
         // Combine all data sources into a single list of history items
         viewModelScope.launch {
             combine(
@@ -32,6 +35,8 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                 repository.students,
                 repository.registrations
             ) { transactions, investments, notes, students, registrations ->
+                Log.d(TAG, "Data sources updated - transactions: ${transactions.size}, investments: ${investments.size}, notes: ${notes.size}, students: ${students.size}, registrations: ${registrations.size}")
+                
                 val historyItems = mutableListOf<HistoryItem>()
                 
                 // Add transactions
@@ -57,9 +62,11 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                 // Sort by date (newest first)
                 historyItems.sortByDescending { it.date }
                 
+                Log.d(TAG, "Combined history items: ${historyItems.size}")
                 historyItems
             }.collect {
                 _historyItems.value = it
+                Log.d(TAG, "Updated history items flow: ${it.size} items")
             }
         }
         
@@ -68,6 +75,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     }
     
     fun refreshAllData() {
+        Log.d(TAG, "Refreshing all data")
         viewModelScope.launch {
             repository.refreshAllData()
         }

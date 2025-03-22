@@ -20,20 +20,9 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
-# Keep Room entities
+# Keep data classes
 -keep class com.example.allinone.data.** { *; }
-
-# Keep Room DAOs
--keep interface com.example.allinone.data.** { *; }
-
-# Keep Room Database
--keep class * extends androidx.room.RoomDatabase { *; }
-
-# Keep Converters
--keepclassmembers class com.example.allinone.data.Converters { *; }
 
 # General Android rules
 -keepattributes Signature
 -keepattributes *Annotation*
--keep class androidx.room.** { *; }
--dontwarn androidx.room.**

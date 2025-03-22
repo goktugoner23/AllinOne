@@ -1,10 +1,10 @@
 package com.example.allinone.ui
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -14,14 +14,16 @@ import com.example.allinone.data.HistoryItem
 import com.example.allinone.databinding.FragmentHistoryBinding
 import com.example.allinone.viewmodels.HistoryViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
-class HistoryFragment : Fragment() {
+class HistoryFragment : BaseFragment() {
     private var _binding: FragmentHistoryBinding? = null
     private val binding get() = _binding!!
     private val viewModel: HistoryViewModel by viewModels()
     private lateinit var adapter: HistoryAdapter
+    private val TAG = "HistoryFragment"
     
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -34,6 +36,7 @@ class HistoryFragment : Fragment() {
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        Log.d(TAG, "onViewCreated called")
         
         // Setup custom toolbar
         setupToolbar()
@@ -46,40 +49,63 @@ class HistoryFragment : Fragment() {
         
         // Setup refresh
         binding.swipeRefresh.setOnRefreshListener {
+            Log.d(TAG, "Manual refresh triggered")
             viewModel.refreshData()
             binding.swipeRefresh.isRefreshing = false
         }
+        
+        // Initial load
+        binding.swipeRefresh.isRefreshing = true
+        viewModel.refreshData()
+        binding.swipeRefresh.isRefreshing = false
     }
     
     private fun setupToolbar() {
+        Log.d(TAG, "Setting up toolbar")
         // Set up toolbar title
         binding.toolbarTitle.text = getString(R.string.history)
         
         // Setup menu button to open drawer
         binding.menuButton.setOnClickListener {
-            // openDrawer()
+            Log.d(TAG, "Menu button clicked, opening drawer")
+            openDrawer()
         }
     }
     
     private fun setupRecyclerView() {
+        Log.d(TAG, "Setting up RecyclerView")
         adapter = HistoryAdapter(
-            onItemClick = { /* We could handle item clicks here */ },
-            onDeleteClick = { item -> showDeleteConfirmation(item) }
+            onItemClick = { 
+                Log.d(TAG, "History item clicked: ${it.title}")
+            },
+            onDeleteClick = { item -> 
+                Log.d(TAG, "Delete clicked for item: ${item.title}")
+                showDeleteConfirmation(item) 
+            }
         )
         
         binding.recyclerView.apply {
-            adapter = this@HistoryFragment.adapter
+            this.adapter = this@HistoryFragment.adapter
+            layoutManager = LinearLayoutManager(context)
         }
     }
     
     private fun observeHistoryItems() {
+        Log.d(TAG, "Starting to observe history items")
         lifecycleScope.launch {
             viewModel.historyItems.collect { items ->
+                Log.d(TAG, "Received ${items.size} history items")
                 adapter.submitList(items)
                 
                 // Show empty state if needed
                 binding.emptyState.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
                 binding.recyclerView.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
+                
+                if (items.isEmpty()) {
+                    Log.d(TAG, "History list is empty, showing empty state")
+                    // Show a message to the user
+                    Snackbar.make(binding.root, R.string.no_history_items, Snackbar.LENGTH_SHORT).show()
+                }
             }
         }
     }
