@@ -86,6 +86,16 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                         date = item.date,
                         category = ""
                     )
+                    
+                    // If this is a registration transaction, check if we should also delete the registration
+                    if (transaction.description.contains("Registration") && transaction.relatedRegistrationId != null) {
+                        // Find the related registration
+                        repository.registrations.value.find { it.id == transaction.relatedRegistrationId }?.let { registration ->
+                            // Delete the registration too
+                            repository.deleteRegistration(registration)
+                        }
+                    }
+                    
                     repository.deleteTransaction(transaction)
                 }
                 HistoryItem.ItemType.INVESTMENT -> {
@@ -99,7 +109,18 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                         date = item.date,
                         profitLoss = 0.0
                     )
+                    
+                    // Delete both investment and related transaction
                     repository.deleteInvestment(investment)
+                    
+                    // Find and delete related transaction
+                    repository.transactions.value.find { 
+                        it.description.contains(investment.name) && 
+                        it.amount == investment.amount && 
+                        it.type.contains("Investment")
+                    }?.let { relatedTransaction ->
+                        repository.deleteTransaction(relatedTransaction)
+                    }
                 }
                 HistoryItem.ItemType.NOTE -> {
                     val note = Note(
@@ -118,11 +139,23 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                         amount = item.amount ?: 0.0,
                         startDate = item.date,
                         endDate = null,
-                        attachmentUri = item.imageUri
+                        attachmentUri = item.imageUri,
+                        isPaid = true  // Assume paid since it's in history
                     )
+                    
+                    // Delete the registration (this will also delete related transactions because of our updated code)
                     repository.deleteRegistration(registration)
                 }
             }
+            
+            // Explicitly refresh data to update UI
+            refreshData()
+        }
+    }
+    
+    fun refreshData() {
+        viewModelScope.launch {
+            repository.refreshAllData()
         }
     }
     

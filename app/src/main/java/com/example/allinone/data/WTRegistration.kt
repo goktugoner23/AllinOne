@@ -14,7 +14,7 @@ data class WTRegistration(
     val endDate: Date? = null,
     val paymentDate: Date = Date(),
     val notes: String? = null,
-    val isPaid: Boolean = true  // All registrations are considered paid by default
+    val isPaid: Boolean = false  // Default to unpaid
 ) {
     // Derived property for student name to use in UI (will be supplied by adapter)
     // This isn't stored in the data class but accessed via extension property

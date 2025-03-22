@@ -72,7 +72,8 @@ class FirebaseManager(private val context: Context? = null) {
                 "description" to transaction.description,
                 "isIncome" to transaction.isIncome,
                 "date" to transaction.date,
-                "deviceId" to deviceId
+                "deviceId" to deviceId,
+                "relatedRegistrationId" to transaction.relatedRegistrationId
             )
             
             Log.d(TAG, "Setting transaction document with ID: ${transaction.id}")
@@ -100,8 +101,18 @@ class FirebaseManager(private val context: Context? = null) {
                     val description = doc.getString("description") ?: ""
                     val isIncome = doc.getBoolean("isIncome") ?: false
                     val date = doc.getDate("date") ?: Date()
+                    val relatedRegistrationId = doc.getLong("relatedRegistrationId")
                     
-                    Transaction(id, amount, type, description, isIncome, date, category)
+                    Transaction(
+                        id = id, 
+                        amount = amount, 
+                        type = type, 
+                        description = description, 
+                        isIncome = isIncome, 
+                        date = date, 
+                        category = category,
+                        relatedRegistrationId = relatedRegistrationId
+                    )
                 }
             } catch (e: Exception) {
                 emptyList()

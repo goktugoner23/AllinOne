@@ -4,8 +4,11 @@ import android.app.Application
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.*
+import androidx.lifecycle.ViewModelProvider
 import com.example.allinone.data.WTStudent
 import com.example.allinone.data.WTRegistration
+import com.example.allinone.data.Event
+import com.example.allinone.data.Transaction
 import com.example.allinone.firebase.FirebaseRepository
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -27,6 +30,21 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
     
     private val _selectedRegistration = MutableLiveData<WTRegistration?>(null)
     val selectedRegistration: LiveData<WTRegistration?> = _selectedRegistration
+    
+    private val _isLoading = MutableLiveData<Boolean>(false)
+    val isLoading: LiveData<Boolean> = _isLoading
+    
+    private val _error = MutableLiveData<String?>(null)
+    val error: LiveData<String?> = _error
+    
+    enum class TransactionType {
+        INCOME, 
+        EXPENSE
+    }
+    
+    companion object {
+        private const val TAG = "WTRegisterViewModel"
+    }
 
     init {
         viewModelScope.launch {
@@ -84,7 +102,7 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
         endDate: Date?,
         attachmentUri: String? = null,
         notes: String? = null,
-        isPaid: Boolean = true
+        isPaid: Boolean = false  // Default to unpaid to match data class
     ) {
         val registration = WTRegistration(
             id = UUID.randomUUID().mostSignificantBits,
@@ -102,7 +120,51 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
         Log.d("WTRegisterViewModel", "Adding registration: $registration")
         
         viewModelScope.launch {
+            // Save the registration
             repository.insertRegistration(registration)
+            
+            // If it's marked as paid, also add a transaction
+            if (isPaid && amount > 0) {
+                val studentName = repository.students.value.find { it.id == studentId }?.name ?: "Unknown Student"
+                val description = "Course Registration: $studentName"
+                val formattedDate = startDate?.let { 
+                    java.text.SimpleDateFormat("MMM dd", java.util.Locale.getDefault()).format(it)
+                } ?: ""
+                
+                val category = "Course Registration"
+                
+                // Create transaction with reference to registration
+                repository.insertTransaction(
+                    amount = amount,
+                    type = if (formattedDate.isNotEmpty()) "Registration ($formattedDate)" else "Registration", 
+                    description = description,
+                    isIncome = true,  // Registration payments are income
+                    category = category,
+                    relatedRegistrationId = registration.id  // Link transaction to registration
+                )
+                
+                // Refresh transactions to update UI
+                repository.refreshTransactions()
+            }
+            
+            // Add end date to calendar if available
+            endDate?.let { date ->
+                val studentName = repository.students.value.find { it.id == studentId }?.name ?: "Unknown Student"
+                val title = "Registration End: $studentName"
+                val description = "Registration period ending for $studentName. Amount: $amount"
+                
+                // Use direct call to calendar repository instead of ViewModel
+                val event = Event(
+                    id = registration.id,  // Reuse registration ID for the event
+                    title = title,
+                    description = description,
+                    date = date,
+                    type = "Registration End"
+                )
+                repository.insertEvent(event)
+                repository.refreshEvents()
+            }
+            
             // Explicitly refresh registrations to ensure UI updates
             repository.refreshRegistrations()
             // Log updated registrations for debugging
@@ -118,11 +180,79 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
     }
     
     fun updateRegistration(registration: WTRegistration) {
-        Log.d("WTRegisterViewModel", "Updating registration: $registration")
+        Log.d(TAG, "Updating registration: $registration")
         viewModelScope.launch {
-            repository.updateRegistration(registration)
-            // Explicitly refresh registrations to ensure UI updates
-            repository.refreshRegistrations()
+            try {
+                _isLoading.value = true
+                
+                // Get original registration to check if payment status changed
+                val originalRegistration = _registrations.value?.find { it.id == registration.id }
+                
+                // If original found, check for payment status changes
+                if (originalRegistration != null) {
+                    // Payment status changed from unpaid to paid
+                    if (!originalRegistration.isPaid && registration.isPaid && registration.amount > 0) {
+                        Log.d(TAG, "Registration marked as PAID, creating transaction")
+                        val studentName = repository.students.value.find { it.id == registration.studentId }?.name ?: "Unknown Student"
+                        
+                        repository.insertTransaction(
+                            amount = registration.amount,
+                            type = "Registration",
+                            description = "Registration payment: $studentName",
+                            isIncome = true,
+                            category = "Course Registration",
+                            relatedRegistrationId = registration.id
+                        )
+                    } 
+                    // Payment status changed from paid to unpaid
+                    else if (originalRegistration.isPaid && !registration.isPaid) {
+                        Log.d(TAG, "Registration marked as UNPAID, deleting related transactions")
+                        repository.deleteTransactionsByRegistrationId(registration.id)
+                    }
+                    
+                    // If end date changed, update the calendar event
+                    if (originalRegistration.endDate != registration.endDate) {
+                        // First try to remove any existing event
+                        val event = Event(
+                            id = registration.id,  // Same ID used for both registration and event
+                            title = "",  // These fields don't matter for deletion
+                            description = "",
+                            date = Date(),
+                            type = "Registration End"
+                        )
+                        repository.deleteEvent(event)
+                        
+                        // Add new event for the updated end date
+                        registration.endDate?.let { newDate ->
+                            val studentName = repository.students.value.find { it.id == registration.studentId }?.name ?: "Unknown Student"
+                            val title = "Registration End: $studentName"
+                            val description = "Registration period ending for $studentName. Amount: ${registration.amount}"
+                            
+                            val newEvent = Event(
+                                id = registration.id,  // Reuse registration ID for the event
+                                title = title,
+                                description = description,
+                                date = newDate,
+                                type = "Registration End"
+                            )
+                            repository.insertEvent(newEvent)
+                            repository.refreshEvents()
+                        }
+                    }
+                }
+                
+                // Update the registration
+                repository.updateRegistration(registration)
+                
+                // Refresh data to ensure UI updates
+                refreshData()
+                
+                _isLoading.value = false
+            } catch (e: Exception) {
+                _isLoading.value = false
+                _error.value = e.localizedMessage ?: "Error updating registration"
+                Log.e(TAG, "Error updating registration: ${e.message}", e)
+            }
         }
     }
 
@@ -143,22 +273,37 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
     
-    fun deleteRegistration(registration: WTRegistration) {
-        viewModelScope.launch {
-            try {
-                Log.d("WTRegisterViewModel", "Deleting registration ID: ${registration.id}")
-                repository.deleteRegistration(registration)
-                
-                // Wait a moment for Firebase to process the deletion
-                kotlinx.coroutines.delay(500)
-                
-                // Refresh to update the UI
-                repository.refreshRegistrations()
-                Log.d("WTRegisterViewModel", "Registration deleted successfully")
-            } catch (e: Exception) {
-                Log.e("WTRegisterViewModel", "Error deleting registration: ${e.message}", e)
-                throw e
+    fun deleteRegistration(registration: WTRegistration) = viewModelScope.launch {
+        try {
+            _isLoading.value = true
+            Log.d(TAG, "Deleting registration: ${registration.id}")
+            
+            // First delete any related transactions
+            if (registration.isPaid) {
+                repository.deleteTransactionsByRegistrationId(registration.id)
             }
+            
+            // Delete any related calendar events
+            val event = Event(
+                id = registration.id,  // Same ID used for both registration and event
+                title = "",  // These fields don't matter for deletion
+                description = "",
+                date = Date(),
+                type = "Registration End"
+            )
+            repository.deleteEvent(event)
+            
+            // Now delete the registration itself
+            repository.deleteRegistration(registration)
+            
+            // Refresh data to ensure UI updates
+            refreshData()
+            
+            _isLoading.value = false
+        } catch (e: Exception) {
+            _isLoading.value = false
+            _error.value = e.localizedMessage ?: "Error deleting registration"
+            Log.e(TAG, "Error deleting registration: ${e.message}", e)
         }
     }
     

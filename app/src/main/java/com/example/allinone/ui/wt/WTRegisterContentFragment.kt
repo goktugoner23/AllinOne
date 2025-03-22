@@ -85,7 +85,7 @@ class WTRegisterContentFragment : Fragment() {
         adapter = WTRegistrationAdapter(
             onItemClick = { registration -> togglePaymentStatus(registration) },
             onLongPress = { registration, view -> showContextMenu(registration, view) },
-            onPaymentStatusClick = { registration -> 
+            onPaymentStatusClick = { _ -> 
                 // Do nothing when clicking payment status button
             },
             onShareClick = { registration -> shareRegistrationInfo(registration) },
@@ -165,7 +165,7 @@ class WTRegisterContentFragment : Fragment() {
 
         // Show the isPaid checkbox and set to checked by default
         dialogBinding.isPaidCheckbox.visibility = View.VISIBLE
-        dialogBinding.isPaidCheckbox.isChecked = true
+        dialogBinding.isPaidCheckbox.isChecked = false  // Default to unpaid to match data model
 
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.add_registration)

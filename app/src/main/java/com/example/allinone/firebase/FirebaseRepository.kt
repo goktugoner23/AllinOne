@@ -558,21 +558,28 @@ class FirebaseRepository(private val context: Context) {
         }
     }
     
+    /**
+     * Insert a new transaction into Firebase
+     */
     suspend fun insertTransaction(
         amount: Double,
         type: String,
         description: String?,
         isIncome: Boolean,
-        category: String
+        category: String,
+        relatedRegistrationId: Long? = null,
+        date: Long? = null
     ) {
+        Log.d(TAG, "Inserting transaction: $type, $amount, $isIncome")
         val transaction = Transaction(
             id = UUID.randomUUID().mostSignificantBits,
             amount = amount,
             type = type,
             description = description ?: "",
             isIncome = isIncome,
-            date = Date(),
-            category = category
+            date = Date(date ?: System.currentTimeMillis()),
+            category = category,
+            relatedRegistrationId = relatedRegistrationId
         )
         
         try {
@@ -1599,7 +1606,7 @@ class FirebaseRepository(private val context: Context) {
             firebaseManager.deleteRegistration(registration.id).await()
             
             // Remove from local cache
-            val currentRegistrations = _registrations.value ?: emptyList()
+            val currentRegistrations = _registrations.value
             val updatedRegistrations = currentRegistrations.filter { it.id != registration.id }
             _registrations.emit(updatedRegistrations)
             cacheManager.cacheRegistrations(updatedRegistrations)
@@ -1634,5 +1641,35 @@ class FirebaseRepository(private val context: Context) {
     // Constants
     companion object {
         private const val TAG = "FirebaseRepository"
+    }
+
+    /**
+     * Delete all transactions associated with a specific registration ID
+     */
+    suspend fun deleteTransactionsByRegistrationId(registrationId: Long) {
+        Log.d(TAG, "Looking for transactions with registrationId: $registrationId")
+        
+        // Find transactions related to this registration
+        val transactionsToDelete = _transactions.value.filter { 
+            it.relatedRegistrationId == registrationId 
+        }
+        
+        if (transactionsToDelete.isEmpty()) {
+            Log.d(TAG, "No transactions found for registrationId: $registrationId")
+            return
+        }
+        
+        Log.d(TAG, "Found ${transactionsToDelete.size} transactions to delete for registrationId: $registrationId")
+        
+        // Delete each transaction
+        transactionsToDelete.forEach { transaction ->
+            try {
+                Log.d(TAG, "Deleting transaction ID: ${transaction.id}")
+                deleteTransaction(transaction)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error deleting transaction: ${e.message}", e)
+                // Continue with other transactions even if one fails
+            }
+        }
     }
 } 
