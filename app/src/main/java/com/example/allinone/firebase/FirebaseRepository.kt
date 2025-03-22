@@ -77,8 +77,8 @@ class FirebaseRepository(private val context: Context) {
     val registrations: StateFlow<List<WTRegistration>> = _registrations
     
     // Error handling
-    private val _errorMessage = MutableLiveData<String>()
-    val errorMessage: LiveData<String> = _errorMessage
+    private val _errorMessage = MutableLiveData<String?>()
+    val errorMessage: LiveData<String?> = _errorMessage
     
     // Add this field to track if Google Play Services is available
     private val _isGooglePlayServicesAvailable = MutableLiveData<Boolean>(true)
