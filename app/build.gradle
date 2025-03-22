@@ -18,8 +18,7 @@ spotless {
         endWithNewline()
     }
     
-    // For now, let's just disable the spotless check to get the build working
-    enforceCheck false
+    enforceCheck true
 }
 
 android {
