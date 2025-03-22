@@ -53,8 +53,6 @@ class WTLessonsFragment : Fragment() {
         // Set up add lesson button
         binding.addLessonButton.setOnClickListener {
             addLessons()
-            // Save lessons after adding
-            onSaveLessonsClick()
         }
         
         // Set up loading indicator
@@ -213,6 +211,9 @@ class WTLessonsFragment : Fragment() {
         
         // Clear selections
         clearSelections()
+        
+        // Save lessons to ensure the calendar is updated
+        onSaveLessonsClick()
         
         // Show confirmation
         Toast.makeText(requireContext(), "Lessons added successfully", Toast.LENGTH_SHORT).show()

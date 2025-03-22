@@ -33,7 +33,8 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
     val isNetworkAvailable = repository.isNetworkAvailable
     
     // Loading state
-    val isLoading = repository.isLoading
+    private val _isLoading = MutableLiveData<Boolean>(false)
+    val isLoading: LiveData<Boolean> = _isLoading
     
     // Error message
     private val _errorMessage = MutableLiveData<String?>(null)
@@ -149,6 +150,26 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
         _errorMessage.value = null
     }
     
+    /**
+     * Force refresh lessons from Firebase and ensure calendar is updated
+     */
+    fun refreshLessons() {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                repository.refreshWTLessons(true) // Force refresh from Firebase
+                _isLoading.value = false
+                
+                // Explicitly notify observers that lessons were updated
+                // This will trigger the calendar update in MainActivity
+                _lessonChangeEvent.value = LessonChangeEvent.LessonsUpdated
+            } catch (e: Exception) {
+                _errorMessage.value = "Failed to refresh lessons: ${e.message}"
+                _isLoading.value = false
+            }
+        }
+    }
+    
     // Get day name from day of week
     fun getDayName(dayOfWeek: Int): String {
         return when (dayOfWeek) {
@@ -166,18 +187,5 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
     // Format time as HH:MM
     fun formatTime(hour: Int, minute: Int): String {
         return String.format("%02d:%02d", hour, minute)
-    }
-    
-    // Refresh lessons data
-    fun refreshLessons() {
-        viewModelScope.launch {
-            try {
-                Log.d("WTLessonsViewModel", "Refreshing lessons data from Firebase")
-                repository.refreshWTLessons(forceRefresh = true)
-            } catch (e: Exception) {
-                Log.e("WTLessonsViewModel", "Error refreshing lessons: ${e.message}", e)
-                _errorMessage.value = "Failed to refresh lessons: ${e.message}"
-            }
-        }
     }
 } 

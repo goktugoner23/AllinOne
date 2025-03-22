@@ -765,7 +765,8 @@ class CalendarFragment : Fragment() {
     
     override fun onResume() {
         super.onResume()
-        // Force refresh the calendar data when returning to this fragment
+        
+        // Force refresh to ensure all lessons are visible
         viewModel.forceRefresh()
     }
 } 
