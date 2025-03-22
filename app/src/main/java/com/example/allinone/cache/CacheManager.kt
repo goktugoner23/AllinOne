@@ -109,8 +109,9 @@ class CacheManager(private val context: Context) {
     }
     
     fun getCachedTransactions(): List<Transaction> {
-        val type = object : TypeToken<List<Transaction>>() {}.type
-        return getCachedData(KEY_TRANSACTIONS, type) ?: emptyList()
+        // More explicit TypeToken creation that's safer for ProGuard
+        val listType = object : TypeToken<ArrayList<Transaction>>() {}.type
+        return getCachedData(KEY_TRANSACTIONS, listType) ?: emptyList()
     }
     
     // Cache Investment data
@@ -119,8 +120,9 @@ class CacheManager(private val context: Context) {
     }
     
     fun getCachedInvestments(): List<Investment> {
-        val type = object : TypeToken<List<Investment>>() {}.type
-        return getCachedData(KEY_INVESTMENTS, type) ?: emptyList()
+        // More explicit TypeToken creation that's safer for ProGuard
+        val listType = object : TypeToken<ArrayList<Investment>>() {}.type
+        return getCachedData(KEY_INVESTMENTS, listType) ?: emptyList()
     }
     
     // Cache Note data
@@ -129,8 +131,9 @@ class CacheManager(private val context: Context) {
     }
     
     fun getCachedNotes(): List<Note> {
-        val type = object : TypeToken<List<Note>>() {}.type
-        return getCachedData(KEY_NOTES, type) ?: emptyList()
+        // More explicit TypeToken creation that's safer for ProGuard
+        val listType = object : TypeToken<ArrayList<Note>>() {}.type
+        return getCachedData(KEY_NOTES, listType) ?: emptyList()
     }
     
     // Cache Student data
@@ -139,8 +142,9 @@ class CacheManager(private val context: Context) {
     }
     
     fun getCachedStudents(): List<WTStudent> {
-        val type = object : TypeToken<List<WTStudent>>() {}.type
-        return getCachedData(KEY_STUDENTS, type) ?: emptyList()
+        // More explicit TypeToken creation that's safer for ProGuard
+        val listType = object : TypeToken<ArrayList<WTStudent>>() {}.type
+        return getCachedData(KEY_STUDENTS, listType) ?: emptyList()
     }
     
     // Cache Event data
@@ -149,8 +153,9 @@ class CacheManager(private val context: Context) {
     }
     
     fun getCachedEvents(): List<Event> {
-        val type = object : TypeToken<List<Event>>() {}.type
-        return getCachedData(KEY_EVENTS, type) ?: emptyList()
+        // More explicit TypeToken creation that's safer for ProGuard
+        val listType = object : TypeToken<ArrayList<Event>>() {}.type
+        return getCachedData(KEY_EVENTS, listType) ?: emptyList()
     }
     
     // Cache Lesson data
@@ -159,8 +164,9 @@ class CacheManager(private val context: Context) {
     }
     
     fun getCachedLessons(): List<WTLesson> {
-        val type = object : TypeToken<List<WTLesson>>() {}.type
-        return getCachedData(KEY_LESSONS, type) ?: emptyList()
+        // More explicit TypeToken creation that's safer for ProGuard
+        val listType = object : TypeToken<ArrayList<WTLesson>>() {}.type
+        return getCachedData(KEY_LESSONS, listType) ?: emptyList()
     }
     
     // Cache Registration data
@@ -169,8 +175,9 @@ class CacheManager(private val context: Context) {
     }
     
     fun getCachedRegistrations(): List<WTRegistration> {
-        val type = object : TypeToken<List<WTRegistration>>() {}.type
-        return getCachedData(KEY_REGISTRATIONS, type) ?: emptyList()
+        // More explicit TypeToken creation that's safer for ProGuard
+        val listType = object : TypeToken<ArrayList<WTRegistration>>() {}.type
+        return getCachedData(KEY_REGISTRATIONS, listType) ?: emptyList()
     }
     
     // Generic methods for caching and retrieving data

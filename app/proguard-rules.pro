@@ -26,3 +26,22 @@
 # General Android rules
 -keepattributes Signature
 -keepattributes *Annotation*
+
+# Gson specific rules
+-keepattributes Signature
+-keepattributes *Annotation*
+-dontwarn sun.misc.**
+-keep class com.google.gson.** { *; }
+-keep class * implements com.google.gson.TypeAdapterFactory
+-keep class * implements com.google.gson.JsonSerializer
+-keep class * implements com.google.gson.JsonDeserializer
+
+# Gson TypeToken rules
+-keep class com.google.gson.reflect.TypeToken
+-keep class * extends com.google.gson.reflect.TypeToken
+-keep public class * implements java.lang.reflect.Type
+
+# Preserve Gson generic signatures
+-keepclassmembers,allowobfuscation class * {
+  @com.google.gson.annotations.SerializedName <fields>;
+}

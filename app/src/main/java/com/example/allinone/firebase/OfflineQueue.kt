@@ -64,8 +64,9 @@ class OfflineQueue(context: Context) {
      */
     fun getQueue(): List<QueueItem> {
         val queueJson = sharedPreferences.getString("queue", null) ?: return emptyList()
-        val type = object : TypeToken<List<QueueItem>>() {}.type
-        return gson.fromJson(queueJson, type) ?: emptyList()
+        // More explicit TypeToken creation that's safer for ProGuard
+        val listType = object : TypeToken<ArrayList<QueueItem>>() {}.type
+        return gson.fromJson(queueJson, listType) ?: emptyList()
     }
     
     /**
