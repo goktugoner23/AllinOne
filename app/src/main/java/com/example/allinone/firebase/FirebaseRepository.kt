@@ -37,6 +37,7 @@ import java.util.Date
 import java.util.UUID
 import com.google.firebase.firestore.PersistentCacheSettings
 import com.example.allinone.cache.CacheManager
+import com.example.allinone.firebase.FirebaseStorageUtil
 
 /**
  * A repository that uses Firebase for all data operations.
@@ -47,6 +48,7 @@ class FirebaseRepository(private val context: Context) {
     private val networkUtils = (context.applicationContext as AllinOneApplication).networkUtils
     private val offlineQueue = OfflineQueue(context)
     private val cacheManager = (context.applicationContext as AllinOneApplication).cacheManager
+    private val storageUtil = FirebaseStorageUtil(context)
     private val gson = Gson()
     
     private val db = Firebase.firestore
@@ -1670,6 +1672,37 @@ class FirebaseRepository(private val context: Context) {
                 Log.e(TAG, "Error deleting transaction: ${e.message}", e)
                 // Continue with other transactions even if one fails
             }
+        }
+    }
+
+    /**
+     * Upload a file to Firebase Storage
+     * @param fileUri The URI of the file to upload
+     * @param folderName The folder in Firebase Storage to save the file (e.g., "registrations", "notes")
+     * @return The download URL of the uploaded file, or null if upload failed
+     */
+    suspend fun uploadFile(fileUri: Uri, folderName: String): String? {
+        return try {
+            Log.d(TAG, "Uploading file to Firebase Storage: $fileUri")
+            storageUtil.uploadFile(fileUri, folderName)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error uploading file: ${e.message}", e)
+            null
+        }
+    }
+    
+    /**
+     * Delete a file from Firebase Storage
+     * @param fileUrl The download URL of the file to delete
+     * @return True if successful, false otherwise
+     */
+    suspend fun deleteFile(fileUrl: String): Boolean {
+        return try {
+            Log.d(TAG, "Deleting file from Firebase Storage: $fileUrl")
+            storageUtil.deleteFile(fileUrl)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting file: ${e.message}", e)
+            false
         }
     }
 } 

@@ -88,6 +88,8 @@ class WTStudentsFragment : Fragment() {
     }
 
     private fun showEditStudentDialog(student: WTStudent) {
+        // Store the student being edited
+        editingStudent = student
         // Use the common showStudentDialog method to edit a student
         showStudentDialog(student)
     }
@@ -178,6 +180,33 @@ class WTStudentsFragment : Fragment() {
             if (existingStudentWithPhone != null) {
                 dialogBinding.phoneInputLayout.error = "A student with this phone number already exists"
                 isValid = false
+            }
+        }
+        // Check for duplicates if editing but name or phone number has changed
+        else if (isValid && editingStudent != null) {
+            // Create a local val to avoid smart cast issues
+            val currentEditingStudent = editingStudent
+            
+            // Only check for duplicate name if name has changed
+            if (currentEditingStudent?.name != name) {
+                val existingStudentWithName = viewModel.students.value?.find { 
+                    it.name == name && it.id != currentEditingStudent?.id 
+                }
+                if (existingStudentWithName != null) {
+                    dialogBinding.nameInputLayout.error = "A student with this name already exists"
+                    isValid = false
+                }
+            }
+            
+            // Only check for duplicate phone if phone has changed
+            if (currentEditingStudent?.phoneNumber != phone) {
+                val existingStudentWithPhone = viewModel.students.value?.find { 
+                    it.phoneNumber == phone && it.id != currentEditingStudent?.id 
+                }
+                if (existingStudentWithPhone != null) {
+                    dialogBinding.phoneInputLayout.error = "A student with this phone number already exists"
+                    isValid = false
+                }
             }
         }
         
