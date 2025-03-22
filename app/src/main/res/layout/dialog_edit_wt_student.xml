@@ -54,11 +54,12 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:id="@+id/amountLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:hint="@string/amount">
+            android:hint="Amount"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/amountInput"
@@ -123,6 +124,16 @@
             android:layout_height="wrap_content"
             android:adjustViewBounds="true"
             android:visibility="gone" />
+
+        <!-- Payment Status Checkbox -->
+        <CheckBox
+            android:id="@+id/isPaidCheckbox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Payment Received"
+            android:checked="true"
+            android:visibility="visible"/>
 
         <!-- Action buttons -->
         <LinearLayout

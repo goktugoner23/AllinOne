@@ -1,23 +1,31 @@
 package com.example.allinone.ui.wt
 
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import com.example.allinone.R
 import com.example.allinone.databinding.FragmentWtRegistryBinding
+import com.example.allinone.databinding.FragmentWtRegisterBinding
 import com.example.allinone.data.WTLesson
 import com.example.allinone.data.WTStudent
 import com.example.allinone.viewmodels.WTRegisterViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
+import java.text.SimpleDateFormat
+import java.util.*
 
 class WTRegistryFragment : Fragment() {
     private var _binding: FragmentWtRegistryBinding? = null
@@ -29,9 +37,12 @@ class WTRegistryFragment : Fragment() {
     private val studentsFragment: Fragment by lazy { 
         childFragmentManager.findFragmentByTag("students") ?: WTStudentsFragment()
     }
-    private val registerFragment: Fragment by lazy { 
-        childFragmentManager.findFragmentByTag("register") ?: WTRegisterFragment()
+    
+    // For the register tab, we're using a separate WTRegisterContentFragment class
+    private val registerFragment: Fragment by lazy {
+        childFragmentManager.findFragmentByTag("register") ?: WTRegisterContentFragment()
     }
+    
     private val lessonsFragment: Fragment by lazy { 
         childFragmentManager.findFragmentByTag("lessons") ?: WTLessonsFragment()
     }
@@ -199,5 +210,9 @@ class WTRegistryFragment : Fragment() {
      */
     fun updateLessons(@Suppress("UNUSED_PARAMETER") lessons: List<WTLesson>) {
         // No action needed in this fragment
+    }
+
+    companion object {
+        fun newInstance() = WTRegistryFragment()
     }
 } 

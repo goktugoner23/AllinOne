@@ -32,6 +32,7 @@ class FirebaseManager(private val context: Context? = null) {
     private val studentsCollection = firestore.collection("students")
     private val eventsCollection = firestore.collection("events")
     private val wtLessonsCollection = firestore.collection("wtLessons")
+    private val registrationsCollection = firestore.collection("registrations")
     
     // Storage references
     private val imagesRef: StorageReference = storage.reference.child("images")
@@ -639,17 +640,17 @@ class FirebaseManager(private val context: Context? = null) {
     
     // Get all registrations
     suspend fun getRegistrations(): List<WTRegistration> {
-        val auth = FirebaseAuth.getInstance()
-        val userId = auth.currentUser?.uid ?: return emptyList()
+        Log.d(TAG, "Getting registrations for device $deviceId")
         
         return try {
-            val snapshot = firestore.collection("users")
-                .document(userId)
-                .collection(REGISTRATIONS_COLLECTION)
+            val snapshot = firestore.collection(REGISTRATIONS_COLLECTION)
+                .whereEqualTo("deviceId", deviceId)
                 .get()
                 .await()
             
-            snapshot.documents.mapNotNull { doc ->
+            Log.d(TAG, "Received ${snapshot.documents.size} registration documents from Firestore")
+            
+            val registrations = snapshot.documents.mapNotNull { doc ->
                 try {
                     val id = doc.getLong("id") ?: doc.id.hashCode().toLong()
                     val studentId = doc.getLong("studentId") ?: return@mapNotNull null
@@ -659,6 +660,7 @@ class FirebaseManager(private val context: Context? = null) {
                     val endDate = doc.getDate("endDate")
                     val paymentDate = doc.getDate("paymentDate") ?: Date()
                     val notes = doc.getString("notes")
+                    val isPaid = doc.getBoolean("isPaid") ?: true // Default to true if field is missing
                     
                     WTRegistration(
                         id = id,
@@ -668,13 +670,17 @@ class FirebaseManager(private val context: Context? = null) {
                         startDate = startDate,
                         endDate = endDate,
                         paymentDate = paymentDate,
-                        notes = notes
+                        notes = notes,
+                        isPaid = isPaid
                     )
                 } catch (e: Exception) {
                     Log.e(TAG, "Error parsing registration document: ${e.message}")
                     null
                 }
             }
+            
+            Log.d(TAG, "Successfully parsed ${registrations.size} registrations")
+            registrations
         } catch (e: Exception) {
             Log.e(TAG, "Error getting registrations: ${e.message}")
             throw e
@@ -683,8 +689,7 @@ class FirebaseManager(private val context: Context? = null) {
     
     // Save registration
     suspend fun saveRegistration(registration: WTRegistration): Task<Void> {
-        val auth = FirebaseAuth.getInstance()
-        val userId = auth.currentUser?.uid ?: throw Exception("User not authenticated")
+        Log.d(TAG, "Saving registration with ID: ${registration.id}, studentId: ${registration.studentId}")
         
         val registrationMap = hashMapOf(
             "id" to registration.id,
@@ -694,37 +699,32 @@ class FirebaseManager(private val context: Context? = null) {
             "startDate" to registration.startDate,
             "endDate" to registration.endDate,
             "paymentDate" to registration.paymentDate,
-            "notes" to registration.notes
+            "notes" to registration.notes,
+            "isPaid" to registration.isPaid,
+            "deviceId" to deviceId
         )
         
-        return firestore.collection("users")
-            .document(userId)
-            .collection(REGISTRATIONS_COLLECTION)
+        return firestore.collection(REGISTRATIONS_COLLECTION)
             .document(registration.id.toString())
             .set(registrationMap)
     }
     
     // Delete registration
     suspend fun deleteRegistration(registrationId: Long): Task<Void> {
-        val auth = FirebaseAuth.getInstance()
-        val userId = auth.currentUser?.uid ?: throw Exception("User not authenticated")
+        Log.d(TAG, "Deleting registration with ID: $registrationId")
         
-        return firestore.collection("users")
-            .document(userId)
-            .collection(REGISTRATIONS_COLLECTION)
+        return firestore.collection(REGISTRATIONS_COLLECTION)
             .document(registrationId.toString())
             .delete()
     }
     
     // Get registrations for a specific student
     suspend fun getRegistrationsForStudent(studentId: Long): List<WTRegistration> {
-        val auth = FirebaseAuth.getInstance()
-        val userId = auth.currentUser?.uid ?: return emptyList()
+        Log.d(TAG, "Getting registrations for student ID: $studentId")
         
         return try {
-            val snapshot = firestore.collection("users")
-                .document(userId)
-                .collection(REGISTRATIONS_COLLECTION)
+            val snapshot = firestore.collection(REGISTRATIONS_COLLECTION)
+                .whereEqualTo("deviceId", deviceId)
                 .whereEqualTo("studentId", studentId)
                 .get()
                 .await()
@@ -738,6 +738,7 @@ class FirebaseManager(private val context: Context? = null) {
                     val endDate = doc.getDate("endDate")
                     val paymentDate = doc.getDate("paymentDate") ?: Date()
                     val notes = doc.getString("notes")
+                    val isPaid = doc.getBoolean("isPaid") ?: true // Default to true if field is missing
                     
                     WTRegistration(
                         id = id,
@@ -747,7 +748,8 @@ class FirebaseManager(private val context: Context? = null) {
                         startDate = startDate,
                         endDate = endDate,
                         paymentDate = paymentDate,
-                        notes = notes
+                        notes = notes,
+                        isPaid = isPaid
                     )
                 } catch (e: Exception) {
                     Log.e(TAG, "Error parsing registration document: ${e.message}")

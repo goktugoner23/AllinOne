@@ -133,6 +133,9 @@ class WTRegisterFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
+        // Add log to track setup
+        Log.d("WTRegisterFragment", "Setting up RecyclerView")
+        
         adapter = WTRegistrationAdapter(
             onItemClick = { registration -> showEditDialog(registration) },
             onLongPress = { registration, view -> showContextMenu(registration, view) },
@@ -150,6 +153,8 @@ class WTRegisterFragment : Fragment() {
         binding.studentsRecyclerView.apply {
             layoutManager = LinearLayoutManager(context)
             adapter = this@WTRegisterFragment.adapter
+            // Add log to verify adapter is attached
+            Log.d("WTRegisterFragment", "Adapter attached to RecyclerView")
         }
     }
 
@@ -181,6 +186,9 @@ class WTRegisterFragment : Fragment() {
                 binding.emptyState.visibility = View.GONE
                 binding.studentsRecyclerView.visibility = View.VISIBLE
             }
+            
+            // Force adapter to refresh
+            adapter.notifyDataSetChanged()
         }
     }
 

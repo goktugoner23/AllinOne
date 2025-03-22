@@ -84,8 +84,8 @@ class WTRegistrationAdapter(
             binding.endDate.text = registration.endDate?.let { dateFormat.format(it) } ?: "Not set"
             binding.amount.text = String.format("%.2f", registration.amount)
             
-            // A registration is considered "paid" if it exists (since it has a payment date)
-            val isPaid = true
+            // Use the actual isPaid field from the registration object
+            val isPaid = registration.isPaid
             
             binding.paymentStatusChip.apply {
                 text = if (isPaid) "Paid" else "Unpaid"

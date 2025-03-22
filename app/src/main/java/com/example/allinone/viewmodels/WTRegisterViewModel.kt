@@ -2,6 +2,7 @@ package com.example.allinone.viewmodels
 
 import android.app.Application
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.*
 import com.example.allinone.data.WTStudent
 import com.example.allinone.data.WTRegistration
@@ -43,8 +44,10 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
 
     fun refreshData() {
         viewModelScope.launch {
+            Log.d("WTRegisterViewModel", "Starting data refresh")
             repository.refreshStudents()
             repository.refreshRegistrations()
+            Log.d("WTRegisterViewModel", "Data refresh completed")
         }
     }
     
@@ -80,7 +83,8 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
         startDate: Date?,
         endDate: Date?,
         attachmentUri: String? = null,
-        notes: String? = null
+        notes: String? = null,
+        isPaid: Boolean = true
     ) {
         val registration = WTRegistration(
             id = UUID.randomUUID().mostSignificantBits,
@@ -90,12 +94,19 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
             endDate = endDate,
             paymentDate = Date(),
             attachmentUri = attachmentUri,
-            notes = notes
+            notes = notes,
+            isPaid = isPaid
         )
+        
+        // Log for debugging
+        Log.d("WTRegisterViewModel", "Adding registration: $registration")
         
         viewModelScope.launch {
             repository.insertRegistration(registration)
+            // Explicitly refresh registrations to ensure UI updates
             repository.refreshRegistrations()
+            // Log updated registrations for debugging
+            Log.d("WTRegisterViewModel", "Current registrations: ${_registrations.value?.size ?: 0}")
         }
     }
     
@@ -107,8 +118,10 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
     }
     
     fun updateRegistration(registration: WTRegistration) {
+        Log.d("WTRegisterViewModel", "Updating registration: $registration")
         viewModelScope.launch {
             repository.updateRegistration(registration)
+            // Explicitly refresh registrations to ensure UI updates
             repository.refreshRegistrations()
         }
     }
@@ -132,8 +145,20 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
     
     fun deleteRegistration(registration: WTRegistration) {
         viewModelScope.launch {
-            repository.deleteRegistration(registration)
-            repository.refreshRegistrations()
+            try {
+                Log.d("WTRegisterViewModel", "Deleting registration ID: ${registration.id}")
+                repository.deleteRegistration(registration)
+                
+                // Wait a moment for Firebase to process the deletion
+                kotlinx.coroutines.delay(500)
+                
+                // Refresh to update the UI
+                repository.refreshRegistrations()
+                Log.d("WTRegisterViewModel", "Registration deleted successfully")
+            } catch (e: Exception) {
+                Log.e("WTRegisterViewModel", "Error deleting registration: ${e.message}", e)
+                throw e
+            }
         }
     }
     

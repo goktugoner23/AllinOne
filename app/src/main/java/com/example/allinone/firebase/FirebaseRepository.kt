@@ -1592,35 +1592,22 @@ class FirebaseRepository(private val context: Context) {
     }
     
     suspend fun deleteRegistration(registration: WTRegistration) {
-        withContext(Dispatchers.IO) {
-            try {
-                if (networkUtils.isActiveNetworkConnected()) {
-                    // Delete from Firebase
-                    firebaseManager.deleteRegistration(registration.id).await()
-                    
-                    // Update local cache
-                    val currentRegistrations = _registrations.value.toMutableList()
-                    currentRegistrations.removeIf { it.id == registration.id }
-                    withContext(Dispatchers.Main) {
-                        _registrations.value = currentRegistrations
-                    }
-                    
-                    // Refresh to ensure data consistency
-                    refreshRegistrations()
-                } else {
-                    // Queue for later
-                    offlineQueue.enqueue(
-                        OfflineQueue.DataType.REGISTRATION,
-                        OfflineQueue.Operation.DELETE,
-                        gson.toJson(registration)
-                    )
-                }
-            } catch (e: Exception) {
-                // Handle error
-                withContext(Dispatchers.Main) {
-                    _errorMessage.value = "Error deleting registration: ${e.message}"
-                }
-            }
+        try {
+            Log.d(TAG, "Starting to delete registration with ID: ${registration.id}")
+            
+            // Delete from Firestore
+            firebaseManager.deleteRegistration(registration.id).await()
+            
+            // Remove from local cache
+            val currentRegistrations = _registrations.value ?: emptyList()
+            val updatedRegistrations = currentRegistrations.filter { it.id != registration.id }
+            _registrations.emit(updatedRegistrations)
+            cacheManager.cacheRegistrations(updatedRegistrations)
+            
+            Log.d(TAG, "Successfully deleted registration with ID: ${registration.id}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting registration: ${e.message}", e)
+            throw e
         }
     }
     
