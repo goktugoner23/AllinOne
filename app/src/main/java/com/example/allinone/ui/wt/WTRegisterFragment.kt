@@ -65,7 +65,7 @@ class WTRegisterFragment : Fragment() {
                 
                 // Update UI to show the selected file
                 currentDialogBinding?.let { binding ->
-                    binding.attachmentNameText.text = getFileNameFromUri(uri)
+                    binding.attachmentNameText.text = getFileName(uri)
                     binding.attachmentNameText.visibility = View.VISIBLE
                     
                     // Check if it's an image
@@ -198,9 +198,14 @@ class WTRegisterFragment : Fragment() {
         setupDatePickers(dialogBinding)
         setupStudentDropdown(dialogBinding)
 
+        // Set paid switch to false by default
+        dialogBinding.paidSwitch.isChecked = false
+
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.add_registration)
             .setView(dialogBinding.root)
+            .setPositiveButton(R.string.save, null) // Set action later
+            .setNegativeButton(R.string.cancel, null)
             .create()
         
         // Configure dialog window for better keyboard handling
@@ -215,32 +220,33 @@ class WTRegisterFragment : Fragment() {
             )
         }
             
-        dialogBinding.saveButton.setOnClickListener {
-            // Validate form
-            if (validateRegistrationForm(dialogBinding)) {
-                val student = selectedStudent!!
-                val startDate = dialogBinding.startDateInput.tag as Date
-                val endDate = dialogBinding.endDateInput.tag as Date
-                val amount = dialogBinding.amountInput.text.toString().toDoubleOrNull() ?: 0.0
-                
-                // Create a new registration record
-                viewModel.addRegistration(
-                    studentId = student.id,
-                    amount = amount,
-                    startDate = startDate,
-                    endDate = endDate,
-                    attachmentUri = selectedAttachmentUri?.toString(),
-                    notes = dialogBinding.notesEditText.text.toString()
-                )
-                
-                dialog.dismiss()
-                showSnackbar(getString(R.string.registration_success))
+        dialog.setOnShowListener {
+            val positiveButton = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+            positiveButton.setOnClickListener {
+                // Validate form
+                if (validateRegistrationForm(dialogBinding)) {
+                    val student = selectedStudent!!
+                    val startDate = dialogBinding.startDateInput.tag as Date
+                    val endDate = dialogBinding.endDateInput.tag as Date
+                    val amount = dialogBinding.amountInput.text.toString().toDoubleOrNull() ?: 0.0
+                    val isPaid = dialogBinding.paidSwitch.isChecked
+                    
+                    // Create a new registration record
+                    viewModel.addRegistration(
+                        studentId = student.id,
+                        amount = amount,
+                        startDate = startDate,
+                        endDate = endDate,
+                        attachmentUri = selectedAttachmentUri?.toString(),
+                        notes = dialogBinding.notesEditText.text.toString(),
+                        isPaid = isPaid
+                    )
+                    
+                    dialog.dismiss()
+                    showSnackbar(getString(R.string.registration_success))
+                }
+                // If validation fails, dialog stays open with errors shown
             }
-            // If validation fails, dialog stays open with errors shown
-        }
-        
-        dialogBinding.cancelButton.setOnClickListener {
-            dialog.dismiss()
         }
         
         dialog.show()
@@ -326,56 +332,51 @@ class WTRegisterFragment : Fragment() {
     private fun showEditDialog(registration: WTRegistration) {
         val dialogBinding = DialogEditWtStudentBinding.inflate(layoutInflater)
         currentDialogBinding = dialogBinding
-        val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.edit_registration)
-            .setView(dialogBinding.root)
-            .create()
-
-        // Configure dialog window for better keyboard handling
-        dialog.window?.apply {
-            // Set soft input mode to adjust nothing and let scrollview handle scrolling
-            setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
-            
-            // Set window size to match screen width and wrap content for height
-            setLayout(
-                android.view.WindowManager.LayoutParams.MATCH_PARENT,
-                android.view.WindowManager.LayoutParams.WRAP_CONTENT
-            )
-        }
-
+        
+        // Pre-fill form with registration details
         setupDatePickers(dialogBinding)
         setupStudentDropdown(dialogBinding)
         
-        // Reset attachment
+        // Store resources for attachment handling
         selectedAttachmentUri = registration.attachmentUri?.let { Uri.parse(it) }
         selectedRegistration = registration
-
-        // Pre-fill the form
+        
+        // Fill in form fields
         dialogBinding.apply {
-            // Set the student dropdown to the current student
-            val studentIndex = students.indexOfFirst { it.id == registration.studentId }
-            if (studentIndex >= 0) {
-                studentDropdown.setText(students[studentIndex].name, false)
+            // Set student dropdown
+            students.forEachIndexed { _, student ->
+                if (student.id == registration.studentId) {
+                    selectedStudent = student
+                    studentDropdown.setText(student.name, false)
+                }
+            }
+
+            // Set dates
+            if (registration.startDate != null) {
+                startDateInput.setText(dateFormat.format(registration.startDate))
+                startDateInput.tag = registration.startDate
             }
             
-            // Fill in registration data only
-            startDateInput.setText(registration.startDate?.let { dateFormat.format(it) } ?: "")
-            startDateInput.tag = registration.startDate
-            endDateInput.setText(registration.endDate?.let { dateFormat.format(it) } ?: "")
-            endDateInput.tag = registration.endDate
-            amountInput.setText(registration.amount.toString())
+            if (registration.endDate != null) {
+                endDateInput.setText(dateFormat.format(registration.endDate))
+                endDateInput.tag = registration.endDate
+            }
             
-            // Setup attachment for payment receipt
+            // Set amount and notes
+            amountInput.setText(registration.amount.toString())
+            notesEditText.setText(registration.notes ?: "")
+            
+            // Set payment status
+            paidSwitch.isChecked = registration.isPaid
+            
+            // Set attachment if available
             if (registration.attachmentUri != null) {
                 try {
-                    updateAttachmentPreview(dialogBinding, Uri.parse(registration.attachmentUri))
+                    val uri = Uri.parse(registration.attachmentUri)
+                    val fileName = getFileName(uri)
+                    attachmentNameText.text = fileName
                     
-                    // Add a note to indicate it's clickable using a less intrusive Snackbar
-                    Snackbar.make(
-                        dialogBinding.root,
-                        getString(R.string.tap_to_view_attachment),
-                        Snackbar.LENGTH_SHORT
-                    ).show()
+                    attachmentPreview.visibility = View.VISIBLE
                 } catch (e: Exception) {
                     Toast.makeText(
                         requireContext(),
@@ -390,25 +391,32 @@ class WTRegisterFragment : Fragment() {
             addAttachmentButton.setOnClickListener {
                 getContent.launch("*/*")
             }
-            
-            saveButton.setOnClickListener {
+        }
+
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.edit_registration)
+            .setView(dialogBinding.root)
+            .setPositiveButton(R.string.save, null) // Set action later
+            .setNegativeButton(R.string.cancel, null)
+            .create()
+
+        dialog.setOnShowListener {
+            val positiveButton = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+            positiveButton.setOnClickListener {
                 // Validate form
                 if (validateRegistrationForm(dialogBinding)) {
                     val updatedRegistration = selectedRegistration!!.copy(
-                        startDate = startDateInput.tag as Date,
-                        endDate = endDateInput.tag as Date,
-                        amount = amountInput.text.toString().toDoubleOrNull()!!,
-                        attachmentUri = selectedAttachmentUri?.toString() ?: registration.attachmentUri
+                        startDate = dialogBinding.startDateInput.tag as Date,
+                        endDate = dialogBinding.endDateInput.tag as Date,
+                        amount = dialogBinding.amountInput.text.toString().toDoubleOrNull()!!,
+                        attachmentUri = selectedAttachmentUri?.toString() ?: registration.attachmentUri,
+                        isPaid = dialogBinding.paidSwitch.isChecked
                     )
                     viewModel.updateRegistration(updatedRegistration)
                     dialog.dismiss()
                     showSnackbar(getString(R.string.registration_updated))
                 }
                 // If validation fails, dialog stays open with errors shown
-            }
-
-            cancelButton.setOnClickListener {
-                dialog.dismiss()
             }
         }
 
@@ -454,7 +462,7 @@ class WTRegisterFragment : Fragment() {
     }
 
     private fun updateAttachmentPreview(dialogBinding: DialogEditWtStudentBinding, uri: Uri) {
-        dialogBinding.attachmentNameText.text = getFileNameFromUri(uri)
+        dialogBinding.attachmentNameText.text = getFileName(uri)
         dialogBinding.attachmentNameText.visibility = View.VISIBLE
         
         val mimeType = context?.contentResolver?.getType(uri)
@@ -470,7 +478,7 @@ class WTRegisterFragment : Fragment() {
         }
     }
 
-    private fun getFileNameFromUri(uri: Uri): String {
+    private fun getFileName(uri: Uri): String {
         val contentResolver = context?.contentResolver ?: return "File"
         
         // First try with query

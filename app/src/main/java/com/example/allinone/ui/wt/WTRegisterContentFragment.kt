@@ -163,9 +163,8 @@ class WTRegisterContentFragment : Fragment() {
         setupDatePickers(dialogBinding)
         setupStudentDropdown(dialogBinding)
 
-        // Show the isPaid checkbox and set to checked by default
-        dialogBinding.isPaidCheckbox.visibility = View.VISIBLE
-        dialogBinding.isPaidCheckbox.isChecked = false  // Default to unpaid to match data model
+        // Set switch to unchecked by default (unpaid)
+        dialogBinding.paidSwitch.isChecked = false
 
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.add_registration)
@@ -194,7 +193,7 @@ class WTRegisterContentFragment : Fragment() {
                     val amountText = dialogBinding.amountInput.text.toString().trim()
                     val amount = if (amountText.isEmpty()) 0.0 else amountText.toDoubleOrNull() ?: 0.0
                     val notesText = dialogBinding.notesEditText.text.toString().trim()
-                    val isPaid = dialogBinding.isPaidCheckbox.isChecked
+                    val isPaid = dialogBinding.paidSwitch.isChecked
 
                     viewModel.addRegistration(
                         studentId = student.id,
@@ -374,9 +373,8 @@ class WTRegisterContentFragment : Fragment() {
             amountInput.setText(registration.amount.toString())
             notesEditText.setText(registration.notes ?: "")
             
-            // Set isPaid checkbox
-            isPaidCheckbox.visibility = View.VISIBLE
-            isPaidCheckbox.isChecked = registration.isPaid
+            // Set isPaid checkbox with switch
+            paidSwitch.isChecked = registration.isPaid
             
             // Setup attachment preview if exists
             if (registration.attachmentUri != null) {
@@ -405,7 +403,7 @@ class WTRegisterContentFragment : Fragment() {
                     val amountText = dialogBinding.amountInput.text.toString().trim()
                     val amount = if (amountText.isEmpty()) 0.0 else amountText.toDoubleOrNull() ?: 0.0
                     val notesText = dialogBinding.notesEditText.text.toString().trim()
-                    val isPaid = dialogBinding.isPaidCheckbox.isChecked
+                    val isPaid = dialogBinding.paidSwitch.isChecked
 
                     val updatedRegistration = registration.copy(
                         studentId = student.id,

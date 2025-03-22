@@ -125,40 +125,6 @@
             android:adjustViewBounds="true"
             android:visibility="gone" />
 
-        <!-- Payment Status Checkbox -->
-        <CheckBox
-            android:id="@+id/isPaidCheckbox"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Payment Received"
-            android:checked="true"
-            android:visibility="visible"/>
-
-        <!-- Action buttons -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="16dp">
-
-            <Button
-                android:id="@+id/cancelButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/cancel" />
-
-            <Button
-                android:id="@+id/saveButton"
-                style="@style/Widget.MaterialComponents.Button"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/save" />
-        </LinearLayout>
-
     </LinearLayout>
 
 </androidx.core.widget.NestedScrollView> 
