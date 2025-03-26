@@ -20,16 +20,12 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
     private val _totalInvestment = MutableLiveData<Double>(0.0)
     val totalInvestment: LiveData<Double> = _totalInvestment
     
-    private val _totalProfitLoss = MutableLiveData<Double>(0.0)
-    val totalProfitLoss: LiveData<Double> = _totalProfitLoss
-    
     init {
         // Collect investments from the repository flow
         viewModelScope.launch {
             repository.investments.collect { investments ->
                 _allInvestments.value = investments
                 _totalInvestment.value = investments.sumOf { it.amount }
-                _totalProfitLoss.value = investments.sumOf { it.profitLoss }
             }
         }
     }

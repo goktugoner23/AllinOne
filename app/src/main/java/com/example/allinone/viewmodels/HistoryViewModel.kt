@@ -115,7 +115,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                         description = item.description,
                         imageUri = item.imageUri,
                         date = item.date,
-                        profitLoss = 0.0
+                        isPast = false
                     )
                     
                     // Delete both investment and related transaction

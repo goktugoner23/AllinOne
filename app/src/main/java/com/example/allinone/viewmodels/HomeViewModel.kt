@@ -81,17 +81,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     // New method to add income to an existing investment
     fun addIncomeToInvestment(amount: Double, investment: Investment, description: String?) {
         viewModelScope.launch {
+            // Create a meaningful description that includes the user's description if provided
+            val transactionDescription = if (!description.isNullOrBlank()) {
+                "Return from investment: ${investment.name} - $description"
+            } else {
+                "Return from investment: ${investment.name}"
+            }
+            
             // First, add as a regular income transaction
             repository.insertTransaction(
                 amount = amount,
                 type = "Investment",
-                description = "Return from investment: ${investment.name}",
+                description = transactionDescription,
                 isIncome = true,
                 category = investment.type
             )
-            
-            // Optionally, update investment with profit/loss
-            // We don't modify the investment itself - it stays as is
             
             // Refresh data
             repository.refreshTransactions()
