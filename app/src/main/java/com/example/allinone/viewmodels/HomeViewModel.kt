@@ -47,8 +47,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val totalIncome = transactions.filter { it.isIncome }.sumOf { it.amount }
         val totalExpense = transactions.filter { !it.isIncome }.sumOf { it.amount }
         
-        // Include investments in total expense
-        val totalInvestments = investments.sumOf { it.amount }
+        // Include only non-past investments in total expense
+        val totalInvestments = investments.filter { !it.isPast }.sumOf { it.amount }
         val adjustedTotalExpense = totalExpense + totalInvestments
         
         val balance = totalIncome - adjustedTotalExpense
@@ -74,6 +74,26 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             )
             
             // Force refresh data to ensure UI consistency
+            repository.refreshTransactions()
+        }
+    }
+    
+    // New method to add income to an existing investment
+    fun addIncomeToInvestment(amount: Double, investment: Investment, description: String?) {
+        viewModelScope.launch {
+            // First, add as a regular income transaction
+            repository.insertTransaction(
+                amount = amount,
+                type = "Investment",
+                description = "Return from investment: ${investment.name}",
+                isIncome = true,
+                category = investment.type
+            )
+            
+            // Optionally, update investment with profit/loss
+            // We don't modify the investment itself - it stays as is
+            
+            // Refresh data
             repository.refreshTransactions()
         }
     }

@@ -10,5 +10,6 @@ data class Investment(
     val description: String?,
     val imageUri: String?,
     val date: Date,
-    val profitLoss: Double = 0.0
+    val profitLoss: Double = 0.0,
+    val isPast: Boolean = false
 ) 

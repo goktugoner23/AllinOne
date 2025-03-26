@@ -90,6 +90,14 @@
                 android:layout_marginStart="4dp" />
         </LinearLayout>
 
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/isPastInvestmentCheckbox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Past Investment (won't affect transaction total)"
+            android:checked="false" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

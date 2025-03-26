@@ -1,5 +1,6 @@
 package com.example.allinone.ui
 
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -7,9 +8,16 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
+import android.widget.Button
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.allinone.R
+import com.example.allinone.adapters.InvestmentSelectionAdapter
 import com.example.allinone.config.TransactionCategories
 import com.example.allinone.databinding.FragmentHomeBinding
 import com.example.allinone.viewmodels.HomeViewModel
@@ -17,13 +25,11 @@ import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
 import com.github.mikephil.charting.formatter.PercentFormatter
-import com.github.mikephil.charting.utils.ColorTemplate
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import java.util.Random
 import androidx.lifecycle.ViewModelProvider
 import kotlin.math.absoluteValue
-import androidx.appcompat.app.AppCompatDelegate
-import androidx.core.content.ContextCompat
 
 class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
@@ -265,6 +271,12 @@ class HomeFragment : Fragment() {
             return
         }
         
+        // Special handling for investment income
+        if (isIncome && type == "Investment") {
+            showInvestmentSelectionDialog(amount, description)
+            return
+        }
+        
         viewModel.addTransaction(
             amount = amount,
             type = type,
@@ -275,6 +287,69 @@ class HomeFragment : Fragment() {
 
         clearFields()
         showSnackbar(if (isIncome) "Income added" else "Expense added")
+    }
+    
+    private fun showInvestmentSelectionDialog(amount: Double, description: String?) {
+        val dialogView = LayoutInflater.from(requireContext()).inflate(
+            R.layout.dialog_select_investment, null
+        )
+        
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setView(dialogView)
+            .setCancelable(true)
+            .create()
+            
+        val recyclerView = dialogView.findViewById<RecyclerView>(R.id.investmentsRecyclerView)
+        val emptyStateText = dialogView.findViewById<TextView>(R.id.emptyStateText)
+        val cancelButton = dialogView.findViewById<Button>(R.id.cancelButton)
+        val newInvestmentButton = dialogView.findViewById<Button>(R.id.newInvestmentButton)
+        
+        // Set up the recyclerview with adapter
+        val adapter = InvestmentSelectionAdapter { investment ->
+            // Add income to the selected investment
+            viewModel.addIncomeToInvestment(amount, investment, description)
+            dialog.dismiss()
+            clearFields()
+            showSnackbar("Investment income added")
+        }
+        
+        recyclerView.layoutManager = LinearLayoutManager(requireContext())
+        recyclerView.adapter = adapter
+        
+        // Get all investments and update the adapter - include past investments
+        val investments = viewModel.allInvestments.value ?: emptyList()
+        adapter.submitList(investments)
+        
+        // Show empty state if no investments
+        if (investments.isEmpty()) {
+            recyclerView.visibility = View.GONE
+            emptyStateText.visibility = View.VISIBLE
+            emptyStateText.text = "No investments found. Create one first."
+        } else {
+            recyclerView.visibility = View.VISIBLE
+            emptyStateText.visibility = View.GONE
+        }
+        
+        // Button click listeners
+        cancelButton.setOnClickListener {
+            dialog.dismiss()
+        }
+        
+        newInvestmentButton.setOnClickListener {
+            // Add as regular transaction instead
+            viewModel.addTransaction(
+                amount = amount,
+                type = "Investment",
+                description = description,
+                isIncome = true,
+                category = "Investment"
+            )
+            dialog.dismiss()
+            clearFields()
+            showSnackbar("Investment income added")
+        }
+        
+        dialog.show()
     }
 
     private fun clearFields() {

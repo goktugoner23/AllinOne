@@ -161,6 +161,7 @@ class InvestmentsFragment : Fragment() {
             val amountText = dialogBinding.amountInput.text?.toString()
             val type = (dialogBinding.typeInput as? AutoCompleteTextView)?.text?.toString()
             val description = dialogBinding.descriptionInput.text?.toString()
+            val isPast = dialogBinding.isPastInvestmentCheckbox.isChecked
 
             if (name.isNullOrBlank() || amountText.isNullOrBlank() || type.isNullOrBlank()) {
                 Toast.makeText(context, "Please fill in all required fields", Toast.LENGTH_SHORT).show()
@@ -182,7 +183,8 @@ class InvestmentsFragment : Fragment() {
                 type = type,
                 description = description,
                 imageUri = if (imageUris.isNotEmpty()) imageUris else null,
-                date = Date()
+                date = Date(),
+                isPast = isPast
             )
             
             viewModel.addInvestment(investment)
@@ -210,6 +212,7 @@ class InvestmentsFragment : Fragment() {
         dialogBinding?.nameInput?.setText(investment?.name)
         dialogBinding?.amountInput?.setText(investment?.amount?.toString())
         dialogBinding?.descriptionInput?.setText(investment?.description)
+        dialogBinding?.isPastInvestmentCheckbox?.isChecked = investment?.isPast ?: false
 
         // Setup images
         selectedImages.clear()
@@ -253,7 +256,8 @@ class InvestmentsFragment : Fragment() {
                         amount = dialogBinding?.amountInput?.text?.toString()?.toDoubleOrNull() ?: 0.0,
                         type = dialogBinding?.typeInput?.text?.toString() ?: "",
                         description = dialogBinding?.descriptionInput?.text?.toString(),
-                        imageUri = selectedImages.joinToString(",") { it.toString() }
+                        imageUri = selectedImages.joinToString(",") { it.toString() },
+                        isPast = dialogBinding?.isPastInvestmentCheckbox?.isChecked ?: false
                     )
                     viewModel.updateInvestmentAndTransaction(currentInvestment, updatedInvestment)
                 }

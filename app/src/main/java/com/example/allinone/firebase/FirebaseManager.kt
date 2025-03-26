@@ -155,6 +155,7 @@ class FirebaseManager(private val context: Context? = null) {
             "date" to investment.date,
             "imageUri" to uploadedImageUrl,
             "profitLoss" to investment.profitLoss,
+            "isPast" to investment.isPast,
             "deviceId" to deviceId
         )
         
@@ -174,8 +175,9 @@ class FirebaseManager(private val context: Context? = null) {
                     val date = doc.getDate("date") ?: Date()
                     val imageUri = doc.getString("imageUri")
                     val profitLoss = doc.getDouble("profitLoss") ?: 0.0
+                    val isPast = doc.getBoolean("isPast") ?: false
                     
-                    Investment(id, name, amount, type, description, imageUri, date, profitLoss)
+                    Investment(id, name, amount, type, description, imageUri, date, profitLoss, isPast)
                 }
             } catch (e: Exception) {
                 emptyList()

@@ -83,6 +83,14 @@
             android:visibility="gone" />
     </HorizontalScrollView>
 
+    <com.google.android.material.checkbox.MaterialCheckBox
+        android:id="@+id/isPastInvestmentCheckbox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Past Investment (won't affect transaction total)"
+        android:checked="false" />
+
     <Button
         android:id="@+id/addImageButton"
         android:layout_width="match_parent"
