@@ -102,20 +102,24 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="8dp">
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical">
             
             <TextView
                 android:id="@+id/attachmentNameText"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:text="@string/receipt_unavailable"
-                android:visibility="visible" />
+                android:ellipsize="middle"
+                android:singleLine="true" />
                 
             <Button
                 android:id="@+id/addAttachmentButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/add_receipt" />
+                android:text="@string/add_receipt"
+                android:layout_marginStart="8dp" />
         </LinearLayout>
         
         <ImageView

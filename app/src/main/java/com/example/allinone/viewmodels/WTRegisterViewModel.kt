@@ -202,7 +202,7 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
     
     fun updateStudent(student: WTStudent) {
         viewModelScope.launch {
-            repository.updateStudent(student)
+            repository.updateWTStudent(student)
             repository.refreshStudents()
         }
     }

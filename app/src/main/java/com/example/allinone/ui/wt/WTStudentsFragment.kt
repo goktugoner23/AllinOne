@@ -99,6 +99,17 @@ class WTStudentsFragment : Fragment() {
 
     private fun observeStudents() {
         viewModel.students.observe(viewLifecycleOwner) { students ->
+            // Check for students with old image paths and update them
+            students.forEach { student ->
+                if (student.photoUri != null && student.photoUri.contains("users/anonymous/profile_pictures")) {
+                    // Fix the photoUri to point to the new location
+                    val updatedUri = student.photoUri.replace("users/anonymous/profile_pictures", "profile_pictures")
+                    val updatedStudent = student.copy(photoUri = updatedUri)
+                    viewModel.updateStudent(updatedStudent)
+                    Log.d("WTStudentsFragment", "Updated student photo URI from ${student.photoUri} to $updatedUri")
+                }
+            }
+            
             // Deduplicate students by ID before submitting to adapter
             val uniqueStudents = students.distinctBy { it.id }
             adapter.submitList(uniqueStudents)
@@ -491,9 +502,15 @@ class WTStudentsFragment : Fragment() {
                     profileImageView.setImageResource(R.drawable.default_profile)
                 }
             }
+            
+            // Set click listener to show full screen image
+            profileImageView.setOnClickListener {
+                showFullScreenImage(student.photoUri)
+            }
         } else {
             Log.d("WTStudentsFragment", "No profile image URI available")
             profileImageView.setImageResource(R.drawable.default_profile)
+            profileImageView.setOnClickListener(null)
         }
         
         // Set up the name
@@ -663,6 +680,39 @@ class WTStudentsFragment : Fragment() {
             message,
             com.google.android.material.snackbar.Snackbar.LENGTH_LONG
         ).show()
+    }
+
+    private fun showFullScreenImage(imageUri: String?) {
+        imageUri?.let { uri ->
+            val dialog = MaterialAlertDialogBuilder(requireContext())
+                .setView(R.layout.dialog_fullscreen_image)
+                .create()
+            
+            dialog.show()
+            
+            val imageView = dialog.findViewById<com.google.android.material.imageview.ShapeableImageView>(R.id.fullscreenImageView)
+            try {
+                Log.d("WTStudentsFragment", "Loading fullscreen image from URI: $uri")
+                if (uri.startsWith("https://")) {
+                    com.bumptech.glide.Glide.with(requireContext())
+                        .load(uri)
+                        .placeholder(R.drawable.default_profile)
+                        .error(R.drawable.default_profile)
+                        .into(imageView!!)
+                } else {
+                    imageView?.setImageURI(Uri.parse(uri))
+                }
+            } catch (e: Exception) {
+                Log.e("WTStudentsFragment", "Error loading fullscreen image: ${e.message}")
+                Toast.makeText(requireContext(), "Failed to load image", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+            
+            // Close on tap
+            imageView?.setOnClickListener {
+                dialog.dismiss()
+            }
+        }
     }
 
     override fun onDestroyView() {
