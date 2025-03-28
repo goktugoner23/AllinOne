@@ -4,11 +4,10 @@
     android:height="512dp"
     android:viewportWidth="512"
     android:viewportHeight="512">
+  
+  <!-- Rounded background -->
   <path
-      android:fillColor="#FF000000"
-      android:pathData="m0,0H512V512H0"/>
-  <path
-      android:pathData="m0,0H512V512H0">
+      android:pathData="M80,0L432,0A80,80 0,0 1,512 80L512,432A80,80 0,0 1,432 512L80,512A80,80 0,0 1,0 432L0,80A80,80 0,0 1,80 0z">
     <aapt:attr name="android:fillColor">
       <gradient 
           android:centerX="204.8"
@@ -21,8 +20,10 @@
       </gradient>
     </aapt:attr>
   </path>
+  
+  <!-- Add blue gradient overlay with rounded corners -->
   <path
-      android:pathData="m0,0H512V512H0">
+      android:pathData="M80,0L432,0A80,80 0,0 1,512 80L512,432A80,80 0,0 1,432 512L80,512A80,80 0,0 1,0 432L0,80A80,80 0,0 1,80 0z">
     <aapt:attr name="android:fillColor">
       <gradient 
           android:startX="0"
@@ -35,6 +36,7 @@
       </gradient>
     </aapt:attr>
   </path>
+  
   <path
       android:pathData="M183,102L329,102A81,81 0,0 1,410 183L410,329A81,81 0,0 1,329 410L183,410A81,81 0,0 1,102 329L102,183A81,81 0,0 1,183 102z"
       android:strokeWidth="30"
