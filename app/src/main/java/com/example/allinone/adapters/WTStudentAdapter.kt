@@ -2,6 +2,7 @@ package com.example.allinone.adapters
 
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -82,11 +83,20 @@ class WTStudentAdapter(
                 
                 // Load profile image if available
                 if (!student.photoUri.isNullOrEmpty()) {
-                    try {
-                        profileImage.setImageURI(Uri.parse(student.photoUri))
-                    } catch (e: Exception) {
-                        // Fallback to default image if there's an error
-                        profileImage.setImageResource(R.drawable.default_profile)
+                    Log.d("WTStudentAdapter", "Loading profile image from URI: ${student.photoUri}")
+                    if (student.photoUri.startsWith("https://")) {
+                        com.bumptech.glide.Glide.with(itemView.context)
+                            .load(student.photoUri)
+                            .placeholder(R.drawable.default_profile)
+                            .error(R.drawable.default_profile)
+                            .into(profileImage)
+                    } else {
+                        try {
+                            profileImage.setImageURI(Uri.parse(student.photoUri))
+                        } catch (e: Exception) {
+                            Log.e("WTStudentAdapter", "Error loading local image: ${e.message}")
+                            profileImage.setImageResource(R.drawable.default_profile)
+                        }
                     }
                 } else {
                     profileImage.setImageResource(R.drawable.default_profile)

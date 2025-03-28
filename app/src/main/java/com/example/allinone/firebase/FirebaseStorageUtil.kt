@@ -37,7 +37,7 @@ class FirebaseStorageUtil(private val context: Context) {
             Log.d(TAG, "Generated file name: $fileName")
             
             // Reference to the file location in Firebase Storage
-            val fileRef = storageRef.child("users/$userId/$folderName/$fileName")
+            val fileRef = storageRef.child("$folderName/$fileName")
             Log.d(TAG, "File reference path: ${fileRef.path}")
             
             // Get content type

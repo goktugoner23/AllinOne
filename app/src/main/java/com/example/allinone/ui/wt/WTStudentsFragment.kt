@@ -9,6 +9,10 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.os.Handler
+import android.text.SpannableString
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.StyleSpan
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -139,11 +143,20 @@ class WTStudentsFragment : Fragment() {
                 // If student has a photo URI, set it
                 student.photoUri?.let { uri ->
                     try {
-                        profileImageView.setImageURI(Uri.parse(uri))
+                        Log.d("WTStudentsFragment", "Loading profile image from URI: $uri")
+                        if (uri.startsWith("https://")) {
+                            com.bumptech.glide.Glide.with(requireContext())
+                                .load(uri)
+                                .placeholder(R.drawable.default_profile)
+                                .error(R.drawable.default_profile)
+                                .into(profileImageView)
+                        } else {
+                            profileImageView.setImageURI(Uri.parse(uri))
+                        }
                         currentPhotoUri = Uri.parse(uri)
                     } catch (e: Exception) {
-                        // If there's an error loading the image, log it but continue
-                        e.printStackTrace()
+                        Log.e("WTStudentsFragment", "Error loading profile image: ${e.message}")
+                        profileImageView.setImageResource(R.drawable.default_profile)
                     }
                 }
             }
@@ -328,8 +341,18 @@ class WTStudentsFragment : Fragment() {
             
             val imageView = dialog.findViewById<com.google.android.material.imageview.ShapeableImageView>(R.id.fullscreenImageView)
             try {
-                imageView?.setImageURI(uri)
+                Log.d("WTStudentsFragment", "Loading fullscreen image from URI: $uri")
+                if (uri.toString().startsWith("https://")) {
+                    com.bumptech.glide.Glide.with(requireContext())
+                        .load(uri)
+                        .placeholder(R.drawable.default_profile)
+                        .error(R.drawable.default_profile)
+                        .into(imageView!!)
+                } else {
+                    imageView?.setImageURI(uri)
+                }
             } catch (e: Exception) {
+                Log.e("WTStudentsFragment", "Error loading fullscreen image: ${e.message}")
                 Toast.makeText(requireContext(), "Failed to load image", Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
             }
@@ -363,7 +386,7 @@ class WTStudentsFragment : Fragment() {
         }
         
         // Handle photo upload
-        var finalPhotoUri: String? = null
+        var finalPhotoUri: String?
         if (currentPhotoUri != null) {
             // Upload the photo to Firebase Storage
             viewModel.uploadProfilePicture(currentPhotoUri!!) { cloudUri ->
@@ -453,33 +476,104 @@ class WTStudentsFragment : Fragment() {
         // Set up the profile image
         val profileImageView = dialogView.findViewById<com.google.android.material.imageview.ShapeableImageView>(R.id.profileImageView)
         if (!student.photoUri.isNullOrEmpty()) {
-            try {
-                profileImageView.setImageURI(Uri.parse(student.photoUri))
-            } catch (e: Exception) {
-                profileImageView.setImageResource(R.drawable.default_profile)
+            Log.d("WTStudentsFragment", "Loading profile image from URI: ${student.photoUri}")
+            if (student.photoUri.startsWith("https://")) {
+                com.bumptech.glide.Glide.with(requireContext())
+                    .load(student.photoUri)
+                    .placeholder(R.drawable.default_profile)
+                    .error(R.drawable.default_profile)
+                    .into(profileImageView)
+            } else {
+                try {
+                    profileImageView.setImageURI(Uri.parse(student.photoUri))
+                } catch (e: Exception) {
+                    Log.e("WTStudentsFragment", "Error loading local image: ${e.message}")
+                    profileImageView.setImageResource(R.drawable.default_profile)
+                }
             }
         } else {
+            Log.d("WTStudentsFragment", "No profile image URI available")
             profileImageView.setImageResource(R.drawable.default_profile)
         }
         
-        // Set up the details text
+        // Set up the name
+        val nameTextView = dialogView.findViewById<TextView>(R.id.nameTextView)
+        nameTextView.text = student.name
+        
+        // Set up the details text with bold labels
         val detailsTextView = dialogView.findViewById<TextView>(R.id.detailsTextView)
-        val studentName = student.name
-        val isActive = if (student.isActive) "Active" else "Inactive"
-        val registrationStatus = if (viewModel.isStudentCurrentlyRegistered(student.id)) 
-            "Currently registered" else "Not registered"
+        val details = SpannableStringBuilder().apply {
+            // Phone
+            append(createBoldSpan("Phone: "))
+            append("${student.phoneNumber}\n")
             
-        detailsTextView.text = "Phone: ${student.phoneNumber}\n" +
-                     "${student.email?.let { "Email: $it\n" } ?: ""}" +
-                     "${student.instagram?.let { "Instagram: $it\n" } ?: ""}" +
-                     "Status: $isActive\n" +
-                     "Registration: $registrationStatus"
+            // Instagram (if available)
+            if (!student.instagram.isNullOrEmpty()) {
+                append(createBoldSpan("Instagram: "))
+                append("${student.instagram}\n")
+            }
+            
+            // Status
+            append(createBoldSpan("Status: "))
+            append("${if (student.isActive) "Active" else "Inactive"}\n")
+            
+            // Registration
+            append(createBoldSpan("Registration: "))
+            append(if (viewModel.isStudentCurrentlyRegistered(student.id)) 
+                "Currently registered" else "Not registered")
+        }
+        detailsTextView.text = details
+        
+        // Set up call button
+        val callButton = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.callButton)
+        callButton.setOnClickListener {
+            val intent = Intent(Intent.ACTION_DIAL).apply {
+                data = Uri.parse("tel:${student.phoneNumber}")
+            }
+            try {
+                startActivity(intent)
+            } catch (e: Exception) {
+                showSnackbar("Could not open phone app")
+            }
+        }
+        
+        // Set up WhatsApp button
+        val whatsappButton = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.whatsappButton)
+        whatsappButton.setOnClickListener {
+            val phoneNumber = student.phoneNumber?.let { number ->
+                // Remove all non-digit characters and ensure it starts with 90
+                val digitsOnly = number.replace(Regex("[^0-9]"), "")
+                if (digitsOnly.startsWith("0")) {
+                    "90${digitsOnly.substring(1)}"
+                } else {
+                    digitsOnly
+                }
+            } ?: return@setOnClickListener
+            
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                data = Uri.parse("https://api.whatsapp.com/send?phone=$phoneNumber")
+            }
+            try {
+                startActivity(intent)
+            } catch (e: Exception) {
+                showSnackbar("Could not open WhatsApp")
+            }
+        }
         
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle(studentName)
             .setView(dialogView)
-            .setPositiveButton(R.string.ok, null)
             .show()
+    }
+    
+    private fun createBoldSpan(text: String): SpannableString {
+        return SpannableString(text).apply {
+            setSpan(
+                StyleSpan(android.graphics.Typeface.BOLD),
+                0,
+                length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
     }
     
     private fun showContextMenu(student: WTStudent, view: View) {
