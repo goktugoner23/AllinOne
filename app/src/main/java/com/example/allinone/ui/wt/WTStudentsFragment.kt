@@ -398,7 +398,8 @@ class WTStudentsFragment : Fragment() {
         
         // Handle photo upload
         var finalPhotoUri: String?
-        if (currentPhotoUri != null) {
+        if (currentPhotoUri != null && (currentPhotoUri != Uri.parse(editingStudent?.photoUri))) {
+            // Only upload if the photo URI is different from the existing one
             // Upload the photo to Firebase Storage
             viewModel.uploadProfilePicture(currentPhotoUri!!) { cloudUri ->
                 finalPhotoUri = cloudUri

@@ -72,6 +72,7 @@ class HomeFragment : Fragment() {
             setHoleColor(holeColor)
             setTransparentCircleAlpha(0)
             setNoDataText("No transactions yet")
+            setRotationEnabled(false)
             
             // Set theme-appropriate text colors
             legend.textColor = ContextCompat.getColor(requireContext(), 
