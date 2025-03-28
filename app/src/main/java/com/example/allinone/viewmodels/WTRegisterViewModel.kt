@@ -417,4 +417,35 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
             ?.filter { it.studentId == studentId }
             ?.maxByOrNull { it.startDate ?: Date(0) }
     }
+
+    /**
+     * Upload a profile picture to Firebase Storage
+     * @param uri The URI of the image to upload
+     * @param onComplete Callback with the cloud URI when upload is complete
+     */
+    fun uploadProfilePicture(uri: Uri, onComplete: (String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                
+                // Upload the file to Firebase Storage
+                val cloudUri = repository.uploadFile(
+                    fileUri = uri,
+                    folderName = "profile_pictures"
+                )
+                
+                if (cloudUri == null) {
+                    _error.value = "Failed to upload profile picture"
+                    onComplete(null)
+                } else {
+                    onComplete(cloudUri)
+                }
+            } catch (e: Exception) {
+                _error.value = "Error uploading profile picture: ${e.message}"
+                onComplete(null)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
 } 

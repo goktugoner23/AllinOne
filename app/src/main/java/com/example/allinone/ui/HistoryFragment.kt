@@ -101,9 +101,9 @@ class HistoryFragment : BaseFragment() {
                 binding.emptyState.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
                 binding.recyclerView.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
                 
+                // Only show snackbar if there are no items
                 if (items.isEmpty()) {
                     Log.d(TAG, "History list is empty, showing empty state")
-                    // Show a message to the user
                     Snackbar.make(binding.root, R.string.no_history_items, Snackbar.LENGTH_SHORT).show()
                 }
             }

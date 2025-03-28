@@ -30,6 +30,7 @@ import com.google.android.material.snackbar.Snackbar
 import java.util.Random
 import androidx.lifecycle.ViewModelProvider
 import kotlin.math.absoluteValue
+import androidx.navigation.fragment.findNavController
 
 class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
@@ -336,17 +337,9 @@ class HomeFragment : Fragment() {
         }
         
         newInvestmentButton.setOnClickListener {
-            // Add as regular transaction instead
-            viewModel.addTransaction(
-                amount = amount,
-                type = "Investment",
-                description = description,
-                isIncome = true,
-                category = "Investment"
-            )
+            // Navigate to investments page
+            findNavController().navigate(R.id.nav_investments)
             dialog.dismiss()
-            clearFields()
-            showSnackbar("Investment income added")
         }
         
         dialog.show()

@@ -84,10 +84,12 @@ class WTRegisterContentFragment : Fragment() {
         Log.d("WTRegisterContent", "Setting up RecyclerView")
         
         adapter = WTRegistrationAdapter(
-            onItemClick = { registration -> togglePaymentStatus(registration) },
+            onItemClick = { registration -> showEditDialog(registration) },
             onLongPress = { registration, view -> showContextMenu(registration, view) },
-            onPaymentStatusClick = { _ -> 
-                // Do nothing when clicking payment status button
+            onPaymentStatusClick = { registration -> 
+                // Toggle payment status
+                val updatedRegistration = registration.copy(isPaid = !registration.isPaid)
+                viewModel.updateRegistration(updatedRegistration)
             },
             onShareClick = { registration -> shareRegistrationInfo(registration) },
             getStudentName = { studentId -> 
@@ -580,18 +582,6 @@ class WTRegisterContentFragment : Fragment() {
                 "Auth: $authStatus\n" +
                 "Long press again after refresh to update count"
         Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
-    }
-
-    private fun togglePaymentStatus(registration: WTRegistration) {
-        val updatedRegistration = registration.copy(isPaid = !registration.isPaid)
-        
-        // Use a direct call to updateRegistration instead of coroutine
-        viewModel.updateRegistration(updatedRegistration)
-        
-        // Show toast after initiating update
-        val statusText = if (updatedRegistration.isPaid) "Paid" else "Unpaid"
-        val message = "Payment status changed to $statusText"
-        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
     }
 
     private fun updateAttachmentPreview(dialogBinding: DialogEditWtStudentBinding, uri: Uri) {

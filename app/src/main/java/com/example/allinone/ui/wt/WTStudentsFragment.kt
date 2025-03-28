@@ -172,7 +172,7 @@ class WTStudentsFragment : Fragment() {
         // Setup save button listener
         dialogBinding.saveButton.setOnClickListener {
             if (validateStudentForm(dialogBinding)) {
-                saveStudent(dialogBinding)
+                saveStudent()
                 dialog.dismiss()
                 currentDialogBinding = null
             }
@@ -347,57 +347,47 @@ class WTStudentsFragment : Fragment() {
         currentDialogBinding?.profileImageView?.setImageResource(R.drawable.default_profile)
     }
     
-    private fun saveStudent(dialogBinding: DialogAddStudentBinding) {
-        val name = dialogBinding.nameEditText.text.toString().trim()
-        val phone = dialogBinding.phoneEditText.text.toString().trim()
-        val email = dialogBinding.emailEditText.text.toString().trim().let { 
-            if (it.isEmpty()) null else it 
-        }
-        val instagram = dialogBinding.instagramEditText.text.toString().trim().let { 
-            if (it.isEmpty()) null else it 
-        }
+    private fun saveStudent() {
+        val dialogBinding = currentDialogBinding ?: return
+        
+        val name = dialogBinding.nameEditText.text.toString()
+        val phone = dialogBinding.phoneEditText.text.toString()
+        val email = dialogBinding.emailEditText.text.toString()
+        val instagram = dialogBinding.instagramEditText.text.toString()
         val isActive = dialogBinding.activeSwitch.isChecked
         
-        // First, try to find if this student already exists in our records
-        val existingStudentByEdit = editingStudent
-        val existingStudentByName = viewModel.students.value?.find { 
-            it.name.equals(name, ignoreCase = true) || it.phoneNumber == phone 
+        if (name.isBlank()) {
+            showSnackbar("Name is required")
+            return
         }
         
-        // Determine which existing student to use (prefer the one being edited)
-        val existingStudent = existingStudentByEdit ?: existingStudentByName
-        
-        // Handle photo URI based on whether it was updated or removed
+        // Handle photo upload
         var finalPhotoUri: String? = null
-        
-        if (photoRemoved) {
-            // If photo was deliberately removed, leave URI as null
-            finalPhotoUri = null
-            Log.d("WTStudentsFragment", "Photo was deliberately removed")
-        } else if (currentPhotoUri != null) {
-            // If we have a new photo, use its URI
-            var persistedPhotoUri = currentPhotoUri?.toString()
-            if (persistedPhotoUri?.startsWith("content://") == true) {
-                try {
-                    // Take a persistable URI permission
-                    val contentResolver = requireContext().contentResolver
-                    val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    contentResolver.takePersistableUriPermission(currentPhotoUri!!, flags)
-                    
-                    // Log success
-                    Log.d("WTStudentsFragment", "Took persistable URI permission for: $persistedPhotoUri")
-                } catch (e: Exception) {
-                    Log.e("WTStudentsFragment", "Failed to take persistable URI permission: ${e.message}")
-                    Toast.makeText(requireContext(), "Warning: Photo might not be accessible after app restart", Toast.LENGTH_SHORT).show()
-                }
+        if (currentPhotoUri != null) {
+            // Upload the photo to Firebase Storage
+            viewModel.uploadProfilePicture(currentPhotoUri!!) { cloudUri ->
+                finalPhotoUri = cloudUri
+                saveStudentToDatabase(name, phone, email, instagram, isActive, finalPhotoUri)
             }
-            finalPhotoUri = persistedPhotoUri
-        } else if (existingStudent != null && !photoRemoved) {
+        } else if (!photoRemoved) {
             // If no new photo and not removed, keep the existing one
-            finalPhotoUri = existingStudent.photoUri
+            finalPhotoUri = editingStudent?.photoUri
+            saveStudentToDatabase(name, phone, email, instagram, isActive, finalPhotoUri)
+        } else {
+            // Photo was removed
+            saveStudentToDatabase(name, phone, email, instagram, isActive, null)
         }
-        
-        Log.d("WTStudentsFragment", "Final photo URI: $finalPhotoUri, removed: $photoRemoved")
+    }
+    
+    private fun saveStudentToDatabase(
+        name: String,
+        phone: String,
+        email: String,
+        instagram: String,
+        isActive: Boolean,
+        photoUri: String?
+    ) {
+        val existingStudent = editingStudent
         
         if (existingStudent != null) {
             // Update existing student
@@ -408,25 +398,19 @@ class WTStudentsFragment : Fragment() {
                 instagram = instagram,
                 isActive = isActive,
                 notes = existingStudent.notes,
-                photoUri = finalPhotoUri
+                photoUri = photoUri
             )
-            
-            // Log what we're updating to help debug
-            Log.d("WTStudentsFragment", "Updating student: ${updatedStudent.id}, name: ${updatedStudent.name}, photoUri: ${updatedStudent.photoUri}")
             
             viewModel.updateStudent(updatedStudent)
         } else {
-            // Create new student only if not found
-            // Log what we're creating to help debug
-            Log.d("WTStudentsFragment", "Creating new student, name: $name, photoUri: $finalPhotoUri")
-            
+            // Create new student
             viewModel.addStudent(
                 name = name,
                 phoneNumber = phone,
                 email = email,
                 instagram = instagram,
                 isActive = isActive,
-                photoUri = finalPhotoUri
+                photoUri = photoUri
             )
         }
         
@@ -529,6 +513,14 @@ class WTStudentsFragment : Fragment() {
         com.google.android.material.snackbar.Snackbar.make(
             binding.root,
             getString(R.string.student_deleted),
+            com.google.android.material.snackbar.Snackbar.LENGTH_LONG
+        ).show()
+    }
+
+    private fun showSnackbar(message: String) {
+        com.google.android.material.snackbar.Snackbar.make(
+            binding.root,
+            message,
             com.google.android.material.snackbar.Snackbar.LENGTH_LONG
         ).show()
     }

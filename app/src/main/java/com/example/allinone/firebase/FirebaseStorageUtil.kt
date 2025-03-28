@@ -34,20 +34,29 @@ class FirebaseStorageUtil(private val context: Context) {
             
             // Generate a unique file name
             val fileName = generateFileName(fileUri)
+            Log.d(TAG, "Generated file name: $fileName")
             
             // Reference to the file location in Firebase Storage
             val fileRef = storageRef.child("users/$userId/$folderName/$fileName")
+            Log.d(TAG, "File reference path: ${fileRef.path}")
             
             // Get content type
             val contentType = getContentType(fileUri)
+            Log.d(TAG, "Content type: $contentType")
             
             // Create metadata with content type
             val metadata = StorageMetadata.Builder()
                 .setContentType(contentType)
                 .build()
             
-            // Upload file with metadata
+            // Upload file with metadata and progress tracking
             val uploadTask = fileRef.putFile(fileUri, metadata)
+            
+            // Add progress listener
+            uploadTask.addOnProgressListener { taskSnapshot ->
+                val progress = (100.0 * taskSnapshot.bytesTransferred / taskSnapshot.totalByteCount).toInt()
+                Log.d(TAG, "Upload progress: $progress%")
+            }
             
             // Wait for upload to complete and get download URL
             val taskSnapshot = uploadTask.await()
