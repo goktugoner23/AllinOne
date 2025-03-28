@@ -14,6 +14,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -446,19 +447,37 @@ class WTStudentsFragment : Fragment() {
     }
 
     private fun showStudentDetails(student: WTStudent) {
-        // Show student details instead of edit dialog
+        // Create a custom view for the dialog
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_student_details, null)
+        
+        // Set up the profile image
+        val profileImageView = dialogView.findViewById<com.google.android.material.imageview.ShapeableImageView>(R.id.profileImageView)
+        if (!student.photoUri.isNullOrEmpty()) {
+            try {
+                profileImageView.setImageURI(Uri.parse(student.photoUri))
+            } catch (e: Exception) {
+                profileImageView.setImageResource(R.drawable.default_profile)
+            }
+        } else {
+            profileImageView.setImageResource(R.drawable.default_profile)
+        }
+        
+        // Set up the details text
+        val detailsTextView = dialogView.findViewById<TextView>(R.id.detailsTextView)
         val studentName = student.name
         val isActive = if (student.isActive) "Active" else "Inactive"
         val registrationStatus = if (viewModel.isStudentCurrentlyRegistered(student.id)) 
             "Currently registered" else "Not registered"
             
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(studentName)
-            .setMessage("Phone: ${student.phoneNumber}\n" +
+        detailsTextView.text = "Phone: ${student.phoneNumber}\n" +
                      "${student.email?.let { "Email: $it\n" } ?: ""}" +
                      "${student.instagram?.let { "Instagram: $it\n" } ?: ""}" +
                      "Status: $isActive\n" +
-                     "Registration: $registrationStatus")
+                     "Registration: $registrationStatus"
+        
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(studentName)
+            .setView(dialogView)
             .setPositiveButton(R.string.ok, null)
             .show()
     }
