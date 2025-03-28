@@ -575,9 +575,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         toggle = ActionBarDrawerToggle(
             this,
             drawerLayout,
-            binding.toolbar,
-            R.string.navigation_drawer_open,
-            R.string.navigation_drawer_close
+            binding.toolbar
         )
         drawerLayout.addDrawerListener(toggle)
         toggle.syncState()

@@ -26,7 +26,6 @@
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/navigation_drawer_open"
                 android:padding="12dp"
                 android:src="@drawable/ic_menu"
                 app:layout_constraintBottom_toBottomOf="parent"
