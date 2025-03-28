@@ -34,14 +34,17 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
-                android:hint="Title">
+                android:hint="Title"
+                android:background="@android:color/white"
+                app:boxBackgroundColor="@android:color/white">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/editNoteTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="text"
-                    android:maxLines="1" />
+                    android:maxLines="1"
+                    android:background="@android:color/white" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <!-- Rich Text Editor Toolbar -->

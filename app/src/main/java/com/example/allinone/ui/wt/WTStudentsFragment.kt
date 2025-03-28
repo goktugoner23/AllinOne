@@ -212,14 +212,24 @@ class WTStudentsFragment : Fragment() {
             
         // Configure dialog window for better keyboard handling
         dialog.window?.apply {
-            // Set soft input mode to adjust nothing and let scrollview handle scrolling
-            setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
+            // Set soft input mode with backward compatibility
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                // For Android 11+, use the new WindowInsets API
+                setDecorFitsSystemWindows(false)
+            } else {
+                // For older Android versions, use the deprecated approach
+                @Suppress("DEPRECATION")
+                setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+            }
             
-            // Set window size to match available screen space
+            // Set window size to match most of the screen space
             setLayout(
                 android.view.WindowManager.LayoutParams.MATCH_PARENT,
                 android.view.WindowManager.LayoutParams.WRAP_CONTENT
             )
+            
+            // Make dialog background properly rounded with padding
+            setBackgroundDrawableResource(R.drawable.dialog_rounded_bg)
         }
         
         dialog.show()

@@ -36,8 +36,10 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
                 android:hint="Title"
-                android:textColorHint="@color/white"
-                app:hintTextColor="@color/white"
+                android:textColorHint="@color/black"
+                app:hintTextColor="@color/black"
+                android:background="@android:color/white"
+                app:boxBackgroundColor="@android:color/white"
                 style="@style/Widget.App.TextInputLayout">
 
                 <com.google.android.material.textfield.TextInputEditText
@@ -46,7 +48,8 @@
                     android:layout_height="wrap_content"
                     android:inputType="text"
                     android:maxLines="1"
-                    android:textColor="@color/white" />
+                    android:textColor="@color/black"
+                    android:background="@android:color/white" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <!-- Rich Text Editor Toolbar -->

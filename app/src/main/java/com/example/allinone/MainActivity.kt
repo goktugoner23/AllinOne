@@ -576,8 +576,8 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             this,
             drawerLayout,
             binding.toolbar,
-            R.string.navigation_drawer_open,
-            R.string.navigation_drawer_close
+            0,
+            0
         )
         drawerLayout.addDrawerListener(toggle)
         toggle.syncState()
