@@ -1692,12 +1692,13 @@ class FirebaseRepository(private val context: Context) {
      * Upload a file to Firebase Storage
      * @param fileUri The URI of the file to upload
      * @param folderName The folder in Firebase Storage to save the file (e.g., "registrations", "notes")
+     * @param id Optional ID to use for subfolder (e.g., studentId or registrationId)
      * @return The download URL of the uploaded file, or null if upload failed
      */
-    suspend fun uploadFile(fileUri: Uri, folderName: String): String? {
+    suspend fun uploadFile(fileUri: Uri, folderName: String, id: String? = null): String? {
         return try {
-            Log.d(TAG, "Uploading file to Firebase Storage: $fileUri")
-            storageUtil.uploadFile(fileUri, folderName)
+            Log.d(TAG, "Uploading file to Firebase Storage: $fileUri in $folderName folder with ID: $id")
+            storageUtil.uploadFile(fileUri, folderName, id)
         } catch (e: Exception) {
             Log.e(TAG, "Error uploading file: ${e.message}", e)
             null
@@ -1716,6 +1717,21 @@ class FirebaseRepository(private val context: Context) {
         } catch (e: Exception) {
             Log.e(TAG, "Error deleting file: ${e.message}", e)
             false
+        }
+    }
+
+    /**
+     * Insert a student and return its generated ID
+     */
+    suspend fun insertStudentAndGetId(student: WTStudent): Long {
+        return try {
+            Log.d(TAG, "Inserting student and returning ID: ${student.name}")
+            val studentId = firebaseManager.saveStudentAndGetId(student)
+            refreshStudents() // Refresh to get the latest data
+            studentId
+        } catch (e: Exception) {
+            Log.e(TAG, "Error inserting student: ${e.message}", e)
+            throw e
         }
     }
 } 

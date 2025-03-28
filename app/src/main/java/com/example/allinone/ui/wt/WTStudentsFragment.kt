@@ -25,6 +25,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.allinone.R
 import com.example.allinone.adapters.WTStudentAdapter
@@ -41,6 +42,9 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 import kotlin.math.abs
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class WTStudentsFragment : Fragment() {
     private var _binding: FragmentWtStudentsBinding? = null
@@ -407,64 +411,197 @@ class WTStudentsFragment : Fragment() {
             return
         }
         
-        // Handle photo upload
-        var finalPhotoUri: String?
-        if (currentPhotoUri != null && (currentPhotoUri != Uri.parse(editingStudent?.photoUri))) {
-            // Only upload if the photo URI is different from the existing one
-            // Upload the photo to Firebase Storage
-            viewModel.uploadProfilePicture(currentPhotoUri!!) { cloudUri ->
-                finalPhotoUri = cloudUri
-                saveStudentToDatabase(name, phone, email, instagram, isActive, finalPhotoUri)
+        // Show loading indicator
+        val loadingDialog = MaterialAlertDialogBuilder(requireContext())
+            .setView(R.layout.dialog_loading)
+            .setCancelable(false)
+            .create()
+        loadingDialog.show()
+        
+        // Safely convert the existing photo URI string to a Uri object
+        val existingPhotoUri = if (!editingStudent?.photoUri.isNullOrEmpty()) {
+            try {
+                Uri.parse(editingStudent?.photoUri)
+            } catch (e: Exception) {
+                Log.e("WTStudentsFragment", "Error parsing existing photo URI: ${e.message}")
+                null
             }
-        } else if (!photoRemoved) {
-            // If no new photo and not removed, keep the existing one
-            finalPhotoUri = editingStudent?.photoUri
-            saveStudentToDatabase(name, phone, email, instagram, isActive, finalPhotoUri)
         } else {
-            // Photo was removed
-            saveStudentToDatabase(name, phone, email, instagram, isActive, null)
+            null
+        }
+        
+        // Different logic for new vs existing students to handle photo uploads properly
+        if (editingStudent != null) {
+            // EXISTING STUDENT - We have an ID to use for the photo folder
+            handleExistingStudentUpdate(
+                editingStudent!!,
+                name, phone, email, instagram, isActive,
+                currentPhotoUri, existingPhotoUri, photoRemoved,
+                loadingDialog
+            )
+        } else {
+            // NEW STUDENT - We need to create the student first, then handle photo upload
+            handleNewStudentCreation(
+                name, phone, email, instagram, isActive,
+                currentPhotoUri, photoRemoved,
+                loadingDialog
+            )
         }
     }
     
-    private fun saveStudentToDatabase(
+    /**
+     * Handle updating an existing student, including photo upload if needed
+     */
+    private fun handleExistingStudentUpdate(
+        student: WTStudent,
         name: String,
         phone: String,
         email: String,
         instagram: String,
         isActive: Boolean,
-        photoUri: String?
+        newPhotoUri: Uri?,
+        existingPhotoUri: Uri?,
+        photoRemoved: Boolean,
+        loadingDialog: androidx.appcompat.app.AlertDialog
     ) {
-        val existingStudent = editingStudent
+        // Define a holder class to capture photo URI from callback
+        class PhotoResultHolder {
+            var photoUri: String? = null
+        }
+        val resultHolder = PhotoResultHolder()
         
-        if (existingStudent != null) {
-            // Update existing student
-            val updatedStudent = existingStudent.copy(
-                name = name,
-                phoneNumber = phone,
-                email = email,
-                instagram = instagram,
-                isActive = isActive,
-                notes = existingStudent.notes,
-                photoUri = photoUri
-            )
-            
-            viewModel.updateStudent(updatedStudent)
-        } else {
-            // Create new student
-            viewModel.addStudent(
-                name = name,
-                phoneNumber = phone,
-                email = email,
-                instagram = instagram,
-                isActive = isActive,
-                photoUri = photoUri
-            )
+        // Define function to update the student with new information
+        val updateStudentWithPhoto = { 
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    // Create updated student object
+                    val updatedStudent = student.copy(
+                        name = name,
+                        phoneNumber = phone,
+                        email = email,
+                        instagram = instagram,
+                        isActive = isActive,
+                        notes = student.notes,
+                        photoUri = resultHolder.photoUri
+                    )
+                    
+                    // Update student in database
+                    viewModel.updateStudent(updatedStudent)
+                    
+                    withContext(Dispatchers.Main) {
+                        loadingDialog.dismiss()
+                        resetState()
+                    }
+                } catch (e: Exception) {
+                    Log.e("WTStudentsFragment", "Error updating student: ${e.message}", e)
+                    withContext(Dispatchers.Main) {
+                        loadingDialog.dismiss()
+                        showSnackbar("Error updating student: ${e.message}")
+                    }
+                }
+            }
         }
         
-        // Reset temporary fields
+        // Check if we need to upload a new photo
+        if (newPhotoUri != null && (existingPhotoUri == null || newPhotoUri != existingPhotoUri)) {
+            // Upload new photo with student ID as subfolder
+            viewModel.uploadProfilePicture(
+                uri = newPhotoUri,
+                studentId = student.id,  // Use existing student ID for folder
+                onComplete = { cloudUri ->
+                    resultHolder.photoUri = cloudUri
+                    updateStudentWithPhoto()
+                }
+            )
+        } else if (photoRemoved) {
+            // Photo was removed - update with null URI
+            resultHolder.photoUri = null
+            updateStudentWithPhoto()
+        } else {
+            // No photo change - keep existing URI
+            resultHolder.photoUri = student.photoUri
+            updateStudentWithPhoto()
+        }
+    }
+    
+    // Helper function to reset state
+    private fun resetState() {
         editingStudent = null
         currentPhotoUri = null
         photoRemoved = false
+    }
+    
+    /**
+     * Handle creating a new student, then uploading photo if needed
+     */
+    private fun handleNewStudentCreation(
+        name: String,
+        phone: String,
+        email: String,
+        instagram: String,
+        isActive: Boolean,
+        newPhotoUri: Uri?,
+        photoRemoved: Boolean,
+        loadingDialog: androidx.appcompat.app.AlertDialog
+    ) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                // First create the student without a photo to get an ID
+                val studentId = viewModel.addStudentAndGetId(
+                    name = name,
+                    phoneNumber = phone,
+                    email = email,
+                    instagram = instagram,
+                    isActive = isActive
+                )
+                
+                // If we got a valid ID and have a photo to upload
+                if (studentId != null && studentId > 0 && newPhotoUri != null && !photoRemoved) {
+                    // Now upload the photo with the real student ID
+                    val cloudUri = withContext(Dispatchers.Main) {
+                        // Need to switch to Main for this call since it uses callbacks
+                        val uploadLatch = java.util.concurrent.CountDownLatch(1)
+                        val resultHolder = object {
+                            var resultUri: String? = null
+                        }
+                        
+                        viewModel.uploadProfilePicture(
+                            uri = newPhotoUri,
+                            studentId = studentId,
+                            onComplete = { uri ->
+                                resultHolder.resultUri = uri
+                                uploadLatch.countDown()
+                            }
+                        )
+                        
+                        // Wait for the upload to complete (with timeout)
+                        try {
+                            uploadLatch.await(30, java.util.concurrent.TimeUnit.SECONDS)
+                        } catch (e: Exception) {
+                            Log.e("WTStudentsFragment", "Timeout waiting for photo upload", e)
+                        }
+                        
+                        resultHolder.resultUri
+                    }
+                    
+                    // Update the student with the photo URI
+                    if (cloudUri != null) {
+                        viewModel.updateStudentPhoto(studentId, cloudUri)
+                    }
+                }
+                
+                withContext(Dispatchers.Main) {
+                    loadingDialog.dismiss()
+                    resetState()
+                }
+            } catch (e: Exception) {
+                Log.e("WTStudentsFragment", "Error creating student: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    loadingDialog.dismiss()
+                    showSnackbar("Error creating student: ${e.message}")
+                }
+            }
+        }
     }
 
     private fun observeNetworkStatus() {
@@ -508,7 +645,9 @@ class WTStudentsFragment : Fragment() {
                     .into(profileImageView)
             } else {
                 try {
-                    profileImageView.setImageURI(Uri.parse(student.photoUri))
+                    // Safely parse URI
+                    val photoUri = Uri.parse(student.photoUri)
+                    profileImageView.setImageURI(photoUri)
                 } catch (e: Exception) {
                     Log.e("WTStudentsFragment", "Error loading local image: ${e.message}")
                     profileImageView.setImageResource(R.drawable.default_profile)
@@ -684,35 +823,43 @@ class WTStudentsFragment : Fragment() {
     }
 
     private fun showFullScreenImage(imageUri: String?) {
-        imageUri?.let { uri ->
-            val dialog = MaterialAlertDialogBuilder(requireContext())
-                .setView(R.layout.dialog_fullscreen_image)
-                .create()
-            
-            dialog.show()
-            
-            val imageView = dialog.findViewById<com.google.android.material.imageview.ShapeableImageView>(R.id.fullscreenImageView)
-            try {
-                Log.d("WTStudentsFragment", "Loading fullscreen image from URI: $uri")
-                if (uri.startsWith("https://")) {
-                    com.bumptech.glide.Glide.with(requireContext())
-                        .load(uri)
-                        .placeholder(R.drawable.default_profile)
-                        .error(R.drawable.default_profile)
-                        .into(imageView!!)
-                } else {
-                    imageView?.setImageURI(Uri.parse(uri))
+        if (imageUri.isNullOrEmpty()) {
+            Toast.makeText(requireContext(), "No image to display", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setView(R.layout.dialog_fullscreen_image)
+            .create()
+        
+        dialog.show()
+        
+        val imageView = dialog.findViewById<com.google.android.material.imageview.ShapeableImageView>(R.id.fullscreenImageView)
+        try {
+            Log.d("WTStudentsFragment", "Loading fullscreen image from URI: $imageUri")
+            if (imageUri.startsWith("https://")) {
+                com.bumptech.glide.Glide.with(requireContext())
+                    .load(imageUri)
+                    .placeholder(R.drawable.default_profile)
+                    .error(R.drawable.default_profile)
+                    .into(imageView!!)
+            } else {
+                try {
+                    imageView?.setImageURI(Uri.parse(imageUri))
+                } catch (e: Exception) {
+                    Log.e("WTStudentsFragment", "Error parsing URI: ${e.message}")
+                    imageView?.setImageResource(R.drawable.default_profile)
                 }
-            } catch (e: Exception) {
-                Log.e("WTStudentsFragment", "Error loading fullscreen image: ${e.message}")
-                Toast.makeText(requireContext(), "Failed to load image", Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
             }
-            
-            // Close on tap
-            imageView?.setOnClickListener {
-                dialog.dismiss()
-            }
+        } catch (e: Exception) {
+            Log.e("WTStudentsFragment", "Error loading fullscreen image: ${e.message}")
+            Toast.makeText(requireContext(), "Failed to load image", Toast.LENGTH_SHORT).show()
+            dialog.dismiss()
+        }
+        
+        // Close on tap
+        imageView?.setOnClickListener {
+            dialog.dismiss()
         }
     }
 

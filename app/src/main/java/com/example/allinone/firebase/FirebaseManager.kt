@@ -17,6 +17,7 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.util.*
 import java.util.concurrent.TimeUnit
+import kotlin.math.abs
 
 /**
  * Manager class for Firebase operations (storage only)
@@ -259,23 +260,25 @@ class FirebaseManager(private val context: Context? = null) {
         try {
             Log.d(TAG, "Starting to save student with ID: ${student.id}, name: ${student.name}, deviceId: $deviceId")
             
-            val studentMap = hashMapOf(
-                "id" to student.id,
-                "name" to student.name,
-                "phoneNumber" to student.phoneNumber,
-                "email" to student.email,
-                "instagram" to student.instagram,
-                "isActive" to student.isActive,
-                "deviceId" to deviceId,
-                "notes" to student.notes,
-                "photoUri" to student.photoUri
+            val studentWithId = student.copy(id = if (student.id <= 0) UUID.randomUUID().mostSignificantBits.toLong() else student.id)
+            
+            // Convert to map for Firestore
+            val studentMap = mapOf(
+                "id" to studentWithId.id,
+                "name" to studentWithId.name,
+                "phoneNumber" to studentWithId.phoneNumber,
+                "email" to (studentWithId.email ?: ""),
+                "instagram" to (studentWithId.instagram ?: ""),
+                "isActive" to studentWithId.isActive,
+                "notes" to (studentWithId.notes ?: ""),
+                "photoUri" to (studentWithId.photoUri ?: "")
             )
             
-            Log.d(TAG, "Setting student document with ID: ${student.id}")
+            Log.d(TAG, "Setting student document with ID: ${studentWithId.id}")
             
             // Always use the student ID directly as a string for the document ID
             // This ensures consistency between saving and loading
-            val task = studentsCollection.document(student.id.toString()).set(studentMap)
+            val task = studentsCollection.document(studentWithId.id.toString()).set(studentMap)
             Tasks.await(task, 15, TimeUnit.SECONDS)
             
             return true
@@ -773,6 +776,49 @@ class FirebaseManager(private val context: Context? = null) {
         } catch (e: Exception) {
             Log.e(TAG, "Error getting registrations for student: ${e.message}")
             emptyList()
+        }
+    }
+    
+    /**
+     * Save a student to Firestore and return its generated ID
+     */
+    suspend fun saveStudentAndGetId(student: WTStudent): Long = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Saving student to get ID: ${student.name}")
+            
+            // Generate a new ID if not provided
+            val studentId = if (student.id <= 0) {
+                abs(UUID.randomUUID().mostSignificantBits)
+            } else {
+                student.id
+            }
+            
+            // Use the generated ID
+            val studentWithId = student.copy(id = studentId)
+            
+            // Convert to map for Firestore
+            val studentMap = mapOf(
+                "id" to studentWithId.id,
+                "name" to studentWithId.name,
+                "phoneNumber" to studentWithId.phoneNumber,
+                "email" to (studentWithId.email ?: ""),
+                "instagram" to (studentWithId.instagram ?: ""),
+                "isActive" to studentWithId.isActive,
+                "notes" to (studentWithId.notes ?: ""),
+                "photoUri" to (studentWithId.photoUri ?: "")
+            )
+            
+            // Save to Firestore
+            firestore.collection("students")
+                .document(studentId.toString())
+                .set(studentMap)
+                .await()
+            
+            Log.d(TAG, "Student saved with ID: $studentId")
+            studentId
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving student: ${e.message}", e)
+            throw e
         }
     }
 } 

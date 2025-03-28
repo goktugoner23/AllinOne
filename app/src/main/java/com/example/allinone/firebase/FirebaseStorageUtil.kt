@@ -14,7 +14,7 @@ import java.io.File
 import java.util.UUID
 
 /**
- * Utility class for handling file uploads to Firebase Storage
+ * Utility class for handling file uploads to Firebase Storage with ID-specific subfolders
  */
 class FirebaseStorageUtil(private val context: Context) {
     private val TAG = "FirebaseStorageUtil"
@@ -23,12 +23,14 @@ class FirebaseStorageUtil(private val context: Context) {
 
     /**
      * Upload a file to Firebase Storage and return the download URL
-     *
+     * Files are stored in a structure: /{folderName}/{id}/filename
+     * 
      * @param fileUri The URI of the file to upload
-     * @param folderName The folder name in Firebase Storage (e.g., "registrations", "notes")
+     * @param folderName The folder name in Firebase Storage (e.g., "registrations", "profile_pictures")
+     * @param id Optional ID for creating a subfolder (defaults to random UUID)
      * @return The download URL of the uploaded file or null if upload failed
      */
-    suspend fun uploadFile(fileUri: Uri, folderName: String): String? {
+    suspend fun uploadFile(fileUri: Uri, folderName: String, id: String? = null): String? {
         return try {
             Log.d(TAG, "Starting file upload: $fileUri to folder: $folderName")
             
@@ -36,8 +38,11 @@ class FirebaseStorageUtil(private val context: Context) {
             val fileName = generateFileName(fileUri)
             Log.d(TAG, "Generated file name: $fileName")
             
-            // Reference to the file location in Firebase Storage
-            val fileRef = storageRef.child("$folderName/$fileName")
+            // Create subfolder ID based on provided ID or random UUID
+            val subfolderId = id ?: UUID.randomUUID().toString()
+            
+            // Reference to the file location in Firebase Storage with subfolder structure
+            val fileRef = storageRef.child("$folderName/$subfolderId/$fileName")
             Log.d(TAG, "File reference path: ${fileRef.path}")
             
             // Get content type

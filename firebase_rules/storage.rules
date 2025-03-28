@@ -1,19 +1,9 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow read/write access to profile pictures
-    match /profile_pictures/{imageId} {
-      allow read, write: if true;
-    }
-    
-    // Allow read/write access to registrations
-    match /registrations/{fileId} {
-      allow read, write: if true;
-    }
-    
-    // Default rule - deny everything else
+    // Allow read/write access to all paths
     match /{allPaths=**} {
-      allow read, write: if false;
+      allow read, write: if true;
     }
   }
-} 
+}
