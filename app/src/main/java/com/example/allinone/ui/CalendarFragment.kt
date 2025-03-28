@@ -24,6 +24,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import com.example.allinone.utils.TextStyleUtils
 
 class CalendarFragment : Fragment() {
     private var _binding: FragmentCalendarBinding? = null
@@ -436,20 +437,8 @@ class CalendarFragment : Fragment() {
                     dayView.textSize = 14f
                 }
                 isToday -> {
-                    // Today gets EXTRA BOLD text when another day is selected
-                    dayView.background = null
-                    dayView.setTextColor(ContextCompat.getColor(requireContext(), R.color.black))
-                    
-                    // Create an extra bold typeface for today
-                    val typefaceStyle = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, 
-                                         android.graphics.Typeface.BOLD)
-                    dayView.setTypeface(typefaceStyle)
-                    
-                    // Make text even larger for better visibility
-                    dayView.textSize = 20f
-                    
-                    // Make the text appear bolder with paint flags
-                    dayView.paintFlags = dayView.paintFlags or android.graphics.Paint.FAKE_BOLD_TEXT_FLAG
+                    // Today gets themed bold text when another day is selected
+                    updateTodayHighlighting(dayView, true)
                 }
                 else -> {
                     // Regular day styling
@@ -768,5 +757,33 @@ class CalendarFragment : Fragment() {
         
         // Force refresh to ensure all lessons are visible
         viewModel.forceRefresh()
+    }
+
+    // For today's date highlighting
+    private fun updateTodayHighlighting(dayView: TextView, isToday: Boolean) {
+        if (isToday) {
+            // Today gets EXTRA BOLD text
+            dayView.background = null
+            
+            // Get consistent text color based on theme
+            val isNightMode = resources.configuration.uiMode and 
+                android.content.res.Configuration.UI_MODE_NIGHT_MASK == 
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+            
+            // Set text color based on theme - black in light mode, white in night mode
+            val textColor = if (isNightMode) android.graphics.Color.WHITE else android.graphics.Color.BLACK
+            dayView.setTextColor(textColor)
+            
+            // Create an extra bold typeface for today
+            val typefaceStyle = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, 
+                                android.graphics.Typeface.BOLD)
+            dayView.setTypeface(typefaceStyle)
+            
+            // Make text even larger for better visibility
+            dayView.textSize = 20f
+            
+            // Make the text appear bolder with paint flags
+            dayView.paintFlags = dayView.paintFlags or android.graphics.Paint.FAKE_BOLD_TEXT_FLAG
+        }
     }
 } 

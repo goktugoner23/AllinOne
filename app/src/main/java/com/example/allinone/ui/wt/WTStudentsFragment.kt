@@ -31,6 +31,7 @@ import com.example.allinone.adapters.WTStudentAdapter
 import com.example.allinone.data.WTStudent
 import com.example.allinone.databinding.DialogAddStudentBinding
 import com.example.allinone.databinding.FragmentWtStudentsBinding
+import com.example.allinone.utils.TextStyleUtils
 import com.example.allinone.viewmodels.WTRegisterViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
@@ -532,21 +533,21 @@ class WTStudentsFragment : Fragment() {
         val detailsTextView = dialogView.findViewById<TextView>(R.id.detailsTextView)
         val details = SpannableStringBuilder().apply {
             // Phone
-            append(createBoldSpan("Phone: "))
+            append(TextStyleUtils.createBoldSpan(requireContext(), "Phone: "))
             append("${student.phoneNumber}\n")
             
             // Instagram (if available)
             if (!student.instagram.isNullOrEmpty()) {
-                append(createBoldSpan("Instagram: "))
+                append(TextStyleUtils.createBoldSpan(requireContext(), "Instagram: "))
                 append("${student.instagram}\n")
             }
             
             // Status
-            append(createBoldSpan("Status: "))
+            append(TextStyleUtils.createBoldSpan(requireContext(), "Status: "))
             append("${if (student.isActive) "Active" else "Inactive"}\n")
             
             // Registration
-            append(createBoldSpan("Registration: "))
+            append(TextStyleUtils.createBoldSpan(requireContext(), "Registration: "))
             append(if (viewModel.isStudentCurrentlyRegistered(student.id)) 
                 "Currently registered" else "Not registered")
         }
@@ -618,17 +619,6 @@ class WTStudentsFragment : Fragment() {
         MaterialAlertDialogBuilder(requireContext())
             .setView(dialogView)
             .show()
-    }
-    
-    private fun createBoldSpan(text: String): SpannableString {
-        return SpannableString(text).apply {
-            setSpan(
-                StyleSpan(android.graphics.Typeface.BOLD),
-                0,
-                length,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
     }
     
     private fun showContextMenu(student: WTStudent, view: View) {
