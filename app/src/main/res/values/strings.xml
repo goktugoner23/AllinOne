@@ -154,4 +154,8 @@
     <string name="cannot_delete">Cannot Delete</string>
     <string name="student_has_active_registrations">This student has active registrations and cannot be deleted.</string>
     <string name="ok">OK</string>
+    
+    <!-- Navigation Drawer -->
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
 </resources>

@@ -560,6 +560,33 @@ class WTStudentsFragment : Fragment() {
             }
         }
         
+        // Set up Instagram button
+        val instagramButton = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.instagramButton)
+        if (!student.instagram.isNullOrEmpty()) {
+            instagramButton.visibility = View.VISIBLE
+            instagramButton.setOnClickListener {
+                val instagramUsername = student.instagram.trim().replace("@", "")
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    data = Uri.parse("https://instagram.com/$instagramUsername")
+                }
+                try {
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    // Try opening in browser if Instagram app is not installed
+                    val browserIntent = Intent(Intent.ACTION_VIEW).apply {
+                        data = Uri.parse("https://www.instagram.com/$instagramUsername")
+                    }
+                    try {
+                        startActivity(browserIntent)
+                    } catch (e: Exception) {
+                        showSnackbar("Could not open Instagram")
+                    }
+                }
+            }
+        } else {
+            instagramButton.visibility = View.GONE
+        }
+        
         MaterialAlertDialogBuilder(requireContext())
             .setView(dialogView)
             .show()
