@@ -9,7 +9,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Day:"
-        android:textStyle="bold" />
+        style="@style/BoldText" />
 
     <TextView
         android:id="@+id/dayText"
@@ -23,7 +23,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Time:"
-        android:textStyle="bold"
+        style="@style/BoldText"
         android:layout_marginBottom="8dp" />
 
     <LinearLayout

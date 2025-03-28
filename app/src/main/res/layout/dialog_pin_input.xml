@@ -9,7 +9,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="WARNING: This is a dangerous operation!"
-        android:textStyle="bold"
+        style="@style/BoldText"
         android:textColor="#F44336"
         android:textSize="16sp" 
         android:layout_marginBottom="8dp"/>

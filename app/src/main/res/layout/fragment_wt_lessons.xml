@@ -32,7 +32,7 @@
                 android:layout_height="wrap_content"
                 android:text="Select Days"
                 android:textSize="16sp"
-                android:textStyle="bold"
+                style="@style/BoldText"
                 android:layout_marginBottom="8dp" />
 
             <com.google.android.material.chip.ChipGroup
@@ -99,7 +99,7 @@
                 android:layout_height="wrap_content"
                 android:text="Lesson Time"
                 android:textSize="16sp"
-                android:textStyle="bold"
+                style="@style/BoldText"
                 android:layout_marginBottom="8dp" />
 
             <LinearLayout
@@ -158,7 +158,7 @@
                 android:layout_height="wrap_content"
                 android:text="Current Lessons"
                 android:textSize="16sp"
-                android:textStyle="bold"
+                style="@style/BoldText"
                 android:layout_marginBottom="8dp" />
 
             <LinearLayout
