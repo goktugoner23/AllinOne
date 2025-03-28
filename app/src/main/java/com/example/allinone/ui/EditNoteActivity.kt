@@ -21,6 +21,7 @@ import com.example.allinone.databinding.ActivityEditNoteBinding
 import com.example.allinone.viewmodels.NotesViewModel
 import io.github.mthli.knife.KnifeText
 import java.util.Date
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class EditNoteActivity : AppCompatActivity() {
     
@@ -350,16 +351,23 @@ class EditNoteActivity : AppCompatActivity() {
     }
     
     private fun deleteNote() {
-        // Implement deletion confirmation dialog here
         noteId?.let { id ->
             viewModel.allNotes.observe(this) { notes ->
                 // Find the specific note with this ID
                 val note = notes.find { it.id == id }
                 
                 note?.let { foundNote ->
-                    viewModel.deleteNote(foundNote)
-                    Toast.makeText(this, getString(R.string.note_deleted), Toast.LENGTH_SHORT).show()
-                    finish()
+                    // Show confirmation dialog
+                    MaterialAlertDialogBuilder(this)
+                        .setTitle(R.string.delete_note)
+                        .setMessage(R.string.delete_note_confirmation)
+                        .setPositiveButton(R.string.delete) { _, _ ->
+                            viewModel.deleteNote(foundNote)
+                            Toast.makeText(this, getString(R.string.note_deleted), Toast.LENGTH_SHORT).show()
+                            finish()
+                        }
+                        .setNegativeButton(R.string.cancel, null)
+                        .show()
                 }
             }
         }
