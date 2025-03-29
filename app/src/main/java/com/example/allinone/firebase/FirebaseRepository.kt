@@ -1696,12 +1696,41 @@ class FirebaseRepository(private val context: Context) {
      * @return The download URL of the uploaded file, or null if upload failed
      */
     suspend fun uploadFile(fileUri: Uri, folderName: String, id: String? = null): String? {
-        return try {
-            Log.d(TAG, "Uploading file to Firebase Storage: $fileUri in $folderName folder with ID: $id")
-            storageUtil.uploadFile(fileUri, folderName, id)
+        Log.d(TAG, "============ UPLOAD FILE ============")
+        Log.d(TAG, "Starting uploadFile: fileUri=$fileUri, folderName=$folderName, id=$id")
+        
+        try {
+            if (!networkUtils.isActiveNetworkConnected()) {
+                Log.e(TAG, "Upload failed: No network connection")
+                return null
+            }
+            
+            // Verify the URI is valid
+            if (fileUri.toString().isEmpty()) {
+                Log.e(TAG, "Upload failed: Empty URI")
+                return null
+            }
+            
+            if (!fileUri.toString().startsWith("content://")) {
+                Log.e(TAG, "Upload failed: URI doesn't start with content:// - ${fileUri.toString().take(20)}")
+                return null
+            }
+            
+            Log.d(TAG, "Calling storageUtil.uploadFile...")
+            val result = storageUtil.uploadFile(fileUri, folderName, id)
+            
+            if (result != null) {
+                Log.d(TAG, "Upload successful! Result URL: ${result.take(50)}...")
+            } else {
+                Log.e(TAG, "Upload failed! storageUtil.uploadFile returned null")
+            }
+            
+            return result
         } catch (e: Exception) {
-            Log.e(TAG, "Error uploading file: ${e.message}", e)
-            null
+            Log.e(TAG, "Exception in uploadFile: ${e.javaClass.simpleName}: ${e.message}", e)
+            return null
+        } finally {
+            Log.d(TAG, "============ END UPLOAD FILE ============")
         }
     }
     
@@ -1731,6 +1760,21 @@ class FirebaseRepository(private val context: Context) {
             studentId
         } catch (e: Exception) {
             Log.e(TAG, "Error inserting student: ${e.message}", e)
+            throw e
+        }
+    }
+
+    /**
+     * Insert an investment and return its generated ID
+     */
+    suspend fun insertInvestmentAndGetId(investment: Investment): Long {
+        return try {
+            Log.d(TAG, "Inserting investment and returning ID: ${investment.name}")
+            val investmentId = firebaseManager.saveInvestmentAndGetId(investment)
+            refreshInvestments() // Refresh to get the latest data
+            investmentId
+        } catch (e: Exception) {
+            Log.e(TAG, "Error inserting investment: ${e.message}", e)
             throw e
         }
     }

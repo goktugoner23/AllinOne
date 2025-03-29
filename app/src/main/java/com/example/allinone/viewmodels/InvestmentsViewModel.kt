@@ -1,6 +1,7 @@
 package com.example.allinone.viewmodels
 
 import android.app.Application
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.*
 import com.example.allinone.data.*
@@ -68,6 +69,8 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
 
     fun updateInvestmentAndTransaction(oldInvestment: Investment, newInvestment: Investment) {
         viewModelScope.launch {
+            // First update the investment including any image URIs
+            Log.d("InvestmentsViewModel", "Updating investment with images: ${newInvestment.imageUri}")
             repository.updateInvestment(newInvestment)
             
             // Only handle the transaction if it's not a past investment
@@ -142,5 +145,58 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             repository.refreshAllData()
         }
+    }
+
+    /**
+     * Add a new investment and return its ID
+     * Used for two-step upload process with images
+     */
+    suspend fun addInvestmentAndGetId(investment: Investment): Long? {
+        return try {
+            repository.insertInvestmentAndGetId(investment)
+        } catch (e: Exception) {
+            Log.e("InvestmentsViewModel", "Error adding investment: ${e.message}", e)
+            null
+        }
+    }
+    
+    /**
+     * Upload an image for an investment directly (simplified version)
+     */
+    suspend fun uploadInvestmentImage(uri: Uri, investmentId: Long): String? {
+        Log.d("InvestmentsViewModel", "Uploading image for investment $investmentId: $uri")
+        
+        try {
+            // Direct upload to Firebase Storage with investment ID subfolder
+            // Use exactly the same pattern as student profile picture upload
+            Log.d("InvestmentsViewModel", "Sending image to FirebaseStorageUtil uploadFile: $investmentId: $uri")
+            val result = repository.uploadFile(
+                fileUri = uri,
+                folderName = "investments",
+                id = investmentId.toString()
+            )
+            
+            if (result == null) {
+                Log.e("InvestmentsViewModel", "Upload failed - no URL returned from repository")
+            } else {
+                Log.d("InvestmentsViewModel", "Upload successful: $result")
+            }
+            
+            return result
+        } catch (e: Exception) {
+            Log.e("InvestmentsViewModel", "Error uploading investment image: ${e.message}", e)
+            return null
+        }
+    }
+    
+    /**
+     * Update the image URIs for an investment
+     * 
+     * @deprecated Use updateInvestment instead
+     */
+    @Suppress("UNUSED_PARAMETER")
+    suspend fun updateInvestmentImages(investmentId: Long, imageUrisString: String) {
+        // This method is deprecated - use updateInvestment instead
+        Log.d("InvestmentsViewModel", "This method is deprecated, use updateInvestment instead")
     }
 } 

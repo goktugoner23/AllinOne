@@ -821,4 +821,47 @@ class FirebaseManager(private val context: Context? = null) {
             throw e
         }
     }
+    
+    /**
+     * Save an investment to Firestore and return its generated ID
+     */
+    suspend fun saveInvestmentAndGetId(investment: Investment): Long = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Saving investment to get ID: ${investment.name}")
+            
+            // Generate a new ID if not provided
+            val investmentId = if (investment.id <= 0) {
+                abs(UUID.randomUUID().mostSignificantBits)
+            } else {
+                investment.id
+            }
+            
+            // Use the generated ID
+            val investmentWithId = investment.copy(id = investmentId)
+            
+            // Convert to map for Firestore
+            val investmentMap = mapOf(
+                "id" to investmentWithId.id,
+                "name" to investmentWithId.name,
+                "amount" to investmentWithId.amount,
+                "type" to investmentWithId.type,
+                "description" to (investmentWithId.description ?: ""),
+                "imageUri" to (investmentWithId.imageUri ?: ""),
+                "date" to investmentWithId.date,
+                "isPast" to investmentWithId.isPast
+            )
+            
+            // Save to Firestore
+            firestore.collection("investments")
+                .document(investmentId.toString())
+                .set(investmentMap)
+                .await()
+            
+            Log.d(TAG, "Investment saved with ID: $investmentId")
+            investmentId
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving investment: ${e.message}", e)
+            throw e
+        }
+    }
 } 

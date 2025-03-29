@@ -31,19 +31,30 @@ class FirebaseStorageUtil(private val context: Context) {
      * @return The download URL of the uploaded file or null if upload failed
      */
     suspend fun uploadFile(fileUri: Uri, folderName: String, id: String? = null): String? {
-        return try {
-            Log.d(TAG, "Starting file upload: $fileUri to folder: $folderName")
-            
+        Log.d(TAG, "********** STORAGE UTIL UPLOAD **********")
+        Log.d(TAG, "Starting file upload: fileUri=$fileUri, folderName=$folderName, id=$id")
+        
+        // Try to get file size
+        try {
+            val fileSize = context.contentResolver.openFileDescriptor(fileUri, "r")?.statSize ?: -1
+            Log.d(TAG, "File size: ${fileSize/1024} KB")
+        } catch (e: Exception) {
+            Log.w(TAG, "Couldn't get file size: ${e.message}")
+        }
+        
+        try {
             // Generate a unique file name
             val fileName = generateFileName(fileUri)
             Log.d(TAG, "Generated file name: $fileName")
             
             // Create subfolder ID based on provided ID or random UUID
             val subfolderId = id ?: UUID.randomUUID().toString()
+            Log.d(TAG, "Using subfolder ID: $subfolderId")
             
             // Reference to the file location in Firebase Storage with subfolder structure
-            val fileRef = storageRef.child("$folderName/$subfolderId/$fileName")
-            Log.d(TAG, "File reference path: ${fileRef.path}")
+            val storagePath = "$folderName/$subfolderId/$fileName"
+            Log.d(TAG, "Storage path: $storagePath")
+            val fileRef = storageRef.child(storagePath)
             
             // Get content type
             val contentType = getContentType(fileUri)
@@ -53,6 +64,8 @@ class FirebaseStorageUtil(private val context: Context) {
             val metadata = StorageMetadata.Builder()
                 .setContentType(contentType)
                 .build()
+            
+            Log.d(TAG, "Starting upload task...")
             
             // Upload file with metadata and progress tracking
             val uploadTask = fileRef.putFile(fileUri, metadata)
@@ -65,13 +78,19 @@ class FirebaseStorageUtil(private val context: Context) {
             
             // Wait for upload to complete and get download URL
             val taskSnapshot = uploadTask.await()
+            Log.d(TAG, "Upload completed. Awaiting download URL...")
+            
             val downloadUrl = taskSnapshot.storage.downloadUrl.await().toString()
             
-            Log.d(TAG, "File uploaded successfully. Download URL: $downloadUrl")
-            downloadUrl
+            Log.d(TAG, "File uploaded successfully!")
+            Log.d(TAG, "Download URL: $downloadUrl")
+            return downloadUrl
         } catch (e: Exception) {
-            Log.e(TAG, "Error uploading file: ${e.message}", e)
-            null
+            Log.e(TAG, "Error uploading file: ${e.javaClass.simpleName} - ${e.message}")
+            e.printStackTrace()
+            return null
+        } finally {
+            Log.d(TAG, "********** END STORAGE UTIL UPLOAD **********")
         }
     }
     
