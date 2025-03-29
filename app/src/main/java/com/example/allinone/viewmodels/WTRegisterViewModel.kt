@@ -329,56 +329,54 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                     attachmentUri = cloudAttachmentUrl
                 )
                 
-                // If original found, check for payment status changes
-                if (originalRegistration != null) {
-                    // Payment status changed from unpaid to paid
-                    if (!originalRegistration.isPaid && registration.isPaid && registration.amount > 0) {
-                        Log.d(TAG, "Registration marked as PAID, creating transaction")
-                        val studentName = repository.students.value.find { it.id == registration.studentId }?.name ?: "Unknown Student"
-                        
-                        repository.insertTransaction(
-                            amount = registration.amount,
-                            type = "Registration",
-                            description = "Registration payment: $studentName",
-                            isIncome = true,
-                            category = "Course Registration",
-                            relatedRegistrationId = registration.id
-                        )
-                    } 
-                    // Payment status changed from paid to unpaid
-                    else if (originalRegistration.isPaid && !registration.isPaid) {
-                        Log.d(TAG, "Registration marked as UNPAID, deleting related transactions")
-                        repository.deleteTransactionsByRegistrationId(registration.id)
-                    }
+                // Check for payment status changes
+                // Payment status changed from unpaid to paid
+                if (!originalRegistration.isPaid && registration.isPaid && registration.amount > 0) {
+                    Log.d(TAG, "Registration marked as PAID, creating transaction")
+                    val studentName = repository.students.value.find { it.id == registration.studentId }?.name ?: "Unknown Student"
                     
-                    // If end date changed, update the calendar event
-                    if (originalRegistration.endDate != registration.endDate) {
-                        // First try to remove any existing event
-                        val event = Event(
-                            id = registration.id,  // Same ID used for both registration and event
-                            title = "",  // These fields don't matter for deletion
-                            description = "",
-                            date = Date(),
+                    repository.insertTransaction(
+                        amount = registration.amount,
+                        type = "Registration",
+                        description = "Registration payment: $studentName",
+                        isIncome = true,
+                        category = "Course Registration",
+                        relatedRegistrationId = registration.id
+                    )
+                } 
+                // Payment status changed from paid to unpaid
+                else if (originalRegistration.isPaid && !registration.isPaid) {
+                    Log.d(TAG, "Registration marked as UNPAID, deleting related transactions")
+                    repository.deleteTransactionsByRegistrationId(registration.id)
+                }
+                
+                // If end date changed, update the calendar event
+                if (originalRegistration.endDate != registration.endDate) {
+                    // First try to remove any existing event
+                    val event = Event(
+                        id = registration.id,  // Same ID used for both registration and event
+                        title = "",  // These fields don't matter for deletion
+                        description = "",
+                        date = Date(),
+                        type = "Registration End"
+                    )
+                    repository.deleteEvent(event)
+                    
+                    // Add new event for the updated end date
+                    registration.endDate?.let { newDate ->
+                        val studentName = repository.students.value.find { it.id == registration.studentId }?.name ?: "Unknown Student"
+                        val title = "Registration End: $studentName"
+                        val description = "Registration period ending for $studentName. Amount: ${registration.amount}"
+                        
+                        val newEvent = Event(
+                            id = registration.id,  // Reuse registration ID for the event
+                            title = title,
+                            description = description,
+                            date = newDate,
                             type = "Registration End"
                         )
-                        repository.deleteEvent(event)
-                        
-                        // Add new event for the updated end date
-                        registration.endDate?.let { newDate ->
-                            val studentName = repository.students.value.find { it.id == registration.studentId }?.name ?: "Unknown Student"
-                            val title = "Registration End: $studentName"
-                            val description = "Registration period ending for $studentName. Amount: ${registration.amount}"
-                            
-                            val newEvent = Event(
-                                id = registration.id,  // Reuse registration ID for the event
-                                title = title,
-                                description = description,
-                                date = newDate,
-                                type = "Registration End"
-                            )
-                            repository.insertEvent(newEvent)
-                            repository.refreshEvents()
-                        }
+                        repository.insertEvent(newEvent)
+                        repository.refreshEvents()
                     }
                 }
                 
