@@ -947,21 +947,19 @@ class FirebaseRepository(private val context: Context) {
     }
     
     // WTStudent methods
-    suspend fun refreshStudents() {
-        withContext(Dispatchers.IO) {
-            try {
-                _isLoading.postValue(true)
-                val students = firebaseManager.getStudents()
-                _students.value = students
-                cacheManager.cacheStudents(students)
-                _isLoading.postValue(false)
-                
-                // Notify other components
-                DataChangeNotifier.notifyStudentsChanged()
-            } catch (e: Exception) {
-                _errorMessage.postValue("Error refreshing students: ${e.message}")
-                _isLoading.postValue(false)
-            }
+    suspend fun refreshStudents() = withContext(Dispatchers.IO) {
+        try {
+            _isLoading.postValue(true)
+            val students = firebaseManager.getStudents()
+            _students.value = students
+            cacheManager.cacheStudents(students)
+            _isLoading.postValue(false)
+            
+            // Notify other components
+            DataChangeNotifier.notifyStudentsChanged()
+        } catch (e: Exception) {
+            _errorMessage.postValue("Error refreshing students: ${e.message}")
+            _isLoading.postValue(false)
         }
     }
     

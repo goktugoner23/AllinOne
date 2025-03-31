@@ -45,6 +45,7 @@ import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.google.firebase.firestore.FirebaseFirestore
 
 class WTStudentsFragment : Fragment() {
     private var _binding: FragmentWtStudentsBinding? = null
@@ -394,8 +395,30 @@ class WTStudentsFragment : Fragment() {
     // Remove the current photo
     private fun removePhoto() {
         currentPhotoUri = null
-        photoRemoved = true // Set the flag when photo is deliberately removed
+        photoRemoved = true
+        
+        // Update UI to show default image
         currentDialogBinding?.profileImageView?.setImageResource(R.drawable.default_profile)
+        
+        // If this is an existing student, update the database record immediately
+        editingStudent?.id?.let { studentId ->
+            // Only update if we're editing an existing student
+            if (studentId > 0) {
+                val db = FirebaseFirestore.getInstance()
+                val studentRef = db.collection("wtStudents").document(studentId.toString())
+                
+                // Update photoUri field to null in the database
+                studentRef.update("photoUri", null)
+                    .addOnSuccessListener {
+                        Log.d("WTStudentsFragment", "Photo URI successfully removed from database")
+                        Toast.makeText(context, "Photo removed", Toast.LENGTH_SHORT).show()
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("WTStudentsFragment", "Error removing photo URI from database", e)
+                        Toast.makeText(context, "Failed to remove photo from database", Toast.LENGTH_SHORT).show()
+                    }
+            }
+        }
     }
     
     private fun saveStudent() {
@@ -475,6 +498,9 @@ class WTStudentsFragment : Fragment() {
         val updateStudentWithPhoto = { 
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
+                    // Log what's happening with the photo
+                    Log.d("WTStudentsFragment", "Updating student photo - removed: $photoRemoved, newUri: $newPhotoUri, existing: $existingPhotoUri")
+                    
                     // Create updated student object
                     val updatedStudent = student.copy(
                         name = name,
@@ -492,6 +518,23 @@ class WTStudentsFragment : Fragment() {
                     withContext(Dispatchers.Main) {
                         loadingDialog.dismiss()
                         resetState()
+                        
+                        // If the photo was removed, clear any image caches
+                        if (photoRemoved && existingPhotoUri != null) {
+                            try {
+                                // Clear any cached images for this student
+                                com.bumptech.glide.Glide.get(requireContext()).clearMemory()
+                                Thread {
+                                    try {
+                                        com.bumptech.glide.Glide.get(requireContext()).clearDiskCache()
+                                    } catch (e: Exception) {
+                                        Log.e("WTStudentsFragment", "Error clearing disk cache: ${e.message}")
+                                    }
+                                }.start()
+                            } catch (e: Exception) {
+                                Log.e("WTStudentsFragment", "Error clearing image cache: ${e.message}")
+                            }
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("WTStudentsFragment", "Error updating student: ${e.message}", e)
@@ -823,44 +866,36 @@ class WTStudentsFragment : Fragment() {
         ).show()
     }
 
-    private fun showFullScreenImage(imageUri: String?) {
-        if (imageUri.isNullOrEmpty()) {
-            Toast.makeText(requireContext(), "No image to display", Toast.LENGTH_SHORT).show()
-            return
-        }
-        
-        val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setView(R.layout.dialog_fullscreen_image)
-            .create()
-        
-        dialog.show()
-        
-        val imageView = dialog.findViewById<com.google.android.material.imageview.ShapeableImageView>(R.id.fullscreenImageView)
-        try {
-            Log.d("WTStudentsFragment", "Loading fullscreen image from URI: $imageUri")
-            if (imageUri.startsWith("https://")) {
-                com.bumptech.glide.Glide.with(requireContext())
-                    .load(imageUri)
-                    .placeholder(R.drawable.default_profile)
-                    .error(R.drawable.default_profile)
-                    .into(imageView!!)
-            } else {
-                try {
-                    imageView?.setImageURI(Uri.parse(imageUri))
-                } catch (e: Exception) {
-                    Log.e("WTStudentsFragment", "Error parsing URI: ${e.message}")
-                    imageView?.setImageResource(R.drawable.default_profile)
+    private fun showFullScreenImage(photoUri: String?) {
+        photoUri?.let { uri ->
+            val dialog = MaterialAlertDialogBuilder(requireContext())
+                .setView(R.layout.dialog_fullscreen_image)
+                .create()
+            
+            dialog.show()
+            
+            val imageView = dialog.findViewById<com.google.android.material.imageview.ShapeableImageView>(R.id.fullscreenImageView)
+            try {
+                Log.d("WTStudentsFragment", "Loading fullscreen image from URI: $uri")
+                if (uri.startsWith("https://")) {
+                    com.bumptech.glide.Glide.with(requireContext())
+                        .load(uri)
+                        .placeholder(R.drawable.default_profile)
+                        .error(R.drawable.default_profile)
+                        .into(imageView!!)
+                } else {
+                    imageView?.setImageURI(Uri.parse(uri))
                 }
+            } catch (e: Exception) {
+                Log.e("WTStudentsFragment", "Error loading fullscreen image: ${e.message}")
+                Toast.makeText(requireContext(), "Failed to load image", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
             }
-        } catch (e: Exception) {
-            Log.e("WTStudentsFragment", "Error loading fullscreen image: ${e.message}")
-            Toast.makeText(requireContext(), "Failed to load image", Toast.LENGTH_SHORT).show()
-            dialog.dismiss()
-        }
-        
-        // Close on tap
-        imageView?.setOnClickListener {
-            dialog.dismiss()
+            
+            // Close on tap
+            imageView?.setOnClickListener {
+                dialog.dismiss()
+            }
         }
     }
 
