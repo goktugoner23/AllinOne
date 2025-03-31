@@ -7,12 +7,23 @@ import android.os.Bundle
 import android.text.Html
 import android.text.Spanned
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.widget.EditText
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SearchView
+import androidx.core.content.ContextCompat
+import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.allinone.R
@@ -25,6 +36,9 @@ import com.example.allinone.viewmodels.NotesViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.github.mthli.knife.KnifeText
 import java.util.Date
+import android.transition.TransitionManager
+import android.transition.Slide
+import android.view.Gravity
 
 // Extension property to get HTML content from KnifeText
 val KnifeText.html: String
@@ -38,6 +52,8 @@ class NotesFragment : Fragment() {
     private lateinit var notesAdapter: NotesAdapter
     private lateinit var imageAdapter: NoteImageAdapter
     private val selectedImages = mutableListOf<Uri>()
+    private var searchMenuItem: MenuItem? = null
+    private var allNotes: List<Note> = emptyList()
     
     private val getContent = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         uris?.let { selectedUris ->
@@ -83,8 +99,142 @@ class NotesFragment : Fragment() {
         
         setupRecyclerView()
         setupFab()
+        setupMenu()
         observeNotes()
         setupSwipeRefresh()
+    }
+    
+    private fun setupMenu() {
+        requireActivity().addMenuProvider(object : MenuProvider {
+            override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
+                menuInflater.inflate(R.menu.search_notes, menu)
+                searchMenuItem = menu.findItem(R.id.action_search)
+                
+                val searchView = searchMenuItem?.actionView as? SearchView
+                searchView?.let {
+                    // Set search view expanded listener
+                    it.setOnSearchClickListener { _ ->
+                        // Animate search view expansion
+                        val slide = Slide(Gravity.END)
+                        slide.duration = 200
+                        TransitionManager.beginDelayedTransition((activity as AppCompatActivity).findViewById(R.id.toolbar), slide)
+                    }
+                    
+                    // Set search view collapse listener
+                    it.setOnCloseListener { 
+                        // Animate search view collapse
+                        val slide = Slide(Gravity.END)
+                        slide.duration = 200
+                        TransitionManager.beginDelayedTransition((activity as AppCompatActivity).findViewById(R.id.toolbar), slide)
+                        
+                        // Reset the notes list
+                        resetNotesList()
+                        true
+                    }
+                    
+                    // Set up query listener
+                    it.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+                        override fun onQueryTextSubmit(query: String?): Boolean {
+                            query?.let { searchQuery ->
+                                filterNotes(searchQuery)
+                            }
+                            
+                            // Hide keyboard
+                            val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                            imm.hideSoftInputFromWindow(it.windowToken, 0)
+                            
+                            return true
+                        }
+                        
+                        override fun onQueryTextChange(newText: String?): Boolean {
+                            newText?.let { searchQuery ->
+                                filterNotes(searchQuery)
+                            }
+                            return true
+                        }
+                    })
+                    
+                    // Customize search view appearance
+                    val searchEditText = it.findViewById<EditText>(androidx.appcompat.R.id.search_src_text)
+                    searchEditText?.apply {
+                        setHintTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
+                        setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
+                        hint = getString(R.string.search_hint)
+                        imeOptions = EditorInfo.IME_ACTION_SEARCH
+                        
+                        // Set X button to reset search
+                        setOnEditorActionListener { _, actionId, _ ->
+                            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                                // Hide keyboard
+                                val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                                imm.hideSoftInputFromWindow(this.windowToken, 0)
+                                return@setOnEditorActionListener true
+                            }
+                            false
+                        }
+                    }
+
+                    // Set search icon color to white (expanded state)
+                    val searchIcon = it.findViewById<ImageView>(androidx.appcompat.R.id.search_mag_icon)
+                    searchIcon?.setColorFilter(ContextCompat.getColor(requireContext(), android.R.color.white),
+                        android.graphics.PorterDuff.Mode.SRC_IN)
+                    
+                    // Make sure search icon is visible and properly sized
+                    searchIcon?.apply {
+                        visibility = View.VISIBLE
+                        val iconSize = resources.getDimensionPixelSize(androidx.appcompat.R.dimen.abc_dropdownitem_icon_width)
+                        val params = layoutParams
+                        params.width = iconSize
+                        params.height = iconSize
+                        layoutParams = params
+                    }
+
+                    // Set close button color to white
+                    val closeButton = it.findViewById<ImageView>(androidx.appcompat.R.id.search_close_btn)
+                    closeButton?.setColorFilter(ContextCompat.getColor(requireContext(), android.R.color.white),
+                        android.graphics.PorterDuff.Mode.SRC_IN)
+                }
+            }
+            
+            override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
+                return when (menuItem.itemId) {
+                    R.id.action_search -> {
+                        // The search icon click is handled by the SearchView
+                        true
+                    }
+                    else -> false
+                }
+            }
+        }, viewLifecycleOwner, Lifecycle.State.RESUMED)
+    }
+    
+    private fun resetNotesList() {
+        // Sort notes by last edited date (newest first)
+        val sortedNotes = allNotes.sortedByDescending { it.lastEdited }
+        notesAdapter.submitList(sortedNotes)
+        binding.emptyStateText.visibility = if (sortedNotes.isEmpty()) View.VISIBLE else View.GONE
+    }
+
+    private fun filterNotes(query: String) {
+        val filteredNotes = if (query.isBlank()) {
+            allNotes
+        } else {
+            allNotes.filter { note ->
+                note.title.contains(query, ignoreCase = true) ||
+                // For content, remove HTML tags before searching
+                (if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                    Html.fromHtml(note.content, Html.FROM_HTML_MODE_COMPACT).toString()
+                } else {
+                    @Suppress("DEPRECATION")
+                    Html.fromHtml(note.content).toString()
+                }).contains(query, ignoreCase = true)
+            }
+        }
+        
+        // Sort filtered notes by last edited date (newest first)
+        val sortedFilteredNotes = filteredNotes.sortedByDescending { it.lastEdited }
+        notesAdapter.submitList(sortedFilteredNotes)
+        binding.emptyStateText.visibility = if (sortedFilteredNotes.isEmpty()) View.VISIBLE else View.GONE
     }
     
     private fun setupRecyclerView() {
@@ -108,10 +258,19 @@ class NotesFragment : Fragment() {
     
     private fun observeNotes() {
         viewModel.allNotes.observe(viewLifecycleOwner) { notes ->
-            // Sort notes by last edited date (newest first)
-            val sortedNotes = notes.sortedByDescending { it.lastEdited }
-            notesAdapter.submitList(sortedNotes)
-            binding.emptyStateText.visibility = if (notes.isEmpty()) View.VISIBLE else View.GONE
+            // Store all notes for filtering
+            allNotes = notes
+            
+            // Apply search filter if search is active
+            val searchView = searchMenuItem?.actionView as? SearchView
+            if (searchView?.isIconified == false && !searchView.query.isNullOrEmpty()) {
+                filterNotes(searchView.query.toString())
+            } else {
+                // Sort notes by last edited date (newest first)
+                val sortedNotes = notes.sortedByDescending { it.lastEdited }
+                notesAdapter.submitList(sortedNotes)
+                binding.emptyStateText.visibility = if (notes.isEmpty()) View.VISIBLE else View.GONE
+            }
         }
     }
     

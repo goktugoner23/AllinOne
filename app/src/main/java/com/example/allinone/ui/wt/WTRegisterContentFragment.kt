@@ -9,14 +9,22 @@ import android.provider.OpenableColumns
 import android.os.Handler
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.PopupMenu
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SearchView
+import androidx.core.content.ContextCompat
+import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.allinone.R
 import com.example.allinone.adapters.WTRegistrationAdapter
@@ -32,6 +40,12 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.launch
+import android.transition.TransitionManager
+import android.transition.Slide
+import android.view.Gravity
+import android.view.inputmethod.EditorInfo
+import android.widget.EditText
+import android.widget.ImageView
 
 /**
  * Fragment for displaying the list of registrations.
@@ -54,6 +68,9 @@ class WTRegisterContentFragment : Fragment() {
         handleAttachmentResult(uri)
     }
     
+    private var searchMenuItem: MenuItem? = null
+    private var menuProvider: MenuProvider? = null
+    
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentWtRegisterBinding.inflate(inflater, container, false)
         return binding.root
@@ -63,6 +80,7 @@ class WTRegisterContentFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()
         setupFab()
+        setupMenu()
         observeStudents()
         observeRegistrations()
         observeNetworkStatus()
@@ -117,6 +135,162 @@ class WTRegisterContentFragment : Fragment() {
         }
     }
 
+    private fun setupMenu() {
+        // Remove any existing menu provider
+        menuProvider?.let {
+            try {
+                requireActivity().removeMenuProvider(it)
+            } catch (e: Exception) {
+                Log.e("WTRegisterContent", "Error removing menu provider: ${e.message}")
+            }
+        }
+        
+        // Create a new menu provider
+        menuProvider = object : MenuProvider {
+            override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
+                // Clear existing menu items to prevent duplicates
+                menu.clear()
+                
+                menuInflater.inflate(R.menu.search_register, menu)
+                searchMenuItem = menu.findItem(R.id.action_search)
+                
+                val searchView = searchMenuItem?.actionView as? SearchView
+                searchView?.let {
+                    // Set search view expanded listener
+                    it.setOnSearchClickListener { _ ->
+                        // Animate search view expansion
+                        val slide = Slide(Gravity.END)
+                        slide.duration = 200
+                        TransitionManager.beginDelayedTransition((activity as AppCompatActivity).findViewById(R.id.toolbar), slide)
+                    }
+                    
+                    // Set search view collapse listener
+                    it.setOnCloseListener { 
+                        // Animate search view collapse
+                        val slide = Slide(Gravity.END)
+                        slide.duration = 200
+                        TransitionManager.beginDelayedTransition((activity as AppCompatActivity).findViewById(R.id.toolbar), slide)
+                        
+                        // Reset the registration list
+                        resetRegistrationList()
+                        true
+                    }
+                    
+                    // Set up query listener
+                    it.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+                        override fun onQueryTextSubmit(query: String?): Boolean {
+                            query?.let { searchQuery ->
+                                filterRegistrations(searchQuery)
+                            }
+                            
+                            // Hide keyboard
+                            val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                            imm.hideSoftInputFromWindow(it.windowToken, 0)
+                            
+                            return true
+                        }
+                        
+                        override fun onQueryTextChange(newText: String?): Boolean {
+                            newText?.let { searchQuery ->
+                                filterRegistrations(searchQuery)
+                            }
+                            return true
+                        }
+                    })
+                    
+                    // Customize search view appearance
+                    val searchEditText = it.findViewById<EditText>(androidx.appcompat.R.id.search_src_text)
+                    searchEditText?.apply {
+                        setHintTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
+                        setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
+                        hint = getString(R.string.search_hint)
+                        imeOptions = EditorInfo.IME_ACTION_SEARCH
+                        
+                        // Set X button to reset search
+                        setOnEditorActionListener { _, actionId, _ ->
+                            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                                // Hide keyboard
+                                val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                                imm.hideSoftInputFromWindow(this.windowToken, 0)
+                                return@setOnEditorActionListener true
+                            }
+                            false
+                        }
+                    }
+
+                    // Set search icon color to white (expanded state)
+                    val searchIcon = it.findViewById<ImageView>(androidx.appcompat.R.id.search_mag_icon)
+                    searchIcon?.setColorFilter(ContextCompat.getColor(requireContext(), android.R.color.white),
+                        android.graphics.PorterDuff.Mode.SRC_IN)
+                    
+                    // Make sure search icon is visible and properly sized
+                    searchIcon?.apply {
+                        visibility = View.VISIBLE
+                        val iconSize = resources.getDimensionPixelSize(androidx.appcompat.R.dimen.abc_dropdownitem_icon_width)
+                        val params = layoutParams
+                        params.width = iconSize
+                        params.height = iconSize
+                        layoutParams = params
+                    }
+
+                    // Set close button color to white
+                    val closeButton = it.findViewById<ImageView>(androidx.appcompat.R.id.search_close_btn)
+                    closeButton?.setColorFilter(ContextCompat.getColor(requireContext(), android.R.color.white),
+                        android.graphics.PorterDuff.Mode.SRC_IN)
+                }
+            }
+            
+            override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
+                return when (menuItem.itemId) {
+                    R.id.action_search -> {
+                        // The search icon click is handled by the SearchView
+                        true
+                    }
+                    else -> false
+                }
+            }
+        }
+        
+        // Add the menu provider tied to the STARTED lifecycle state to ensure cleanup when not visible
+        requireActivity().addMenuProvider(menuProvider!!, viewLifecycleOwner, Lifecycle.State.STARTED)
+    }
+
+    private fun resetRegistrationList() {
+        viewModel.registrations.value?.let { registrations ->
+            val sortedRegistrations = registrations.sortedByDescending { it.startDate }
+            adapter.submitList(sortedRegistrations)
+            
+            // Show or hide empty state
+            binding.emptyState.visibility = if (sortedRegistrations.isEmpty()) View.VISIBLE else View.GONE
+        }
+    }
+
+    private fun filterRegistrations(query: String) {
+        viewModel.registrations.value?.let { registrations ->
+            val filteredRegistrations = if (query.isBlank()) {
+                registrations
+            } else {
+                // Find the matching student names first
+                val matchingStudentIds = students.filter { 
+                    it.name.contains(query, ignoreCase = true) 
+                }.map { it.id }
+                
+                // Filter registrations by student name or registration details
+                registrations.filter { registration ->
+                    matchingStudentIds.contains(registration.studentId) ||
+                    registration.notes?.contains(query, ignoreCase = true) == true ||
+                    registration.amount.toString().contains(query)
+                }
+            }
+            
+            val sortedRegistrations = filteredRegistrations.sortedByDescending { it.startDate }
+            adapter.submitList(sortedRegistrations)
+            
+            // Show or hide empty state
+            binding.emptyState.visibility = if (sortedRegistrations.isEmpty()) View.VISIBLE else View.GONE
+        }
+    }
+
     private fun observeStudents() {
         viewModel.students.observe(viewLifecycleOwner) { studentList ->
             students = studentList.filter { it.isActive }
@@ -124,34 +298,22 @@ class WTRegisterContentFragment : Fragment() {
     }
 
     private fun observeRegistrations() {
-        viewModel.registrations.observe(viewLifecycleOwner) { registrationsList ->
-            Log.d("WTRegisterContent", "Received ${registrationsList.size} registrations")
-            registrations = registrationsList
-            
-            // Log each registration for debugging
-            registrationsList.forEachIndexed { index, registration ->
-                Log.d("WTRegisterContent", "Registration $index: ID=${registration.id}, StudentID=${registration.studentId}, " +
-                        "StartDate=${registration.startDate}, Amount=${registration.amount}")
-            }
-            
-            // Sort registrations by start date, with most recent first
-            val sortedRegistrations = registrationsList.sortedByDescending { it.startDate }
-            adapter.submitList(sortedRegistrations)
-            
-            // Show empty state if there are no registrations
-            if (sortedRegistrations.isEmpty()) {
-                binding.emptyState.visibility = View.VISIBLE
-                binding.studentsRecyclerView.visibility = View.GONE
-                Log.d("WTRegisterContent", "No registrations found, showing empty state")
+        viewModel.registrations.observe(viewLifecycleOwner) { registrations ->
+            // Apply current search filter if search is active
+            val searchView = searchMenuItem?.actionView as? SearchView
+            if (searchView?.isIconified == false && !searchView.query.isNullOrEmpty()) {
+                filterRegistrations(searchView.query.toString())
             } else {
-                binding.emptyState.visibility = View.GONE
-                binding.studentsRecyclerView.visibility = View.VISIBLE
-                Log.d("WTRegisterContent", "Showing ${sortedRegistrations.size} registrations")
+                // Sort registrations by start date (newest first)
+                val sortedRegistrations = registrations.sortedByDescending { it.startDate }
+                adapter.submitList(sortedRegistrations)
+                
+                // Show or hide empty state
+                binding.emptyState.visibility = if (sortedRegistrations.isEmpty()) View.VISIBLE else View.GONE
             }
-            
-            // Force adapter to refresh
-            adapter.notifyDataSetChanged()
-            Log.d("WTRegisterContent", "Adapter notified of data change")
+
+            // Log the registration count
+            Log.d("WTRegisterContent", "Loaded ${registrations.size} registrations")
         }
     }
     
@@ -627,6 +789,15 @@ class WTRegisterContentFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        // Remove the menu provider when the view is destroyed
+        menuProvider?.let {
+            try {
+                requireActivity().removeMenuProvider(it)
+            } catch (e: Exception) {
+                Log.e("WTRegisterContent", "Error removing menu provider: ${e.message}")
+            }
+        }
+        
         super.onDestroyView()
         _binding = null
         currentDialogBinding = null
