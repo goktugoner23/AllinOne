@@ -119,10 +119,14 @@ class WTStudentsFragment : Fragment() {
             
             // Deduplicate students by ID before submitting to adapter
             val uniqueStudents = students.distinctBy { it.id }
-            adapter.submitList(uniqueStudents)
+            
+            // Sort students alphabetically by name
+            val sortedStudents = uniqueStudents.sortedBy { it.name.lowercase(Locale.getDefault()) }
+            
+            adapter.submitList(sortedStudents)
             
             // Show or hide empty state
-            binding.emptyState.visibility = if (uniqueStudents.isEmpty()) View.VISIBLE else View.GONE
+            binding.emptyState.visibility = if (sortedStudents.isEmpty()) View.VISIBLE else View.GONE
         }
     }
 
