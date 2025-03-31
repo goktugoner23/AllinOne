@@ -14,7 +14,8 @@ object TransactionCategories {
         "General",
         "Bills", 
         "Food", 
-        "Transport"
+        "Transport",
+        "Pınar ❤️"
     )
     
     // Income-specific categories (can expand in the future if needed)
@@ -31,7 +32,8 @@ object TransactionCategories {
         "Bills", 
         "Food", 
         "Transport", 
-        "Wing Tzun"
+        "Wing Tzun",
+        "Pınar ❤️"
     )
     
     // Special adjustment categories that are shown separately in reports

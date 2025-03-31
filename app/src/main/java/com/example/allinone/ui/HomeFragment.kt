@@ -21,16 +21,39 @@ import com.example.allinone.adapters.InvestmentSelectionAdapter
 import com.example.allinone.config.TransactionCategories
 import com.example.allinone.databinding.FragmentHomeBinding
 import com.example.allinone.viewmodels.HomeViewModel
+import com.github.mikephil.charting.components.MarkerView
+import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
 import com.github.mikephil.charting.formatter.PercentFormatter
+import com.github.mikephil.charting.highlight.Highlight
+import com.github.mikephil.charting.utils.MPPointF
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import java.util.Random
 import androidx.lifecycle.ViewModelProvider
 import kotlin.math.absoluteValue
 import androidx.navigation.fragment.findNavController
+
+// Custom MarkerView for pie chart tooltip
+class PieChartTooltip(context: android.content.Context, layoutResource: Int) : MarkerView(context, layoutResource) {
+    private val tooltipText: TextView = findViewById(R.id.tooltipText)
+    
+    override fun refreshContent(e: Entry?, highlight: Highlight?) {
+        if (e is PieEntry) {
+            val entry = e as PieEntry
+            val formattedValue = String.format("₺%.2f", entry.value)
+            tooltipText.text = "${entry.label}\n$formattedValue"
+        }
+        super.refreshContent(e, highlight)
+    }
+    
+    override fun getOffset(): MPPointF {
+        // Position tooltip higher above the selected segment
+        return MPPointF(-(width / 2f), -height.toFloat() - 30f)
+    }
+}
 
 class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
@@ -62,11 +85,15 @@ class HomeFragment : Fragment() {
             Color.WHITE
         }
 
+        // Create custom tooltip marker
+        val tooltipMarker = PieChartTooltip(requireContext(), R.layout.pie_chart_tooltip)
+        tooltipMarker.chartView = binding.pieChart
+
         binding.pieChart.apply {
             description.isEnabled = false
             setUsePercentValues(true)
             setDrawEntryLabels(false)
-            legend.isEnabled = true
+            legend.isEnabled = false // Disable legend (category explanations) below the chart
             isDrawHoleEnabled = true
             holeRadius = 40f
             setHoleColor(holeColor)
@@ -74,15 +101,27 @@ class HomeFragment : Fragment() {
             setNoDataText("No transactions yet")
             setRotationEnabled(false)
             
-            // Set theme-appropriate text colors
-            legend.textColor = ContextCompat.getColor(requireContext(), 
-                if (isNightMode) R.color.white else R.color.textPrimary)
-            
             // Set no data text color
             setNoDataTextColor(ContextCompat.getColor(requireContext(), 
                 if (isNightMode) R.color.white else R.color.textPrimary))
                 
+            // Set the custom marker
+            marker = tooltipMarker
+                
             animateY(1000)
+            
+            // Add click listener for tooltips
+            setOnChartValueSelectedListener(object : com.github.mikephil.charting.listener.OnChartValueSelectedListener {
+                override fun onValueSelected(e: Entry?, h: Highlight?) {
+                    // When a value is selected, the marker/tooltip will automatically show
+                    // due to the marker being set and the chart's internal implementation
+                }
+                
+                override fun onNothingSelected() {
+                    // Hide the marker when nothing is selected
+                    highlightValue(null)
+                }
+            })
         }
     }
 
@@ -95,19 +134,26 @@ class HomeFragment : Fragment() {
     
     private fun observeCombinedBalance() {
         viewModel.combinedBalance.observe(viewLifecycleOwner) { (totalIncome, totalExpense, balance) ->
+            // Define income and expense colors matching the pie chart theme
+            val incomeColor = Color.rgb(48, 138, 52) // Dark green
+            val expenseColor = Color.rgb(183, 28, 28) // Dark red
+            
             // Update balance text
             binding.balanceText.text = String.format("₺%.2f", balance)
             binding.balanceText.setTextColor(
                 if (balance >= 0) {
-                    requireContext().getColor(android.R.color.holo_green_dark)
+                    incomeColor // Use green from pie chart
                 } else {
-                    requireContext().getColor(android.R.color.holo_red_dark)
+                    expenseColor // Use red from pie chart
                 }
             )
             
-            // Update income and expense text
+            // Update income and expense text with matched colors
             binding.incomeText.text = String.format("Income: ₺%.2f", totalIncome)
+            binding.incomeText.setTextColor(incomeColor)
+            
             binding.expenseText.text = String.format("Expense: ₺%.2f", totalExpense)
+            binding.expenseText.setTextColor(expenseColor)
         }
     }
     
@@ -128,10 +174,32 @@ class HomeFragment : Fragment() {
         
         val entries = ArrayList<PieEntry>()
         val colors = ArrayList<Int>()
+        val valueColors = ArrayList<Int>()
+        
+        // Define income and expense color palettes
+        val incomeColors = listOf(
+            Color.rgb(76, 175, 80),    // Medium green
+            Color.rgb(129, 199, 132),  // Light green
+            Color.rgb(48, 138, 52),    // Dark green
+            Color.rgb(165, 214, 167),  // Pale green
+            Color.rgb(104, 159, 56)    // Moss green
+        )
+        
+        val expenseColors = listOf(
+            Color.rgb(244, 67, 54),    // Medium red
+            Color.rgb(229, 115, 115),  // Light red
+            Color.rgb(183, 28, 28),    // Dark red
+            Color.rgb(239, 154, 154),  // Pale red
+            Color.rgb(211, 47, 47)     // Deep red
+        )
+        
+        // Define income and expense text colors - slightly darker for readability
+        val incomeTextColor = Color.rgb(27, 94, 32)    // Darker green
+        val expenseTextColor = Color.rgb(183, 28, 28)  // Darker red
         
         // Process positive income transactions by category
-        if (positiveIncomeTransactions.isNotEmpty()) {
-            val incomeByCategoryMap = positiveIncomeTransactions
+        val incomeByCategoryMap = if (positiveIncomeTransactions.isNotEmpty()) {
+            positiveIncomeTransactions
                 .groupBy { 
                     if (it.category.isNullOrEmpty()) "Uncategorized Income" 
                     else "${it.category} (Income)" 
@@ -139,45 +207,13 @@ class HomeFragment : Fragment() {
                 .mapValues { (_, txns) -> txns.sumOf { it.amount } }
                 .toList()
                 .sortedByDescending { it.second }
-            
-            incomeByCategoryMap.forEach { (category, amount) ->
-                entries.add(PieEntry(amount.toFloat(), category))
-                
-                // Assign a consistent color with income-biased colors
-                if (!categoryColors.containsKey(category)) {
-                    val color = when {
-                        category.contains("Salary") -> ContextCompat.getColor(requireContext(), 
-                            if (isNightMode) R.color.navy_accent else R.color.start_color)
-                        category.contains("Income") -> if (isNightMode) 
-                            Color.rgb(77, 168, 218) else Color.rgb(129, 199, 132)  // Light Blue/Green
-                        category.contains("Wing Tzun") -> ContextCompat.getColor(requireContext(), 
-                            if (isNightMode) R.color.navy_accent else R.color.lesson_event_color)
-                        else -> if (isNightMode) {
-                            // Professional blue-palette random colors for dark theme
-                            Color.rgb(
-                                50 + random.nextInt(50),  // Dark-medium blue range
-                                100 + random.nextInt(100),
-                                150 + random.nextInt(100)
-                            )
-                        } else {
-                            // Green-biased colors for light theme
-                            Color.rgb(
-                                100 + random.nextInt(155),
-                                100 + random.nextInt(155),
-                                random.nextInt(100)
-                            )
-                        }
-                    }
-                    categoryColors[category] = color
-                }
-                
-                colors.add(categoryColors[category]!!)
-            }
+        } else {
+            emptyList()
         }
         
         // Process expense transactions by category
-        if (expenseTransactions.isNotEmpty()) {
-            val expenseByCategoryMap = expenseTransactions
+        val expenseByCategoryMap = if (expenseTransactions.isNotEmpty()) {
+            expenseTransactions
                 .groupBy { 
                     if (it.category.isNullOrEmpty()) "Uncategorized Expense" 
                     else "${it.category} (Expense)" 
@@ -185,41 +221,31 @@ class HomeFragment : Fragment() {
                 .mapValues { (_, txns) -> txns.sumOf { it.amount } }
                 .toList()
                 .sortedByDescending { it.second }
-            
-            expenseByCategoryMap.forEach { (category, amount) ->
+        } else {
+            emptyList()
+        }
+        
+        // Process positive income transactions by category
+        if (incomeByCategoryMap.isNotEmpty()) {
+            incomeByCategoryMap.forEachIndexed { index, (category, amount) ->
                 entries.add(PieEntry(amount.toFloat(), category))
                 
-                // Assign a consistent color with expense-biased colors
-                if (!categoryColors.containsKey(category)) {
-                    val color = when {
-                        category.contains("Wing Tzun") -> if (isNightMode)
-                            Color.rgb(230, 145, 56) else Color.rgb(255, 152, 0)  // Orange
-                        category.contains("Investment") -> if (isNightMode)
-                            Color.rgb(41, 121, 255) else Color.rgb(33, 150, 243)  // Blue
-                        category.contains("General") -> if (isNightMode)
-                            Color.rgb(165, 85, 236) else Color.rgb(156, 39, 176)  // Purple
-                        category.contains("Expense") -> if (isNightMode)
-                            Color.rgb(247, 86, 86) else Color.rgb(239, 83, 80)  // Red
-                        else -> if (isNightMode) {
-                            // Professional warm-palette random colors for dark theme
-                            Color.rgb(
-                                180 + random.nextInt(75),  // Reddish tones
-                                100 + random.nextInt(80),
-                                50 + random.nextInt(50)
-                            )
-                        } else {
-                            // Red-biased colors for light theme
-                            Color.rgb(
-                                100 + random.nextInt(155),
-                                random.nextInt(100),
-                                random.nextInt(100)
-                            )
-                        }
-                    }
-                    categoryColors[category] = color
-                }
+                // Assign a color from the income palette with wrapping
+                val colorIndex = index % incomeColors.size
+                colors.add(incomeColors[colorIndex])
+                valueColors.add(incomeTextColor)
+            }
+        }
+        
+        // Process expense transactions by category
+        if (expenseByCategoryMap.isNotEmpty()) {
+            expenseByCategoryMap.forEachIndexed { index, (category, amount) ->
+                entries.add(PieEntry(amount.toFloat(), category))
                 
-                colors.add(categoryColors[category]!!)
+                // Assign a color from the expense palette with wrapping
+                val colorIndex = index % expenseColors.size
+                colors.add(expenseColors[colorIndex])
+                valueColors.add(expenseTextColor)
             }
         }
         
@@ -229,13 +255,133 @@ class HomeFragment : Fragment() {
         dataSet.sliceSpace = 3f
         dataSet.selectionShift = 5f
         
-        val data = PieData(dataSet)
-        data.setValueFormatter(PercentFormatter(binding.pieChart))
-        data.setValueTextSize(12f)
-        data.setValueTextColor(Color.WHITE)
+        // Draw values outside the slices for better visibility
+        dataSet.setValueLinePart1Length(0.8f) // Increased from 0.5f to reduce overlapping
+        dataSet.setValueLinePart2Length(0.6f)
+        dataSet.valueLinePart1OffsetPercentage = 90f
+        dataSet.valueLineWidth = 1.5f
         
-        binding.pieChart.data = data
-        binding.pieChart.invalidate()
+        // Set line colors based on entry type (income=green, expense=red)
+        val allIncome = positiveIncomeTransactions.isNotEmpty() && expenseTransactions.isEmpty()
+        val allExpense = expenseTransactions.isNotEmpty() && positiveIncomeTransactions.isEmpty()
+        
+        // If all entries are of one type, use that type's color for lines
+        if (allIncome) {
+            dataSet.valueLineColor = Color.rgb(48, 138, 52) // Dark green
+        } else if (allExpense) {
+            dataSet.valueLineColor = Color.rgb(183, 28, 28) // Dark red
+        } else {
+            // For mixed charts, create separate datasets for income and expenses
+            val incomeEntries = ArrayList<PieEntry>()
+            val expenseEntries = ArrayList<PieEntry>()
+            val incomeValueColors = ArrayList<Int>()
+            val expenseValueColors = ArrayList<Int>()
+            val incomeSliceColors = ArrayList<Int>()
+            val expenseSliceColors = ArrayList<Int>()
+            
+            // Split entries into income and expense
+            val incomeEntryCount = incomeByCategoryMap.size
+            
+            // Split entries into income and expense
+            for (i in entries.indices) {
+                if (i < incomeEntryCount) {
+                    incomeEntries.add(entries[i])
+                    incomeValueColors.add(valueColors[i])
+                    incomeSliceColors.add(colors[i])
+                } else {
+                    expenseEntries.add(entries[i])
+                    expenseValueColors.add(valueColors[i])
+                    expenseSliceColors.add(colors[i])
+                }
+            }
+            
+            // Create and configure the income dataset
+            val incomeDataSet = PieDataSet(incomeEntries, "Income Categories")
+            incomeDataSet.colors = incomeSliceColors
+            incomeDataSet.sliceSpace = 3f
+            incomeDataSet.selectionShift = 5f
+            incomeDataSet.setValueLinePart1Length(0.8f)
+            incomeDataSet.setValueLinePart2Length(0.6f)
+            incomeDataSet.valueLinePart1OffsetPercentage = 90f
+            incomeDataSet.valueLineWidth = 1.5f
+            incomeDataSet.valueLineColor = Color.rgb(48, 138, 52) // Dark green
+            incomeDataSet.yValuePosition = PieDataSet.ValuePosition.OUTSIDE_SLICE
+            incomeDataSet.setValueTextColors(incomeValueColors)
+            incomeDataSet.setValueTypeface(android.graphics.Typeface.DEFAULT_BOLD)
+            
+            // Create and configure the expense dataset
+            val expenseDataSet = PieDataSet(expenseEntries, "Expense Categories")
+            expenseDataSet.colors = expenseSliceColors
+            expenseDataSet.sliceSpace = 3f
+            expenseDataSet.selectionShift = 5f
+            expenseDataSet.setValueLinePart1Length(0.8f)
+            expenseDataSet.setValueLinePart2Length(0.6f)
+            expenseDataSet.valueLinePart1OffsetPercentage = 90f
+            expenseDataSet.valueLineWidth = 1.5f
+            expenseDataSet.valueLineColor = Color.rgb(183, 28, 28) // Dark red
+            expenseDataSet.yValuePosition = PieDataSet.ValuePosition.OUTSIDE_SLICE
+            expenseDataSet.setValueTextColors(expenseValueColors)
+            expenseDataSet.setValueTypeface(android.graphics.Typeface.DEFAULT_BOLD)
+            
+            // Combine datasets - MPAndroidChart doesn't support multiple pie datasets directly
+            // So we need to use just one dataset
+            dataSet.colors = colors
+            dataSet.setValueLinePart1Length(0.8f)
+            dataSet.setValueLinePart2Length(0.6f)
+            dataSet.valueLinePart1OffsetPercentage = 90f
+            dataSet.valueLineWidth = 1.5f
+            dataSet.yValuePosition = PieDataSet.ValuePosition.OUTSIDE_SLICE
+            
+            // Use value colors for text and custom line colors for each entry
+            dataSet.setValueTextColors(valueColors)
+            
+            // Set custom valueLineColors based on income/expense
+            val lineColors = ArrayList<Int>()
+            for (i in entries.indices) {
+                if (i < incomeEntryCount) {
+                    lineColors.add(Color.rgb(48, 138, 52)) // Dark green
+                } else {
+                    lineColors.add(Color.rgb(183, 28, 28)) // Dark red
+                }
+            }
+            dataSet.valueLineColor = if (lineColors.size == 1) lineColors[0] else Color.BLACK
+            
+            // Apply data to the chart
+            val pieData = PieData(dataSet)
+            pieData.setValueFormatter(PercentFormatter(binding.pieChart))
+            pieData.setValueTextSize(11f)
+            
+            // Apply to chart
+            binding.pieChart.apply {
+                this.data = pieData
+                setExtraOffsets(30f, 20f, 30f, 20f)
+                setUsePercentValues(true)
+                minimumHeight = 600
+                minimumWidth = 600
+                invalidate()
+            }
+            return
+        }
+        
+        dataSet.yValuePosition = PieDataSet.ValuePosition.OUTSIDE_SLICE
+        
+        // Apply income/expense specific colors to the values
+        dataSet.setValueTextColors(valueColors)
+        dataSet.setValueTypeface(android.graphics.Typeface.DEFAULT_BOLD)
+        
+        // Apply the data to chart with padding
+        binding.pieChart.apply {
+            val pieData = PieData(dataSet)
+            pieData.setValueFormatter(PercentFormatter(binding.pieChart))
+            pieData.setValueTextSize(11f)
+            this.data = pieData
+            setExtraOffsets(30f, 20f, 30f, 20f) // Increase padding to prevent labels from being cut off
+            setUsePercentValues(true)
+            // Ensure minimum size for the chart to give labels enough room
+            minimumHeight = 600
+            minimumWidth = 600
+            invalidate()
+        }
     }
 
     private fun setupTypeDropdowns() {
@@ -248,6 +394,14 @@ class HomeFragment : Fragment() {
     }
 
     private fun setupButtons() {
+        // Define income and expense colors matching the pie chart theme
+        val incomeColor = Color.rgb(48, 138, 52) // Dark green
+        val expenseColor = Color.rgb(183, 28, 28) // Dark red
+        
+        // Update button colors to match the transaction total colors
+        binding.addIncomeButton.backgroundTintList = android.content.res.ColorStateList.valueOf(incomeColor)
+        binding.addExpenseButton.backgroundTintList = android.content.res.ColorStateList.valueOf(expenseColor)
+        
         binding.addIncomeButton.setOnClickListener {
             handleTransaction(true)
         }
