@@ -590,6 +590,8 @@ class WTStudentsFragment : Fragment() {
     ) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                Log.d("WTStudentsFragment", "Creating new student with photo: ${newPhotoUri != null}")
+                
                 // First create the student without a photo to get an ID
                 val studentId = viewModel.addStudentAndGetId(
                     name = name,
@@ -599,44 +601,47 @@ class WTStudentsFragment : Fragment() {
                     isActive = isActive
                 )
                 
+                Log.d("WTStudentsFragment", "Student created with ID: $studentId, has photo: ${newPhotoUri != null}")
+                
                 // If we got a valid ID and have a photo to upload
                 if (studentId != null && studentId > 0 && newPhotoUri != null && !photoRemoved) {
                     // Now upload the photo with the real student ID
-                    val cloudUri = withContext(Dispatchers.Main) {
-                        // Need to switch to Main for this call since it uses callbacks
-                        val uploadLatch = java.util.concurrent.CountDownLatch(1)
-                        val resultHolder = object {
-                            var resultUri: String? = null
-                        }
-                        
+                    withContext(Dispatchers.Main) {
                         viewModel.uploadProfilePicture(
                             uri = newPhotoUri,
                             studentId = studentId,
-                            onComplete = { uri ->
-                                resultHolder.resultUri = uri
-                                uploadLatch.countDown()
+                            onComplete = { cloudUri ->
+                                Log.d("WTStudentsFragment", "Photo uploaded successfully: $cloudUri")
+                                
+                                // Update the student with the photo URI
+                                if (cloudUri != null) {
+                                    lifecycleScope.launch(Dispatchers.IO) {
+                                        try {
+                                            Log.d("WTStudentsFragment", "Updating student $studentId with photo URI: $cloudUri")
+                                            viewModel.updateStudentPhoto(studentId, cloudUri)
+                                            Log.d("WTStudentsFragment", "Student photo URI updated successfully")
+                                        } catch (e: Exception) {
+                                            Log.e("WTStudentsFragment", "Error updating student photo: ${e.message}", e)
+                                        } finally {
+                                            withContext(Dispatchers.Main) {
+                                                loadingDialog.dismiss()
+                                                resetState()
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Log.e("WTStudentsFragment", "Photo upload returned null URI")
+                                    loadingDialog.dismiss()
+                                    resetState()
+                                }
                             }
                         )
-                        
-                        // Wait for the upload to complete (with timeout)
-                        try {
-                            uploadLatch.await(30, java.util.concurrent.TimeUnit.SECONDS)
-                        } catch (e: Exception) {
-                            Log.e("WTStudentsFragment", "Timeout waiting for photo upload", e)
-                        }
-                        
-                        resultHolder.resultUri
                     }
-                    
-                    // Update the student with the photo URI
-                    if (cloudUri != null) {
-                        viewModel.updateStudentPhoto(studentId, cloudUri)
+                } else {
+                    withContext(Dispatchers.Main) {
+                        loadingDialog.dismiss()
+                        resetState()
                     }
-                }
-                
-                withContext(Dispatchers.Main) {
-                    loadingDialog.dismiss()
-                    resetState()
                 }
             } catch (e: Exception) {
                 Log.e("WTStudentsFragment", "Error creating student: ${e.message}", e)
