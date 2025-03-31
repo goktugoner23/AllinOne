@@ -512,7 +512,7 @@ class WTRegisterContentFragment : Fragment() {
             Registration Information:
             Student: $studentName
             Period: $startDateText to $endDateText
-            Amount: ${registration.amount}
+            Amount: ₺${registration.amount}
             Payment Status: ${if (registration.isPaid) "Paid" else "Unpaid"}
             ${if (!registration.notes.isNullOrEmpty()) "Notes: ${registration.notes}" else ""}
         """.trimIndent()

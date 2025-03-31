@@ -82,7 +82,7 @@ class WTRegistrationAdapter(
             binding.studentName.text = registration.getStudentName()
             binding.startDate.text = registration.startDate?.let { dateFormat.format(it) } ?: "Not set"
             binding.endDate.text = registration.endDate?.let { dateFormat.format(it) } ?: "Not set"
-            binding.amount.text = String.format("%.2f", registration.amount)
+            binding.amount.text = String.format("₺%.2f", registration.amount)
             
             // Use the actual isPaid field from the registration object
             val isPaid = registration.isPaid

@@ -85,7 +85,7 @@ class HistoryAdapter(
                 
                 // Show amount if available
                 if (item.amount != null) {
-                    amountText.text = String.format("$%.2f", item.amount)
+                    amountText.text = String.format("₺%.2f", item.amount)
                     amountText.visibility = View.VISIBLE
                 } else {
                     amountText.visibility = View.GONE

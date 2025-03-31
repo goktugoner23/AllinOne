@@ -261,17 +261,30 @@ class WTStudentsFragment : Fragment() {
         if (phone.isEmpty()) {
             dialogBinding.phoneInputLayout.error = getString(R.string.field_required)
             isValid = false
+        } else {
+            // Basic validation for Turkish phone numbers
+            val digitsOnly = phone.replace(Regex("[^0-9]"), "")
+            // Check if it's a valid Turkish mobile number (10 digits after removing 0 prefix)
+            if (!(digitsOnly.length == 10 || (digitsOnly.startsWith("0") && digitsOnly.length == 11))) {
+                dialogBinding.phoneInputLayout.error = "Enter a valid Turkish mobile number"
+                isValid = false
+            }
         }
         
         // Check for duplicates if not editing
         if (isValid && editingStudent == null) {
+            // For phone number comparison, format both numbers
+            val formattedPhone = formatPhoneNumber(phone)
+            
             val existingStudentWithName = viewModel.students.value?.find { it.name == name }
             if (existingStudentWithName != null) {
                 dialogBinding.nameInputLayout.error = "A student with this name already exists"
                 isValid = false
             }
             
-            val existingStudentWithPhone = viewModel.students.value?.find { it.phoneNumber == phone }
+            val existingStudentWithPhone = viewModel.students.value?.find { 
+                formatPhoneNumber(it.phoneNumber) == formattedPhone 
+            }
             if (existingStudentWithPhone != null) {
                 dialogBinding.phoneInputLayout.error = "A student with this phone number already exists"
                 isValid = false
@@ -294,9 +307,13 @@ class WTStudentsFragment : Fragment() {
             }
             
             // Only check for duplicate phone if phone has changed
-            if (currentEditingStudent?.phoneNumber != phone) {
+            // Format both numbers for comparison
+            val formattedPhone = formatPhoneNumber(phone)
+            val formattedEditingPhone = formatPhoneNumber(currentEditingStudent?.phoneNumber ?: "")
+            
+            if (formattedEditingPhone != formattedPhone) {
                 val existingStudentWithPhone = viewModel.students.value?.find { 
-                    it.phoneNumber == phone && it.id != currentEditingStudent?.id 
+                    formatPhoneNumber(it.phoneNumber) == formattedPhone && it.id != currentEditingStudent?.id 
                 }
                 if (existingStudentWithPhone != null) {
                     dialogBinding.phoneInputLayout.error = "A student with this phone number already exists"
@@ -424,10 +441,11 @@ class WTStudentsFragment : Fragment() {
     private fun saveStudent() {
         val dialogBinding = currentDialogBinding ?: return
         
-        val name = dialogBinding.nameEditText.text.toString()
-        val phone = dialogBinding.phoneEditText.text.toString()
-        val email = dialogBinding.emailEditText.text.toString()
-        val instagram = dialogBinding.instagramEditText.text.toString()
+        val name = dialogBinding.nameEditText.text.toString().trim()
+        val rawPhone = dialogBinding.phoneEditText.text.toString().trim()
+        val phone = formatPhoneNumber(rawPhone)
+        val email = dialogBinding.emailEditText.text.toString().trim()
+        val instagram = dialogBinding.instagramEditText.text.toString().trim()
         val isActive = dialogBinding.activeSwitch.isChecked
         
         if (name.isBlank()) {
@@ -576,6 +594,52 @@ class WTStudentsFragment : Fragment() {
     }
     
     /**
+     * Format Turkish phone number to international format
+     * Example: "05306778765" -> "+90 530 677 8765"
+     */
+    private fun formatPhoneNumber(phone: String?): String {
+        // If null or empty, return empty string
+        if (phone.isNullOrEmpty()) return ""
+        
+        // Clean the input by removing any non-digit characters
+        val digitsOnly = phone.replace(Regex("[^0-9]"), "")
+        
+        // If empty after cleaning, return empty string
+        if (digitsOnly.isEmpty()) return ""
+        
+        // Remove leading 0 if present and add country code
+        val withCountryCode = if (digitsOnly.startsWith("0")) {
+            "+90${digitsOnly.substring(1)}"
+        } else if (!digitsOnly.startsWith("+90") && !digitsOnly.startsWith("90")) {
+            "+90$digitsOnly"
+        } else {
+            if (digitsOnly.startsWith("90")) "+$digitsOnly" else digitsOnly
+        }
+        
+        // If the number isn't the right length, just return with country code but no formatting
+        if (withCountryCode.length != 13) { // +90 + 10 digits
+            return withCountryCode
+        }
+        
+        // Format with spaces
+        return try {
+            val formatted = StringBuilder()
+            formatted.append(withCountryCode.substring(0, 3)) // +90
+            formatted.append(" ")
+            formatted.append(withCountryCode.substring(3, 6)) // Area code
+            formatted.append(" ")
+            formatted.append(withCountryCode.substring(6, 9)) // First part
+            formatted.append(" ")
+            formatted.append(withCountryCode.substring(9)) // Last part
+            formatted.toString()
+        } catch (e: Exception) {
+            // If any error in formatting, return with country code
+            Log.e("WTStudentsFragment", "Error formatting phone number: $phone", e)
+            withCountryCode
+        }
+    }
+    
+    /**
      * Handle creating a new student, then uploading photo if needed
      */
     private fun handleNewStudentCreation(
@@ -720,9 +784,15 @@ class WTStudentsFragment : Fragment() {
         // Set up the details text with bold labels
         val detailsTextView = dialogView.findViewById<TextView>(R.id.detailsTextView)
         val details = SpannableStringBuilder().apply {
-            // Phone
+            // Phone - ensure it's properly formatted
             append(TextStyleUtils.createBoldSpan(requireContext(), "Phone: "))
-            append("${student.phoneNumber}\n")
+            // If the phone number is not formatted, format it now for display
+            val displayPhone = if (!student.phoneNumber.isNullOrEmpty() && student.phoneNumber.contains(" ")) {
+                student.phoneNumber // Already formatted
+            } else {
+                formatPhoneNumber(student.phoneNumber)
+            }
+            append("$displayPhone\n")
             
             // Instagram (if available)
             if (!student.instagram.isNullOrEmpty()) {
@@ -757,15 +827,29 @@ class WTStudentsFragment : Fragment() {
         // Set up WhatsApp button
         val whatsappButton = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.whatsappButton)
         whatsappButton.setOnClickListener {
-            val phoneNumber = student.phoneNumber?.let { number ->
-                // Remove all non-digit characters and ensure it starts with 90
-                val digitsOnly = number.replace(Regex("[^0-9]"), "")
-                if (digitsOnly.startsWith("0")) {
-                    "90${digitsOnly.substring(1)}"
-                } else {
-                    digitsOnly
+            // Extract just the digits from the formatted phone number
+            val phoneNumber = if (!student.phoneNumber.isNullOrEmpty()) {
+                // Remove all non-digit characters
+                val digitsOnly = student.phoneNumber.replace(Regex("[^0-9+]"), "")
+                
+                // Handle different formats
+                when {
+                    // If it already has the international format with +90
+                    digitsOnly.startsWith("+90") -> digitsOnly.substring(1) // Remove the + but keep the 90
+                    // If it has 90 prefix without +
+                    digitsOnly.startsWith("90") && digitsOnly.length >= 12 -> digitsOnly
+                    // If it's a 10-digit number without country code
+                    digitsOnly.length == 10 -> "90$digitsOnly"
+                    // If it starts with 0, remove it and add 90
+                    digitsOnly.startsWith("0") -> "90${digitsOnly.substring(1)}"
+                    // Otherwise, just add 90 prefix
+                    else -> "90$digitsOnly"
                 }
-            } ?: return@setOnClickListener
+            } else {
+                return@setOnClickListener
+            }
+            
+            Log.d("WTStudentsFragment", "Opening WhatsApp with phone number: $phoneNumber")
             
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 data = Uri.parse("https://api.whatsapp.com/send?phone=$phoneNumber")
