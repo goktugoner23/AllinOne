@@ -407,6 +407,24 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
             // Get the student object
             val student = repository.students.value.find { it.id == studentId } ?: return@launch
             
+            // If student has a photo URI, delete it from Firebase Storage
+            student.photoUri?.let { photoUri ->
+                if (photoUri.startsWith("https://")) {
+                    try {
+                        repository.deleteFile(photoUri)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error deleting student photo: ${e.message}", e)
+                    }
+                }
+            }
+            
+            // Delete the student's entire folder in Firebase Storage
+            try {
+                repository.deleteStudentFolder(studentId)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error deleting student folder: ${e.message}", e)
+            }
+            
             // Delete the student
             repository.deleteStudent(student)
             

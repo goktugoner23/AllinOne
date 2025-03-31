@@ -419,9 +419,18 @@ class FirebaseManager(private val context: Context? = null) {
     
     suspend fun deleteStudent(student: WTStudent) {
         try {
-            studentsCollection.document(student.id.toString()).delete().await()
+            Log.d(TAG, "Deleting student with ID: ${student.id}, name: ${student.name}")
+            
+            // Use string ID for document reference
+            val documentId = student.id.toString()
+            
+            // Delete from Firestore with proper await
+            studentsCollection.document(documentId).delete().await()
+            
+            Log.d(TAG, "Successfully deleted student with ID: ${student.id}")
         } catch (e: Exception) {
-            // Handle error
+            Log.e(TAG, "Error deleting student: ${e.message}", e)
+            throw e
         }
     }
     

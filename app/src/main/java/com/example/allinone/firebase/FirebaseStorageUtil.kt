@@ -92,6 +92,42 @@ class FirebaseStorageUtil(private val context: Context) {
     }
     
     /**
+     * Delete all files in a specific folder in Firebase Storage
+     *
+     * @param folderName The name of the main folder (e.g., "profile_pictures")
+     * @param folderId The ID of the subfolder to delete (e.g., student ID)
+     * @return True if the deletion was successful, false otherwise
+     */
+    suspend fun deleteFolder(folderName: String, folderId: String): Boolean {
+        return try {
+            Log.d(TAG, "Deleting folder: $folderName/$folderId")
+            
+            // Create reference to the folder
+            val folderRef = storageRef.child("$folderName/$folderId")
+            
+            // List all items in the folder
+            val result = folderRef.listAll().await()
+            
+            // Delete each item
+            result.items.forEach { item ->
+                item.delete().await()
+                Log.d(TAG, "Deleted file: ${item.path}")
+            }
+            
+            // Delete subfolders recursively if any
+            result.prefixes.forEach { prefix ->
+                deleteFolder(folderName, "$folderId/${prefix.name}")
+            }
+            
+            Log.d(TAG, "Folder deleted successfully: $folderName/$folderId")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting folder: ${e.message}", e)
+            false
+        }
+    }
+    
+    /**
      * Get the file name from a Uri
      */
     private fun getFileName(uri: Uri): String {

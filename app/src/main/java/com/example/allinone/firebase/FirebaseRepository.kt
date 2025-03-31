@@ -1074,6 +1074,8 @@ class FirebaseRepository(private val context: Context) {
     
     suspend fun deleteStudent(student: WTStudent) {
         try {
+            Log.d(TAG, "Starting deletion of student: ID=${student.id}, Name=${student.name}")
+            
             // Update local cache immediately
             val currentStudents = _students.value.toMutableList()
             currentStudents.removeIf { it.id == student.id }
@@ -1082,6 +1084,7 @@ class FirebaseRepository(private val context: Context) {
             // Then delete from Firebase if network is available
             if (networkUtils.isActiveNetworkConnected()) {
                 firebaseManager.deleteStudent(student)
+                Log.d(TAG, "Student successfully deleted from Firebase: ID=${student.id}")
             } else {
                 // Add to offline queue
                 offlineQueue.enqueue(
@@ -1092,8 +1095,16 @@ class FirebaseRepository(private val context: Context) {
                 _errorMessage.postValue("Student deleted locally. Will sync when network is available.")
                 updatePendingOperationsCount()
             }
+            
+            // Cache the updated list
+            cacheManager.cacheStudents(_students.value)
+            
+            // Notify other components
+            DataChangeNotifier.notifyStudentsChanged()
         } catch (e: Exception) {
+            Log.e(TAG, "Error deleting student: ${e.message}", e)
             _errorMessage.postValue("Error deleting student: ${e.message}")
+            throw e
         }
     }
     
@@ -1726,6 +1737,21 @@ class FirebaseRepository(private val context: Context) {
             storageUtil.deleteFile(fileUrl)
         } catch (e: Exception) {
             Log.e(TAG, "Error deleting file: ${e.message}", e)
+            false
+        }
+    }
+
+    /**
+     * Delete a student's folder from Firebase Storage
+     * @param studentId The ID of the student whose folder should be deleted
+     * @return True if successful, false otherwise
+     */
+    suspend fun deleteStudentFolder(studentId: Long): Boolean {
+        return try {
+            Log.d(TAG, "Deleting student folder from Firebase Storage: $studentId")
+            storageUtil.deleteFolder("profile_pictures", studentId.toString())
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting student folder: ${e.message}", e)
             false
         }
     }
