@@ -38,6 +38,7 @@ import java.util.UUID
 import com.google.firebase.firestore.PersistentCacheSettings
 import com.example.allinone.cache.CacheManager
 import com.example.allinone.firebase.FirebaseStorageUtil
+import com.example.allinone.firebase.DataChangeNotifier
 
 /**
  * A repository that uses Firebase for all data operations.
@@ -544,31 +545,19 @@ class FirebaseRepository(private val context: Context) {
     
     // Transaction methods
     suspend fun refreshTransactions() {
-        if (!networkUtils.isActiveNetworkConnected()) {
-            return // Use cached data
-        }
-        
-        try {
-            // Show loading state
-            withContext(Dispatchers.Main) {
-                _isLoading.value = true
-            }
-            
-            val transactionList = firebaseManager.getTransactions()
-            
-            // Update cache first
-            cacheManager.cacheTransactions(transactionList)
-            
-            // Then update LiveData on main thread
-            withContext(Dispatchers.Main) {
-                _transactions.value = transactionList
-                _isLoading.value = false
-            }
-            
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                _errorMessage.value = "Error loading transactions: ${e.message}"
-                _isLoading.value = false
+        withContext(Dispatchers.IO) {
+            try {
+                _isLoading.postValue(true)
+                val transactions = firebaseManager.getTransactions()
+                _transactions.value = transactions
+                cacheManager.cacheTransactions(transactions)
+                _isLoading.postValue(false)
+                
+                // Notify other components
+                DataChangeNotifier.notifyTransactionsChanged()
+            } catch (e: Exception) {
+                _errorMessage.postValue("Error refreshing transactions: ${e.message}")
+                _isLoading.postValue(false)
             }
         }
     }
@@ -700,19 +689,20 @@ class FirebaseRepository(private val context: Context) {
     
     // Investment methods
     suspend fun refreshInvestments() {
-        if (!networkUtils.isActiveNetworkConnected()) {
-            return // Use cached data
-        }
-        
-        try {
-            val investmentList = firebaseManager.getInvestments()
-            _investments.value = investmentList
-            
-            // Update cache
-            cacheManager.cacheInvestments(investmentList)
-            
-        } catch (e: Exception) {
-            _errorMessage.postValue("Error loading investments: ${e.message}")
+        withContext(Dispatchers.IO) {
+            try {
+                _isLoading.postValue(true)
+                val investments = firebaseManager.getInvestments()
+                _investments.value = investments
+                cacheManager.cacheInvestments(investments)
+                _isLoading.postValue(false)
+                
+                // Notify other components
+                DataChangeNotifier.notifyInvestmentsChanged()
+            } catch (e: Exception) {
+                _errorMessage.postValue("Error refreshing investments: ${e.message}")
+                _isLoading.postValue(false)
+            }
         }
     }
     
@@ -837,31 +827,19 @@ class FirebaseRepository(private val context: Context) {
     
     // Note methods
     suspend fun refreshNotes() {
-        if (!networkUtils.isActiveNetworkConnected()) {
-            return // Use cached data
-        }
-        
-        try {
-            // Show loading state
-            withContext(Dispatchers.Main) {
-                _isLoading.value = true
-            }
-            
-            val noteList = firebaseManager.getNotes()
-            
-            // Update cache first
-            cacheManager.cacheNotes(noteList)
-            
-            // Then update LiveData on main thread
-            withContext(Dispatchers.Main) {
-                _notes.value = noteList
-                _isLoading.value = false
-            }
-            
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                _errorMessage.value = "Error loading notes: ${e.message}"
-                _isLoading.value = false
+        withContext(Dispatchers.IO) {
+            try {
+                _isLoading.postValue(true)
+                val notes = firebaseManager.getNotes()
+                _notes.value = notes
+                cacheManager.cacheNotes(notes)
+                _isLoading.postValue(false)
+                
+                // Notify other components
+                DataChangeNotifier.notifyNotesChanged()
+            } catch (e: Exception) {
+                _errorMessage.postValue("Error refreshing notes: ${e.message}")
+                _isLoading.postValue(false)
             }
         }
     }
@@ -970,19 +948,20 @@ class FirebaseRepository(private val context: Context) {
     
     // WTStudent methods
     suspend fun refreshStudents() {
-        if (!networkUtils.isActiveNetworkConnected()) {
-            return // Use cached data
-        }
-        
-        try {
-            val studentList = firebaseManager.getStudents()
-            _students.value = studentList
-            
-            // Update cache
-            cacheManager.cacheStudents(studentList)
-            
-        } catch (e: Exception) {
-            _errorMessage.postValue("Error loading students: ${e.message}")
+        withContext(Dispatchers.IO) {
+            try {
+                _isLoading.postValue(true)
+                val students = firebaseManager.getStudents()
+                _students.value = students
+                cacheManager.cacheStudents(students)
+                _isLoading.postValue(false)
+                
+                // Notify other components
+                DataChangeNotifier.notifyStudentsChanged()
+            } catch (e: Exception) {
+                _errorMessage.postValue("Error refreshing students: ${e.message}")
+                _isLoading.postValue(false)
+            }
         }
     }
     

@@ -79,6 +79,7 @@ class WTStudentsFragment : Fragment() {
         setupFab()
         observeStudents()
         observeNetworkStatus()
+        setupSwipeRefresh()
     }
 
     private fun setupRecyclerView() {
@@ -860,6 +861,17 @@ class WTStudentsFragment : Fragment() {
         // Close on tap
         imageView?.setOnClickListener {
             dialog.dismiss()
+        }
+    }
+
+    private fun setupSwipeRefresh() {
+        binding.swipeRefreshLayout.setOnRefreshListener {
+            viewModel.refreshData()
+        }
+        
+        // Observe loading state to hide the refresh indicator when done
+        viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
+            binding.swipeRefreshLayout.isRefreshing = isLoading
         }
     }
 

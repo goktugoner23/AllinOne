@@ -23,7 +23,7 @@ class FirebaseIdManager {
     suspend fun getNextId(collectionName: String): Long {
         try {
             // Atomic increment of the counter and retrieval of the new value
-            val result = countersCollection.document(collectionName)
+            countersCollection.document(collectionName)
                 .update("count", FieldValue.increment(1))
                 .await()
             

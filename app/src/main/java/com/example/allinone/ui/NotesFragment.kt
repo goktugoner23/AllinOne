@@ -84,6 +84,7 @@ class NotesFragment : Fragment() {
         setupRecyclerView()
         setupFab()
         observeNotes()
+        setupSwipeRefresh()
     }
     
     private fun setupRecyclerView() {
@@ -111,6 +112,17 @@ class NotesFragment : Fragment() {
             val sortedNotes = notes.sortedByDescending { it.lastEdited }
             notesAdapter.submitList(sortedNotes)
             binding.emptyStateText.visibility = if (notes.isEmpty()) View.VISIBLE else View.GONE
+        }
+    }
+    
+    private fun setupSwipeRefresh() {
+        binding.swipeRefreshLayout.setOnRefreshListener {
+            viewModel.refreshData()
+        }
+        
+        // Observe loading state to hide the refresh indicator when done
+        viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
+            binding.swipeRefreshLayout.isRefreshing = isLoading
         }
     }
     

@@ -65,10 +65,17 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
 
     fun refreshData() {
         viewModelScope.launch {
-            Log.d("WTRegisterViewModel", "Starting data refresh")
-            repository.refreshStudents()
-            repository.refreshRegistrations()
-            Log.d("WTRegisterViewModel", "Data refresh completed")
+            try {
+                _isLoading.value = true
+                Log.d("WTRegisterViewModel", "Starting data refresh")
+                repository.refreshStudents()
+                repository.refreshRegistrations()
+                Log.d("WTRegisterViewModel", "Data refresh completed")
+            } catch (e: Exception) {
+                Log.e("WTRegisterViewModel", "Error refreshing data: ${e.message}", e)
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
     

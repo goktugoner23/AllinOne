@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.allinone.data.Note
 import com.example.allinone.firebase.FirebaseRepository
 import com.example.allinone.firebase.FirebaseIdManager
+import com.example.allinone.firebase.DataChangeNotifier
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.util.Date
@@ -19,6 +20,9 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
     
     private val _allNotes = MutableLiveData<List<Note>>(emptyList())
     val allNotes: LiveData<List<Note>> = _allNotes
+    
+    // Add isLoading property
+    val isLoading: LiveData<Boolean> = repository.isLoading
     
     init {
         // Collect notes from the repository flow
@@ -46,6 +50,9 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             // Add note to Firebase
             repository.insertNote(note)
             
+            // Notify about data change
+            DataChangeNotifier.notifyNotesChanged()
+            
             // Refresh notes to ensure UI consistency
             repository.refreshNotes()
         }
@@ -56,6 +63,9 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             // Update note in Firebase
             repository.updateNote(note)
             
+            // Notify about data change
+            DataChangeNotifier.notifyNotesChanged()
+            
             // Refresh notes to ensure UI consistency
             repository.refreshNotes()
         }
@@ -65,6 +75,9 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             // Delete note from Firebase
             repository.deleteNote(note)
+            
+            // Notify about data change
+            DataChangeNotifier.notifyNotesChanged()
             
             // Refresh notes to ensure UI consistency
             repository.refreshNotes()

@@ -206,7 +206,7 @@ class WTLessonsFragment : Fragment() {
         
         // Add lessons for each selected day
         for (day in selectedDays) {
-            viewModel.addNewLesson(
+            viewModel.addLesson(
                 day,
                 startHour,
                 startMinute,
@@ -336,7 +336,7 @@ class WTLessonsFragment : Fragment() {
                 }
                 
                 // Update lesson
-                viewModel.updateLesson(
+                viewModel.updateCurrentLesson(
                     lesson.dayOfWeek,
                     startHour,
                     startMinute,

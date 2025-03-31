@@ -66,6 +66,7 @@ class WTRegisterContentFragment : Fragment() {
         observeStudents()
         observeRegistrations()
         observeNetworkStatus()
+        setupSwipeRefresh()
         
         Log.d("WTRegisterContent", "Fragment created and set up")
         
@@ -174,6 +175,17 @@ class WTRegisterContentFragment : Fragment() {
                     }
                 }, 2000)
             }
+        }
+    }
+    
+    private fun setupSwipeRefresh() {
+        binding.swipeRefreshLayout.setOnRefreshListener {
+            viewModel.refreshData()
+        }
+        
+        // Observe loading state to hide the refresh indicator when done
+        viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
+            binding.swipeRefreshLayout.isRefreshing = isLoading
         }
     }
     

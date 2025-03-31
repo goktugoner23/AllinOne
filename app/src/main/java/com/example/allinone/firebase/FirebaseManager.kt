@@ -304,7 +304,7 @@ class FirebaseManager(private val context: Context? = null) {
     suspend fun getStudents(): List<WTStudent> {
         return withContext(Dispatchers.IO) {
             try {
-                val snapshot = studentsCollection.whereEqualTo("deviceId", deviceId).get().await()
+                val snapshot = studentsCollection.get().await()
                 snapshot.documents.mapNotNull { doc ->
                     // Parse the document ID as a Long directly instead of using hashCode
                     val id = try {
@@ -320,9 +320,11 @@ class FirebaseManager(private val context: Context? = null) {
                     val email = doc.getString("email")
                     val instagram = doc.getString("instagram")
                     val isActive = doc.getBoolean("isActive") ?: true
-                    val deviceId = doc.getString("deviceId")
+                    val deviceId = doc.getString("deviceId") // Keep for backward compatibility
                     val notes = doc.getString("notes")
                     val photoUri = doc.getString("photoUri")
+                    
+                    Log.d(TAG, "Loaded student: ID=$id, Name=$name")
                     
                     WTStudent(
                         id = id, 
@@ -337,6 +339,7 @@ class FirebaseManager(private val context: Context? = null) {
                     )
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Error fetching students: ${e.message}", e)
                 emptyList()
             }
         }

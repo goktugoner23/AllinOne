@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -12,6 +13,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.allinone.R
 import com.example.allinone.databinding.FragmentDatabaseManagementBinding
 import com.example.allinone.databinding.ItemDatabaseRecordBinding
+import com.example.allinone.firebase.DataChangeNotifier
 import com.google.android.material.chip.Chip
 import com.google.android.material.tabs.TabLayout
 import com.google.firebase.Timestamp
@@ -62,6 +64,7 @@ class DatabaseManagementFragment : Fragment() {
         setupRecyclerView()
         setupTabLayout()
         setupRefreshButton()
+        setupDataChangeObservers()
         
         // Load data for the initial tab
         loadCollectionData(currentCollection)
@@ -76,6 +79,10 @@ class DatabaseManagementFragment : Fragment() {
     }
     
     private fun setupTabLayout() {
+        // Set the initial tab based on savedInstanceState or default
+        val initialPosition = collections.indexOf(currentCollection).takeIf { it >= 0 } ?: 0
+        binding.tabLayout.getTabAt(initialPosition)?.select()
+        
         binding.tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab) {
                 val position = tab.position
@@ -97,7 +104,53 @@ class DatabaseManagementFragment : Fragment() {
         }
     }
     
+    private fun setupDataChangeObservers() {
+        // Observe changes for all collections
+        DataChangeNotifier.transactionsChanged.observe(viewLifecycleOwner) {
+            if (it == true && currentCollection == "transactions") {
+                loadCollectionData(currentCollection)
+            }
+        }
+        
+        DataChangeNotifier.investmentsChanged.observe(viewLifecycleOwner) {
+            if (it == true && currentCollection == "investments") {
+                loadCollectionData(currentCollection)
+            }
+        }
+        
+        DataChangeNotifier.notesChanged.observe(viewLifecycleOwner) {
+            if (it == true && currentCollection == "notes") {
+                loadCollectionData(currentCollection)
+            }
+        }
+        
+        DataChangeNotifier.studentsChanged.observe(viewLifecycleOwner) {
+            if (it == true && currentCollection == "students") {
+                loadCollectionData(currentCollection)
+            }
+        }
+        
+        DataChangeNotifier.eventsChanged.observe(viewLifecycleOwner) {
+            if (it == true && currentCollection == "events") {
+                loadCollectionData(currentCollection)
+            }
+        }
+        
+        DataChangeNotifier.lessonsChanged.observe(viewLifecycleOwner) {
+            if (it == true && currentCollection == "wtLessons") {
+                loadCollectionData(currentCollection)
+            }
+        }
+        
+        DataChangeNotifier.registrationsChanged.observe(viewLifecycleOwner) {
+            if (it == true && currentCollection == "registrations") {
+                loadCollectionData(currentCollection)
+            }
+        }
+    }
+    
     private fun loadCollectionData(collectionName: String) {
+        // Show loading indicators
         binding.dataLoadingProgress.visibility = View.VISIBLE
         binding.emptyView.visibility = View.GONE
         
@@ -122,6 +175,7 @@ class DatabaseManagementFragment : Fragment() {
             } catch (e: Exception) {
                 Toast.makeText(requireContext(), "Error loading data: ${e.message}", Toast.LENGTH_SHORT).show()
             } finally {
+                // Hide loading indicators
                 binding.dataLoadingProgress.visibility = View.GONE
             }
         }
@@ -393,7 +447,10 @@ class DatabaseManagementFragment : Fragment() {
                 
                 // Delete action
                 binding.deleteButton.setOnClickListener {
-                    confirmDelete(record, adapterPosition)
+                    val position = bindingAdapterPosition
+                    if (position != RecyclerView.NO_POSITION) {
+                        confirmDelete(record, position)
+                    }
                 }
             }
         }
@@ -424,11 +481,15 @@ class DatabaseManagementFragment : Fragment() {
     }
     
     private fun deleteDocument(record: DatabaseRecord, position: Int) {
-        val progressDialog = android.app.ProgressDialog(requireContext()).apply {
-            setMessage("Deleting document...")
-            setCancelable(false)
-            show()
-        }
+        // Create and show a progress indicator dialog using MaterialAlertDialogBuilder
+        val progressView = layoutInflater.inflate(R.layout.dialog_progress, null)
+        val progressTextView = progressView.findViewById<TextView>(R.id.progress_text)
+        progressTextView.text = "Deleting document..."
+        
+        val progressDialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+            .setView(progressView)
+            .setCancelable(false)
+            .show()
         
         lifecycleScope.launch {
             try {
@@ -438,6 +499,9 @@ class DatabaseManagementFragment : Fragment() {
                         .delete()
                         .await()
                 }
+                
+                // Notify other parts of the app about the change
+                DataChangeNotifier.notifyCollectionChanged(record.collectionName)
                 
                 recordAdapter.removeItem(position)
                 

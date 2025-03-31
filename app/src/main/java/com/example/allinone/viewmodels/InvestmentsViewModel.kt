@@ -8,6 +8,7 @@ import com.example.allinone.data.*
 import com.example.allinone.firebase.FirebaseRepository
 import com.example.allinone.firebase.FirebaseManager
 import com.example.allinone.firebase.FirebaseIdManager
+import com.example.allinone.firebase.DataChangeNotifier
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -28,6 +29,15 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
     private val _errorMessage = MutableLiveData<String>()
     val errorMessage: LiveData<String> = _errorMessage
     
+    private val _addStatus = MutableLiveData<AddStatus>()
+    val addStatus: LiveData<AddStatus> = _addStatus
+    
+    private val _updateStatus = MutableLiveData<UpdateStatus>()
+    val updateStatus: LiveData<UpdateStatus> = _updateStatus
+    
+    private val _deleteStatus = MutableLiveData<DeleteStatus>()
+    val deleteStatus: LiveData<DeleteStatus> = _deleteStatus
+    
     init {
         // Collect investments from the repository flow
         viewModelScope.launch {
@@ -38,7 +48,8 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    fun addInvestment(name: String, amount: Double, type: String, description: String?, imageUri: String?, isPast: Boolean = false) {
+    fun addInvestment(name: String, amount: Double, type: String, 
+                      description: String? = null, imageUri: String? = null, isPast: Boolean = false) {
         viewModelScope.launch {
             try {
                 // Get next sequential ID
@@ -55,29 +66,49 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
                     isPast = isPast
                 )
                 
+                // Save to Firebase
                 repository.insertInvestment(investment)
+                
+                // Notify about data change
+                DataChangeNotifier.notifyInvestmentsChanged()
+                
+                // Update the local cache
+                _addStatus.value = AddStatus.SUCCESS
+                repository.refreshInvestments()
             } catch (e: Exception) {
-                _errorMessage.value = "Error adding investment: ${e.message}"
+                _addStatus.value = AddStatus.ERROR
             }
         }
     }
-
+    
     fun updateInvestment(investment: Investment) {
         viewModelScope.launch {
             try {
                 repository.updateInvestment(investment)
+                
+                // Notify about data change
+                DataChangeNotifier.notifyInvestmentsChanged()
+                
+                repository.refreshInvestments()
+                _updateStatus.value = UpdateStatus.SUCCESS
             } catch (e: Exception) {
-                _errorMessage.value = "Error updating investment: ${e.message}"
+                _updateStatus.value = UpdateStatus.ERROR
             }
         }
     }
-
+    
     fun deleteInvestment(investment: Investment) {
         viewModelScope.launch {
             try {
                 repository.deleteInvestment(investment)
+                
+                // Notify about data change
+                DataChangeNotifier.notifyInvestmentsChanged()
+                
+                repository.refreshInvestments()
+                _deleteStatus.value = DeleteStatus.SUCCESS
             } catch (e: Exception) {
-                _errorMessage.value = "Error deleting investment: ${e.message}"
+                _deleteStatus.value = DeleteStatus.ERROR
             }
         }
     }
@@ -222,4 +253,23 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
     fun calculateTotalInvestments(): Double {
         return allInvestments.value?.sumOf { it.amount } ?: 0.0
     }
+}
+
+// Status enums for operations
+enum class AddStatus {
+    SUCCESS,
+    ERROR,
+    NONE
+}
+
+enum class UpdateStatus {
+    SUCCESS,
+    ERROR,
+    NONE
+}
+
+enum class DeleteStatus {
+    SUCCESS,
+    ERROR,
+    NONE
 } 

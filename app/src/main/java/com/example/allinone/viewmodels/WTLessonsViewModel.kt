@@ -9,10 +9,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.allinone.data.WTLesson
 import com.example.allinone.firebase.FirebaseRepository
 import com.example.allinone.firebase.FirebaseIdManager
+import com.example.allinone.firebase.DataChangeNotifier
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.UUID
+import java.util.Date
 
 /**
  * Change event for lessons to notify other components
@@ -61,8 +63,11 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
     
-    // Add a new lesson
-    fun addNewLesson(
+    /**
+     * Add a new lesson with specified parameters 
+     * This method internally generates a sequential ID and notifies observers
+     */
+    fun addLesson(
         dayOfWeek: Int,
         startHour: Int,
         startMinute: Int,
@@ -72,7 +77,7 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             try {
                 // Get next sequential ID for lessons
-                val lessonId = idManager.getNextId("lessons")
+                val lessonId = idManager.getNextId("wtLessons")
                 
                 val lesson = WTLesson(
                     id = lessonId,
@@ -84,34 +89,76 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
                 )
                 
                 repository.insertWTLesson(lesson)
-                // Notify observers that a lesson was added
+                
+                // Notify observers through both mechanisms
                 _lessonChangeEvent.value = LessonChangeEvent.LessonAdded(lesson)
+                DataChangeNotifier.notifyLessonsChanged()
+                
+                // Refresh lessons to ensure UI consistency
+                repository.refreshWTLessons()
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to add lesson: ${e.message}"
             }
         }
     }
     
-    // Delete a lesson
+    /**
+     * Delete a lesson
+     */
     fun deleteLesson(lesson: WTLesson) {
         viewModelScope.launch {
             try {
                 repository.deleteWTLesson(lesson)
-                // Notify observers that a lesson was deleted
+                
+                // Notify observers through both mechanisms
                 _lessonChangeEvent.value = LessonChangeEvent.LessonDeleted(lesson)
+                DataChangeNotifier.notifyLessonsChanged()
+                
+                // Refresh lessons to ensure UI consistency
+                repository.refreshWTLessons()
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to delete lesson: ${e.message}"
             }
         }
     }
     
-    // Set current editing lesson
+    /**
+     * Delete a lesson by finding it with matching parameters
+     */
+    fun deleteLessonByParams(dayOfWeek: Int, startHour: Int, startMinute: Int, endHour: Int, endMinute: Int) {
+        viewModelScope.launch {
+            try {
+                // Find lesson with matching details
+                val lessonToDelete = _lessons.value?.find {
+                    it.dayOfWeek == dayOfWeek &&
+                    it.startHour == startHour && 
+                    it.startMinute == startMinute &&
+                    it.endHour == endHour &&
+                    it.endMinute == endMinute
+                }
+                
+                if (lessonToDelete != null) {
+                    deleteLesson(lessonToDelete)
+                } else {
+                    _errorMessage.value = "Failed to find lesson to delete"
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "Failed to delete lesson: ${e.message}"
+            }
+        }
+    }
+    
+    /**
+     * Set current editing lesson
+     */
     fun setEditingLesson(lesson: WTLesson?) {
         _currentEditingLesson.value = lesson
     }
     
-    // Update a lesson
-    fun updateLesson(dayOfWeek: Int, startHour: Int, startMinute: Int, endHour: Int, endMinute: Int) {
+    /**
+     * Update the currently editing lesson with new values
+     */
+    fun updateCurrentLesson(dayOfWeek: Int, startHour: Int, startMinute: Int, endHour: Int, endMinute: Int) {
         val currentLesson = _currentEditingLesson.value ?: return
         
         viewModelScope.launch {
@@ -123,11 +170,29 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
                     endHour = endHour,
                     endMinute = endMinute
                 )
-                repository.insertWTLesson(updatedLesson)
+                updateLesson(updatedLesson)
                 setEditingLesson(null) // Clear editing state
+            } catch (e: Exception) {
+                _errorMessage.value = "Failed to update lesson: ${e.message}"
+            }
+        }
+    }
+    
+    /**
+     * Update a specific lesson
+     */
+    fun updateLesson(lesson: WTLesson) {
+        viewModelScope.launch {
+            try {
+                // Update lesson in Firebase
+                repository.insertWTLesson(lesson)
                 
-                // Notify observers that a lesson was modified
-                _lessonChangeEvent.value = LessonChangeEvent.LessonModified(updatedLesson)
+                // Notify observers through both mechanisms
+                _lessonChangeEvent.value = LessonChangeEvent.LessonModified(lesson)
+                DataChangeNotifier.notifyLessonsChanged()
+                
+                // Refresh lessons to ensure UI consistency
+                repository.refreshWTLessons()
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to update lesson: ${e.message}"
             }
@@ -142,22 +207,22 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             try {
                 // Update lessons in repository
-                // For simplicity, we're just ensuring the current lessons are persisted
-                // In a real implementation, you might want to compare with existing lessons
-                // and only add/update/delete as needed
                 lessons.forEach { lesson ->
                     repository.insertWTLesson(lesson)
                 }
                 
                 // Notify observers that lessons were updated
                 _lessonChangeEvent.value = LessonChangeEvent.LessonsUpdated
+                DataChangeNotifier.notifyLessonsChanged()
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to save lessons: ${e.message}"
             }
         }
     }
     
-    // Clear error message
+    /**
+     * Clear error message
+     */
     fun clearErrorMessage() {
         _errorMessage.value = null
     }
@@ -182,7 +247,9 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
     
-    // Get day name from day of week
+    /**
+     * Get day name from day of week
+     */
     fun getDayName(dayOfWeek: Int): String {
         return when (dayOfWeek) {
             Calendar.MONDAY -> "Monday"
@@ -196,7 +263,9 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
     
-    // Format time as HH:MM
+    /**
+     * Format time as HH:MM
+     */
     fun formatTime(hour: Int, minute: Int): String {
         return String.format("%02d:%02d", hour, minute)
     }
