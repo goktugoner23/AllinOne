@@ -6,6 +6,78 @@
     android:layout_height="match_parent"
     android:background="@color/white">
 
+    <!-- Filter chips -->
+    <HorizontalScrollView
+        android:id="@+id/filter_scroll"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:scrollbars="none"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:clipToPadding="false"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/filter_chip_group"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:singleSelection="false">
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/filter_all"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="All"
+                android:checkable="true"
+                android:checked="true"
+                app:chipBackgroundColor="@color/chip_background_selector" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/filter_income"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Income"
+                android:checkable="true"
+                app:chipIcon="@drawable/ic_income"
+                app:chipIconTint="@color/green"
+                app:chipBackgroundColor="@color/chip_background_selector" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/filter_expense"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Expense"
+                android:checkable="true"
+                app:chipIcon="@drawable/ic_expense"
+                app:chipIconTint="@color/red"
+                app:chipBackgroundColor="@color/chip_background_selector" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/filter_registrations"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Registrations"
+                android:checkable="true"
+                app:chipIcon="@drawable/ic_graduation"
+                app:chipIconTint="@color/purple"
+                app:chipBackgroundColor="@color/chip_background_selector" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/filter_notes"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Notes"
+                android:checkable="true"
+                app:chipIcon="@drawable/ic_note"
+                app:chipBackgroundColor="@color/chip_background_selector" />
+
+        </com.google.android.material.chip.ChipGroup>
+    </HorizontalScrollView>
+
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swipe_refresh"
         android:layout_width="0dp"
@@ -13,7 +85,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintTop_toBottomOf="@id/filter_scroll">
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recycler_view"
@@ -35,7 +107,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintTop_toBottomOf="@id/filter_scroll">
 
         <ImageView
             android:layout_width="120dp"

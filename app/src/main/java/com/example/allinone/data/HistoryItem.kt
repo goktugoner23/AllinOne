@@ -18,6 +18,8 @@ data class HistoryItem(
 ) {
     enum class ItemType {
         TRANSACTION,
+        TRANSACTION_INCOME,
+        TRANSACTION_EXPENSE,
         INVESTMENT,
         NOTE,
         REGISTRATION

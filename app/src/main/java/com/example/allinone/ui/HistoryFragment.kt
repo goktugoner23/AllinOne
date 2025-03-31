@@ -24,6 +24,7 @@ import com.example.allinone.adapters.HistoryAdapter
 import com.example.allinone.data.HistoryItem
 import com.example.allinone.databinding.FragmentHistoryBinding
 import com.example.allinone.viewmodels.HistoryViewModel
+import com.google.android.material.chip.Chip
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.flow.collect
@@ -41,6 +42,7 @@ class HistoryFragment : BaseFragment() {
     private var searchMenuItem: MenuItem? = null
     private var allHistoryItems: List<HistoryItem> = emptyList()
     private var menuProvider: MenuProvider? = null
+    private val activeFilters = mutableSetOf<HistoryItem.ItemType?>()
     
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -60,6 +62,9 @@ class HistoryFragment : BaseFragment() {
         
         // Set the action bar title
         (activity as? AppCompatActivity)?.supportActionBar?.title = getString(R.string.history)
+        
+        // Setup Filter Chips
+        setupFilterChips()
         
         // Setup RecyclerView
         setupRecyclerView()
@@ -81,6 +86,133 @@ class HistoryFragment : BaseFragment() {
         binding.swipeRefresh.isRefreshing = true
         viewModel.refreshData()
         binding.swipeRefresh.isRefreshing = false
+    }
+
+    private fun setupFilterChips() {
+        // All filter
+        binding.filterAll?.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                // Clear all other filters
+                binding.filterIncome?.isChecked = false
+                binding.filterExpense?.isChecked = false
+                binding.filterRegistrations?.isChecked = false
+                binding.filterNotes?.isChecked = false
+                activeFilters.clear()
+                applyFilters()
+            } else {
+                // If no other filter is checked, recheck this one
+                if (activeFilters.isEmpty() && 
+                    binding.filterIncome?.isChecked != true && 
+                    binding.filterExpense?.isChecked != true && 
+                    binding.filterRegistrations?.isChecked != true && 
+                    binding.filterNotes?.isChecked != true) {
+                    binding.filterAll?.isChecked = true
+                }
+            }
+        }
+        
+        // Income filter
+        binding.filterIncome?.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                binding.filterAll?.isChecked = false
+                activeFilters.add(HistoryItem.ItemType.TRANSACTION_INCOME)
+            } else {
+                activeFilters.remove(HistoryItem.ItemType.TRANSACTION_INCOME)
+            }
+            applyFilters()
+        }
+        
+        // Expense filter
+        binding.filterExpense?.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                binding.filterAll?.isChecked = false
+                activeFilters.add(HistoryItem.ItemType.TRANSACTION_EXPENSE)
+            } else {
+                activeFilters.remove(HistoryItem.ItemType.TRANSACTION_EXPENSE)
+            }
+            applyFilters()
+        }
+        
+        // Registrations filter
+        binding.filterRegistrations?.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                binding.filterAll?.isChecked = false
+                activeFilters.add(HistoryItem.ItemType.REGISTRATION)
+            } else {
+                activeFilters.remove(HistoryItem.ItemType.REGISTRATION)
+            }
+            applyFilters()
+        }
+        
+        // Notes filter
+        binding.filterNotes?.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                binding.filterAll?.isChecked = false
+                activeFilters.add(HistoryItem.ItemType.NOTE)
+            } else {
+                activeFilters.remove(HistoryItem.ItemType.NOTE)
+            }
+            applyFilters()
+        }
+    }
+    
+    private fun applyFilters() {
+        val searchView = searchMenuItem?.actionView as? SearchView
+        val searchQuery = if (searchView?.isIconified == false && !searchView.query.isNullOrEmpty()) {
+            searchView.query.toString()
+        } else {
+            ""
+        }
+        
+        val filteredItems = if (binding.filterAll?.isChecked == true || activeFilters.isEmpty()) {
+            // If "All" is selected or no filters are active
+            if (searchQuery.isBlank()) {
+                allHistoryItems
+            } else {
+                // Apply search filter to all items
+                allHistoryItems.filter { item ->
+                    item.title.contains(searchQuery, ignoreCase = true) ||
+                    item.description.contains(searchQuery, ignoreCase = true) ||
+                    item.amount?.toString()?.contains(searchQuery) == true
+                }
+            }
+        } else {
+            // Apply both type filters and search filter
+            allHistoryItems.filter { item ->
+                val matchesType = when (item.itemType) {
+                    HistoryItem.ItemType.TRANSACTION -> {
+                        // For backward compatibility, check amount
+                        val isIncome = item.amount != null && item.amount > 0
+                        if (isIncome) {
+                            activeFilters.contains(HistoryItem.ItemType.TRANSACTION_INCOME)
+                        } else {
+                            activeFilters.contains(HistoryItem.ItemType.TRANSACTION_EXPENSE)
+                        }
+                    }
+                    HistoryItem.ItemType.TRANSACTION_INCOME -> 
+                        activeFilters.contains(HistoryItem.ItemType.TRANSACTION_INCOME)
+                    HistoryItem.ItemType.TRANSACTION_EXPENSE -> 
+                        activeFilters.contains(HistoryItem.ItemType.TRANSACTION_EXPENSE)
+                    else -> activeFilters.contains(item.itemType)
+                }
+                
+                val matchesSearch = if (searchQuery.isBlank()) {
+                    true
+                } else {
+                    item.title.contains(searchQuery, ignoreCase = true) ||
+                    item.description.contains(searchQuery, ignoreCase = true) ||
+                    item.amount?.toString()?.contains(searchQuery) == true
+                }
+                
+                matchesType && matchesSearch
+            }
+        }
+        
+        adapter.submitList(filteredItems)
+        
+        // Show empty state if needed
+        binding.emptyState.visibility = if (filteredItems.isEmpty()) View.VISIBLE else View.GONE
+        binding.recyclerView.visibility = if (filteredItems.isEmpty()) View.GONE else View.VISIBLE
     }
     
     private fun setupMenu() {
@@ -200,29 +332,20 @@ class HistoryFragment : BaseFragment() {
     }
     
     private fun resetHistoryList() {
-        adapter.submitList(allHistoryItems)
+        if (binding.filterAll?.isChecked == true || activeFilters.isEmpty()) {
+            adapter.submitList(allHistoryItems)
+        } else {
+            applyFilters()
+        }
         
         // Show empty state if needed
-        binding.emptyState.visibility = if (allHistoryItems.isEmpty()) View.VISIBLE else View.GONE
-        binding.recyclerView.visibility = if (allHistoryItems.isEmpty()) View.GONE else View.VISIBLE
+        val currentList = adapter.currentList
+        binding.emptyState.visibility = if (currentList.isEmpty()) View.VISIBLE else View.GONE
+        binding.recyclerView.visibility = if (currentList.isEmpty()) View.GONE else View.VISIBLE
     }
 
     private fun filterHistoryItems(query: String) {
-        val filteredItems = if (query.isBlank()) {
-            allHistoryItems
-        } else {
-            allHistoryItems.filter { item ->
-                item.title.contains(query, ignoreCase = true) ||
-                item.description.contains(query, ignoreCase = true) ||
-                item.amount?.toString()?.contains(query) == true
-            }
-        }
-        
-        adapter.submitList(filteredItems)
-        
-        // Show empty state if needed
-        binding.emptyState.visibility = if (filteredItems.isEmpty()) View.VISIBLE else View.GONE
-        binding.recyclerView.visibility = if (filteredItems.isEmpty()) View.GONE else View.VISIBLE
+        applyFilters()
     }
     
     private fun setupRecyclerView() {
@@ -252,23 +375,8 @@ class HistoryFragment : BaseFragment() {
                 // Store all items for filtering
                 allHistoryItems = items
                 
-                // Apply search filter if search is active
-                val searchView = searchMenuItem?.actionView as? SearchView
-                if (searchView?.isIconified == false && !searchView.query.isNullOrEmpty()) {
-                    filterHistoryItems(searchView.query.toString())
-                } else {
-                    adapter.submitList(items)
-                    
-                    // Show empty state if needed
-                    binding.emptyState.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
-                    binding.recyclerView.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
-                    
-                    // Only show snackbar if there are no items
-                    if (items.isEmpty()) {
-                        Log.d(TAG, "History list is empty, showing empty state")
-                        Snackbar.make(binding.root, R.string.no_history_items, Snackbar.LENGTH_SHORT).show()
-                    }
-                }
+                // Apply current filters
+                applyFilters()
             }
         }
     }
@@ -278,14 +386,17 @@ class HistoryFragment : BaseFragment() {
         val title = "Delete ${item.itemType.name.lowercase().replaceFirstChar { it.uppercase() }}?"
         val message = when (item.itemType) {
             HistoryItem.ItemType.REGISTRATION -> "Deleting this registration will also remove any related payment transactions."
-            HistoryItem.ItemType.TRANSACTION -> {
+            HistoryItem.ItemType.TRANSACTION,
+            HistoryItem.ItemType.TRANSACTION_INCOME,
+            HistoryItem.ItemType.TRANSACTION_EXPENSE -> {
                 if (item.title.contains("Registration")) {
                     "Deleting this transaction might affect registration records. Do you want to proceed?"
                 } else {
                     "Are you sure you want to delete this transaction?"
                 }
             }
-            else -> "Are you sure you want to delete this item?"
+            HistoryItem.ItemType.INVESTMENT -> "Are you sure you want to delete this investment?"
+            HistoryItem.ItemType.NOTE -> "Are you sure you want to delete this note?"
         }
         
         MaterialAlertDialogBuilder(requireContext())

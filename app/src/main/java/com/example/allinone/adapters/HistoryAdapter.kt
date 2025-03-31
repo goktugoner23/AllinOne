@@ -67,10 +67,12 @@ class HistoryAdapter(
                 
                 // Set type icon based on item type
                 when (item.itemType) {
-                    HistoryItem.ItemType.TRANSACTION -> {
-                        typeIcon.setImageResource(
-                            if (item.type == "Income") R.drawable.ic_income else R.drawable.ic_expense
-                        )
+                    HistoryItem.ItemType.TRANSACTION,
+                    HistoryItem.ItemType.TRANSACTION_INCOME -> {
+                        typeIcon.setImageResource(R.drawable.ic_income)
+                    }
+                    HistoryItem.ItemType.TRANSACTION_EXPENSE -> {
+                        typeIcon.setImageResource(R.drawable.ic_expense)
                     }
                     HistoryItem.ItemType.INVESTMENT -> {
                         typeIcon.setImageResource(R.drawable.ic_investment)

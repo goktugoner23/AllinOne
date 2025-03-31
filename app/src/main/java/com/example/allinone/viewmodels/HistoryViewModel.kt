@@ -84,13 +84,15 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     fun deleteItem(item: HistoryItem) {
         viewModelScope.launch {
             when (item.itemType) {
-                HistoryItem.ItemType.TRANSACTION -> {
+                HistoryItem.ItemType.TRANSACTION,
+                HistoryItem.ItemType.TRANSACTION_INCOME,
+                HistoryItem.ItemType.TRANSACTION_EXPENSE -> {
                     val transaction = Transaction(
                         id = item.id,
                         amount = item.amount ?: 0.0,
                         type = item.type,
                         description = item.description,
-                        isIncome = item.type == "Income",
+                        isIncome = item.type == "Income" || item.itemType == HistoryItem.ItemType.TRANSACTION_INCOME,
                         date = item.date,
                         category = ""
                     )
@@ -176,7 +178,10 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
             date = date,
             amount = amount,
             type = if (isIncome) "Income" else "Expense",
-            itemType = HistoryItem.ItemType.TRANSACTION
+            itemType = if (isIncome) 
+                        HistoryItem.ItemType.TRANSACTION_INCOME 
+                      else 
+                        HistoryItem.ItemType.TRANSACTION_EXPENSE
         )
     }
     
