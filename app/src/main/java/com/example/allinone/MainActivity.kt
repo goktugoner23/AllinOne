@@ -506,6 +506,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             R.id.nav_wt_registry -> "Wing Tzun Registry"
             R.id.nav_history -> "History"
             R.id.wtRegisterFragment -> "Wing Tzun Registry"
+            R.id.nav_database_management -> "Database Management"
             else -> destination.label?.toString() ?: getString(R.string.app_name)
         }
         
@@ -618,6 +619,11 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                 }
                 R.id.nav_history -> {
                     navController.navigate(R.id.nav_history)
+                    drawerLayout.closeDrawers()
+                    true
+                }
+                R.id.nav_database_management -> {
+                    navController.navigate(R.id.nav_database_management)
                     drawerLayout.closeDrawers()
                     true
                 }

@@ -6,6 +6,8 @@ import android.util.Log
 import androidx.lifecycle.*
 import com.example.allinone.data.*
 import com.example.allinone.firebase.FirebaseRepository
+import com.example.allinone.firebase.FirebaseManager
+import com.example.allinone.firebase.FirebaseIdManager
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -14,12 +16,17 @@ import java.util.UUID
 
 class InvestmentsViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FirebaseRepository(application)
+    private val firebaseManager = FirebaseManager()
+    private val idManager = FirebaseIdManager()
     
     private val _allInvestments = MutableLiveData<List<Investment>>(emptyList())
     val allInvestments: LiveData<List<Investment>> = _allInvestments
     
     private val _totalInvestment = MutableLiveData<Double>(0.0)
     val totalInvestment: LiveData<Double> = _totalInvestment
+    
+    private val _errorMessage = MutableLiveData<String>()
+    val errorMessage: LiveData<String> = _errorMessage
     
     init {
         // Collect investments from the repository flow
@@ -31,39 +38,47 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    fun addInvestment(investment: Investment) {
+    fun addInvestment(name: String, amount: Double, type: String, description: String?, imageUri: String?, isPast: Boolean = false) {
         viewModelScope.launch {
-            // Add the investment to the repository
-            repository.insertInvestment(investment)
-            
-            // Only create a corresponding transaction if it's not a past investment
-            if (!investment.isPast) {
-                // Create an expense transaction for the investment amount
-                val transaction = Transaction(
-                    id = UUID.randomUUID().mostSignificantBits,
-                    amount = investment.amount,
-                    type = "Investment",
-                    description = "Investment in ${investment.name}",
-                    isIncome = false,
+            try {
+                // Get next sequential ID
+                val investmentId = idManager.getNextId("investments")
+                
+                val investment = Investment(
+                    id = investmentId,
+                    name = name,
+                    amount = amount,
+                    type = type,
+                    description = description,
+                    imageUri = imageUri,
                     date = Date(),
-                    category = investment.type
+                    isPast = isPast
                 )
                 
-                // Insert the transaction
-                repository.updateTransaction(transaction)
+                repository.insertInvestment(investment)
+            } catch (e: Exception) {
+                _errorMessage.value = "Error adding investment: ${e.message}"
             }
         }
     }
 
     fun updateInvestment(investment: Investment) {
         viewModelScope.launch {
-            repository.updateInvestment(investment)
+            try {
+                repository.updateInvestment(investment)
+            } catch (e: Exception) {
+                _errorMessage.value = "Error updating investment: ${e.message}"
+            }
         }
     }
 
     fun deleteInvestment(investment: Investment) {
         viewModelScope.launch {
-            repository.deleteInvestment(investment)
+            try {
+                repository.deleteInvestment(investment)
+            } catch (e: Exception) {
+                _errorMessage.value = "Error deleting investment: ${e.message}"
+            }
         }
     }
 
@@ -143,7 +158,11 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
     
     fun refreshData() {
         viewModelScope.launch {
-            repository.refreshAllData()
+            try {
+                repository.refreshAllData()
+            } catch (e: Exception) {
+                _errorMessage.value = "Error refreshing data: ${e.message}"
+            }
         }
     }
 
@@ -198,5 +217,9 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
     suspend fun updateInvestmentImages(investmentId: Long, imageUrisString: String) {
         // This method is deprecated - use updateInvestment instead
         Log.d("InvestmentsViewModel", "This method is deprecated, use updateInvestment instead")
+    }
+
+    fun calculateTotalInvestments(): Double {
+        return allInvestments.value?.sumOf { it.amount } ?: 0.0
     }
 } 

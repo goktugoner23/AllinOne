@@ -35,6 +35,7 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.util.Date
 import java.util.UUID
+import com.google.firebase.storage.FirebaseStorage
 
 class InvestmentsFragment : Fragment() {
     private var _binding: FragmentInvestmentsBinding? = null
@@ -569,6 +570,29 @@ class InvestmentsFragment : Fragment() {
             binding.totalInvestmentsText.text = String.format("Total Investments: ₺%.2f", totalAmount)
             binding.investmentCountText.text = "Number of Investments: ${investments.size}"
         }
+    }
+
+    private fun uploadImageToFirebaseStorage(imageUri: Uri, callback: (Uri?) -> Unit) {
+        val storageRef = FirebaseStorage.getInstance().reference
+            .child("images")
+            .child("investment_${System.currentTimeMillis()}") // Use timestamp instead of UUID
+        
+        // Start upload
+        storageRef.putFile(imageUri)
+            .addOnSuccessListener { 
+                storageRef.downloadUrl.addOnSuccessListener { uri ->
+                    callback(uri)
+                }
+            }
+            .addOnFailureListener {
+                Toast.makeText(requireContext(), "Failed to upload image", Toast.LENGTH_SHORT).show()
+                callback(null)
+            }
+    }
+
+    // Helper method to show toast messages
+    private fun showToast(message: String) {
+        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
     }
 
     override fun onDestroyView() {

@@ -68,6 +68,36 @@ The app uses the following collections in Firestore:
 - `investments`: Investment records
 - `notes`: Text notes with optional images
 - `students`: Wing Tzun student records
+- `counters`: Sequential ID counters for all resources
+
+### Sequential IDs
+
+All resources in the app use sequential numeric IDs rather than random UUIDs. This approach provides several benefits:
+
+1. **User-Friendly**: Sequential IDs are more user-friendly and easier to reference (e.g., "Invoice #125")
+2. **More Efficient**: Numeric IDs require less storage space compared to UUIDs
+3. **Better Sorting**: Natural ordering for display in lists, reports, and exports
+4. **Consistency**: Predictable ID generation across all resource types
+
+#### How Sequential IDs Work
+
+1. The app maintains counter documents in the `counters` collection, one for each resource type
+2. When a new resource is created, the app:
+   - Reads the current counter value in a transaction
+   - Increments the counter
+   - Assigns the new value as the resource ID
+   - Saves both the counter and the new resource
+3. This process ensures ID uniqueness even with concurrent operations and offline usage
+
+#### Counter Documents Structure
+
+Each counter document has this structure:
+```json
+{
+  "count": 125,
+  "last_updated": "2023-11-28T14:32:45Z"
+}
+```
 
 ## Offline Support
 

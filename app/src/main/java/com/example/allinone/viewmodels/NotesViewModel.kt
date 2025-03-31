@@ -8,13 +8,14 @@ import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.allinone.data.Note
 import com.example.allinone.firebase.FirebaseRepository
+import com.example.allinone.firebase.FirebaseIdManager
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.util.Date
-import java.util.UUID
 
 class NotesViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FirebaseRepository(application)
+    private val idManager = FirebaseIdManager()
     
     private val _allNotes = MutableLiveData<List<Note>>(emptyList())
     val allNotes: LiveData<List<Note>> = _allNotes
@@ -30,8 +31,11 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
 
     fun addNote(title: String, content: String, imageUris: String? = null) {
         viewModelScope.launch {
+            // Get next sequential ID for notes
+            val noteId = idManager.getNextId("notes")
+            
             val note = Note(
-                id = UUID.randomUUID().mostSignificantBits,
+                id = noteId,
                 title = title,
                 content = content,
                 date = Date(),

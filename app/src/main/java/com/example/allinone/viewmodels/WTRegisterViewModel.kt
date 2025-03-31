@@ -177,8 +177,8 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
             try {
                 _isLoading.value = true
                 
-                // Generate ID for the registration first
-                val registrationId = UUID.randomUUID().mostSignificantBits
+                // Generate sequential ID for the registration
+                val registrationId = repository.getNextId("registrations")
                 Log.d(TAG, "Creating registration with ID: $registrationId for student: $studentId")
                 
                 // Handle file upload if there's an attachment

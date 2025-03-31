@@ -8,6 +8,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.allinone.data.WTLesson
 import com.example.allinone.firebase.FirebaseRepository
+import com.example.allinone.firebase.FirebaseIdManager
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -25,6 +26,7 @@ sealed class LessonChangeEvent {
 
 class WTLessonsViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FirebaseRepository(application)
+    private val idManager = FirebaseIdManager()
     
     private val _lessons = MutableLiveData<List<WTLesson>>(emptyList())
     val lessons: LiveData<List<WTLesson>> = _lessons
@@ -60,17 +62,27 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
     }
     
     // Add a new lesson
-    fun addLesson(dayOfWeek: Int, startHour: Int, startMinute: Int, endHour: Int, endMinute: Int) {
+    fun addNewLesson(
+        dayOfWeek: Int,
+        startHour: Int,
+        startMinute: Int,
+        endHour: Int,
+        endMinute: Int
+    ) {
         viewModelScope.launch {
             try {
+                // Get next sequential ID for lessons
+                val lessonId = idManager.getNextId("lessons")
+                
                 val lesson = WTLesson(
-                    id = UUID.randomUUID().mostSignificantBits,
+                    id = lessonId,
                     dayOfWeek = dayOfWeek,
                     startHour = startHour,
                     startMinute = startMinute,
                     endHour = endHour,
                     endMinute = endMinute
                 )
+                
                 repository.insertWTLesson(lesson)
                 // Notify observers that a lesson was added
                 _lessonChangeEvent.value = LessonChangeEvent.LessonAdded(lesson)
@@ -153,11 +165,11 @@ class WTLessonsViewModel(application: Application) : AndroidViewModel(applicatio
     /**
      * Force refresh lessons from Firebase and ensure calendar is updated
      */
-    fun refreshLessons() {
+    fun refreshData() {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                repository.refreshWTLessons(true) // Force refresh from Firebase
+                repository.refreshWTLessons()
                 _isLoading.value = false
                 
                 // Explicitly notify observers that lessons were updated

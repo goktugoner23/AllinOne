@@ -25,6 +25,7 @@ import kotlin.math.abs
 class FirebaseManager(private val context: Context? = null) {
     private val firestore: FirebaseFirestore = Firebase.firestore
     private val storage: FirebaseStorage = FirebaseStorage.getInstance()
+    val idManager = FirebaseIdManager()
     
     // Collection references
     private val transactionsCollection = firestore.collection("transactions")
@@ -51,12 +52,14 @@ class FirebaseManager(private val context: Context? = null) {
             val sharedPrefs = context.getSharedPreferences("app_preferences", Context.MODE_PRIVATE)
             var id = sharedPrefs.getString("device_id", null)
             if (id == null) {
-                id = UUID.randomUUID().toString()
+                // Use a more consistent ID format with device details and timestamp
+                id = "device_${System.currentTimeMillis()}_${Math.abs(android.os.Build.MODEL.hashCode())}"
                 sharedPrefs.edit().putString("device_id", id).apply()
             }
             id
         } else {
-            UUID.randomUUID().toString()
+            // Fallback for cases where context is null, still use a timestamp rather than random UUID
+            "device_${System.currentTimeMillis()}"
         }
     }
     
@@ -132,7 +135,9 @@ class FirebaseManager(private val context: Context? = null) {
                 // Only upload if it's a content URI
                 if (imageUri.startsWith("content://")) {
                     val uri = Uri.parse(imageUri)
-                    val imageRef = imagesRef.child("${UUID.randomUUID()}")
+                    // Use sequential ID instead of UUID for image name
+                    val imageId = idManager.getNextId("investment_images")
+                    val imageRef = imagesRef.child("investment_$imageId")
                     imageRef.putFile(uri).await()
                     uploadedImageUrl = imageRef.downloadUrl.await().toString()
                 } else if (imageUri.startsWith("http")) {
@@ -203,7 +208,9 @@ class FirebaseManager(private val context: Context? = null) {
                     // Only process valid content URIs
                     if (uriString.startsWith("content://")) {
                         val uri = Uri.parse(uriString)
-                        val imageRef = imagesRef.child("${UUID.randomUUID()}")
+                        // Use sequential ID instead of UUID for image name
+                        val imageId = idManager.getNextId("note_images")
+                        val imageRef = imagesRef.child("note_$imageId")
                         imageRef.putFile(uri).await()
                         val downloadUrl = imageRef.downloadUrl.await().toString()
                         uploadedImageUrls.add(downloadUrl)
@@ -260,7 +267,13 @@ class FirebaseManager(private val context: Context? = null) {
         try {
             Log.d(TAG, "Starting to save student with ID: ${student.id}, name: ${student.name}, deviceId: $deviceId")
             
-            val studentWithId = student.copy(id = if (student.id <= 0) UUID.randomUUID().mostSignificantBits.toLong() else student.id)
+            val studentWithId = if (student.id <= 0) {
+                // Generate sequential ID
+                val nextId = idManager.getNextId("students")
+                student.copy(id = nextId)
+            } else {
+                student
+            }
             
             // Convert to map for Firestore
             val studentMap = mapOf(
@@ -788,7 +801,7 @@ class FirebaseManager(private val context: Context? = null) {
             
             // Generate a new ID if not provided
             val studentId = if (student.id <= 0) {
-                abs(UUID.randomUUID().mostSignificantBits)
+                idManager.getNextId("students")
             } else {
                 student.id
             }
@@ -831,7 +844,7 @@ class FirebaseManager(private val context: Context? = null) {
             
             // Generate a new ID if not provided
             val investmentId = if (investment.id <= 0) {
-                abs(UUID.randomUUID().mostSignificantBits)
+                idManager.getNextId("investments")
             } else {
                 investment.id
             }
@@ -862,6 +875,19 @@ class FirebaseManager(private val context: Context? = null) {
         } catch (e: Exception) {
             Log.e(TAG, "Error saving investment: ${e.message}", e)
             throw e
+        }
+    }
+
+    // WT Events
+    suspend fun uploadEventAttachment(uri: Uri): String? = withContext(Dispatchers.IO) {
+        try {
+            val attachmentId = idManager.getNextId("event_attachments")
+            val attachmentRef = attachmentsRef.child("event_$attachmentId")
+            attachmentRef.putFile(uri).await()
+            return@withContext attachmentRef.downloadUrl.await().toString()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error uploading event attachment: ${e.message}", e)
+            return@withContext null
         }
     }
 } 

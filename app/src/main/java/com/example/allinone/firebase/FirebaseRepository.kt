@@ -1184,7 +1184,9 @@ class FirebaseRepository(private val context: Context) {
                 if (networkUtils.isActiveNetworkConnected()) {
                     // Generate ID if not present
                     val eventWithId = if (event.id == 0L) {
-                        event.copy(id = UUID.randomUUID().mostSignificantBits and Long.MAX_VALUE)
+                        // Use sequential ID instead of random UUID
+                        val nextId = firebaseManager.idManager.getNextId("events")
+                        event.copy(id = nextId)
                     } else {
                         event
                     }
@@ -1539,7 +1541,9 @@ class FirebaseRepository(private val context: Context) {
                 if (networkUtils.isActiveNetworkConnected()) {
                     // Generate ID if not present
                     val registrationWithId = if (registration.id == 0L) {
-                        registration.copy(id = UUID.randomUUID().mostSignificantBits and Long.MAX_VALUE)
+                        // Use sequential ID instead of random UUID
+                        val nextId = firebaseManager.idManager.getNextId("registrations")
+                        registration.copy(id = nextId)
                     } else {
                         registration
                     }
@@ -1777,5 +1781,14 @@ class FirebaseRepository(private val context: Context) {
             Log.e(TAG, "Error inserting investment: ${e.message}", e)
             throw e
         }
+    }
+
+    /**
+     * Get the next sequential ID for a resource type
+     * @param resourceType The type of resource (e.g., "transactions", "investments", "notes")
+     * @return The next sequential ID
+     */
+    suspend fun getNextId(resourceType: String): Long {
+        return firebaseManager.idManager.getNextId(resourceType)
     }
 } 

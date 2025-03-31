@@ -25,6 +25,10 @@
     
     <group android:id="@+id/group_settings">
         <item
+            android:id="@+id/nav_database_management"
+            android:icon="@drawable/ic_database"
+            android:title="Database Management" />
+        <item
             android:id="@+id/nav_backup"
             android:icon="@drawable/ic_backup"
             android:title="Backup &amp; Restore" />

@@ -18,6 +18,21 @@ class OfflineQueue(context: Context) {
         "offline_queue", Context.MODE_PRIVATE
     )
     private val gson = Gson()
+    private var queueItemCounter = 0L
+    
+    init {
+        // Initialize counter from existing queue
+        val queue = getQueue()
+        if (queue.isNotEmpty()) {
+            // Find highest queue item ID
+            queueItemCounter = queue.maxOfOrNull { extractIdFromString(it.id) }?.plus(1) ?: 0L
+        }
+    }
+    
+    // Extract numeric ID from string format
+    private fun extractIdFromString(id: String): Long {
+        return id.substringAfterLast("_").toLongOrNull() ?: 0L
+    }
     
     // Operation types
     enum class Operation {
@@ -37,7 +52,7 @@ class OfflineQueue(context: Context) {
     
     // Queue item
     data class QueueItem(
-        val id: String = UUID.randomUUID().toString(),
+        val id: String = "queue_0",
         val operation: Operation,
         val dataType: DataType,
         val jsonData: String? = null,
@@ -48,7 +63,11 @@ class OfflineQueue(context: Context) {
      * Add an item to the queue
      */
     fun enqueue(dataType: DataType, operation: Operation, jsonData: String?) {
+        // Increment counter and create queue ID
+        val queueId = "queue_${queueItemCounter++}"
+        
         val queueItem = QueueItem(
+            id = queueId,
             operation = operation,
             dataType = dataType,
             jsonData = jsonData

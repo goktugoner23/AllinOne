@@ -73,7 +73,7 @@ class WTLessonsFragment : Fragment() {
         viewModel.isNetworkAvailable.observe(viewLifecycleOwner) { isAvailable ->
             // Refresh data if network becomes available
             if (isAvailable) {
-                viewModel.refreshLessons()
+                viewModel.refreshData()
             }
         }
         
@@ -93,7 +93,7 @@ class WTLessonsFragment : Fragment() {
         }
         
         // Initially load lessons
-        viewModel.refreshLessons()
+        viewModel.refreshData()
     }
 
     private fun setupTimeInputFields(editText: EditText) {
@@ -206,7 +206,13 @@ class WTLessonsFragment : Fragment() {
         
         // Add lessons for each selected day
         for (day in selectedDays) {
-            viewModel.addLesson(day, startHour, startMinute, endHour, endMinute)
+            viewModel.addNewLesson(
+                day,
+                startHour,
+                startMinute,
+                endHour,
+                endMinute
+            )
         }
         
         // Clear selections
@@ -379,7 +385,7 @@ class WTLessonsFragment : Fragment() {
         super.onResume()
         
         // Force refresh the lessons data from Firebase when the fragment becomes visible
-        viewModel.refreshLessons()
+        viewModel.refreshData()
         
         // Log for debugging
         Log.d("WTLessonsFragment", "onResume: Refreshing lessons data")
