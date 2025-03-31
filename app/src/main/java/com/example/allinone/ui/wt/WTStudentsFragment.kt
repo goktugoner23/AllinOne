@@ -15,16 +15,22 @@ import android.text.Spanned
 import android.text.style.StyleSpan
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.allinone.R
@@ -46,6 +52,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.google.firebase.firestore.FirebaseFirestore
+import androidx.appcompat.widget.SearchView
+import android.transition.TransitionManager
+import android.transition.Slide
+import android.view.Gravity
+import android.widget.EditText
+import android.view.MotionEvent
+import android.view.inputmethod.EditorInfo
+import android.widget.ImageView
 
 class WTStudentsFragment : Fragment() {
     private var _binding: FragmentWtStudentsBinding? = null
@@ -53,6 +67,7 @@ class WTStudentsFragment : Fragment() {
     private val viewModel: WTRegisterViewModel by viewModels()
     private lateinit var adapter: WTStudentAdapter
     private var editingStudent: WTStudent? = null
+    private var searchMenuItem: MenuItem? = null
     
     // Variables for handling profile pictures
     private var currentPhotoUri: Uri? = null
@@ -78,9 +93,114 @@ class WTStudentsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()
         setupFab()
+        setupMenu()
         observeStudents()
         observeNetworkStatus()
         setupSwipeRefresh()
+    }
+    
+    private fun setupMenu() {
+        requireActivity().addMenuProvider(object : MenuProvider {
+            override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
+                menuInflater.inflate(R.menu.search_students, menu)
+                searchMenuItem = menu.findItem(R.id.action_search)
+                
+                val searchView = searchMenuItem?.actionView as? SearchView
+                searchView?.let {
+                    // Set search view expanded listener
+                    it.setOnSearchClickListener { _ ->
+                        // Animate search view expansion
+                        val slide = Slide(Gravity.END)
+                        slide.duration = 200
+                        TransitionManager.beginDelayedTransition((activity as AppCompatActivity).findViewById(R.id.toolbar), slide)
+                    }
+                    
+                    // Set search view collapse listener
+                    it.setOnCloseListener { 
+                        // Animate search view collapse
+                        val slide = Slide(Gravity.END)
+                        slide.duration = 200
+                        TransitionManager.beginDelayedTransition((activity as AppCompatActivity).findViewById(R.id.toolbar), slide)
+                        
+                        // Reset the student list
+                        resetStudentList()
+                        true
+                    }
+                    
+                    // Set up query listener
+                    it.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+                        override fun onQueryTextSubmit(query: String?): Boolean {
+                            query?.let { searchQuery ->
+                                filterStudents(searchQuery)
+                            }
+                            
+                            // Hide keyboard
+                            val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                            imm.hideSoftInputFromWindow(it.windowToken, 0)
+                            
+                            return true
+                        }
+                        
+                        override fun onQueryTextChange(newText: String?): Boolean {
+                            newText?.let { searchQuery ->
+                                filterStudents(searchQuery)
+                            }
+                            return true
+                        }
+                    })
+                    
+                    // Customize search view appearance
+                    val searchEditText = it.findViewById<EditText>(androidx.appcompat.R.id.search_src_text)
+                    searchEditText?.apply {
+                        setHintTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
+                        setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
+                        hint = getString(R.string.search_hint)
+                        imeOptions = EditorInfo.IME_ACTION_SEARCH
+                        
+                        // Set X button to reset search
+                        setOnEditorActionListener { _, actionId, _ ->
+                            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                                // Hide keyboard
+                                val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                                imm.hideSoftInputFromWindow(this.windowToken, 0)
+                                return@setOnEditorActionListener true
+                            }
+                            false
+                        }
+                    }
+
+                    // Set search icon color to white (expanded state)
+                    val searchIcon = it.findViewById<ImageView>(androidx.appcompat.R.id.search_mag_icon)
+                    searchIcon?.setColorFilter(ContextCompat.getColor(requireContext(), android.R.color.white),
+                        android.graphics.PorterDuff.Mode.SRC_IN)
+                    
+                    // Make sure search icon is visible and properly sized
+                    searchIcon?.apply {
+                        visibility = View.VISIBLE
+                        val iconSize = resources.getDimensionPixelSize(androidx.appcompat.R.dimen.abc_dropdownitem_icon_width)
+                        val params = layoutParams
+                        params.width = iconSize
+                        params.height = iconSize
+                        layoutParams = params
+                    }
+
+                    // Set close button color to white
+                    val closeButton = it.findViewById<ImageView>(androidx.appcompat.R.id.search_close_btn)
+                    closeButton?.setColorFilter(ContextCompat.getColor(requireContext(), android.R.color.white),
+                        android.graphics.PorterDuff.Mode.SRC_IN)
+                }
+            }
+            
+            override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
+                return when (menuItem.itemId) {
+                    R.id.action_search -> {
+                        // The search icon click is handled by the SearchView
+                        true
+                    }
+                    else -> false
+                }
+            }
+        }, viewLifecycleOwner, Lifecycle.State.RESUMED)
     }
 
     private fun setupRecyclerView() {
@@ -104,6 +224,44 @@ class WTStudentsFragment : Fragment() {
         }
     }
 
+    private fun resetStudentList() {
+        viewModel.students.value?.let { students ->
+            val uniqueStudents = students.distinctBy { it.id }
+            val sortedStudents = uniqueStudents.sortedBy { it.name.lowercase(Locale.getDefault()) }
+            adapter.submitList(sortedStudents)
+            
+            // Show or hide empty state
+            binding.emptyState.visibility = if (sortedStudents.isEmpty()) View.VISIBLE else View.GONE
+        }
+    }
+
+    private fun filterStudents(query: String) {
+        viewModel.students.value?.let { students ->
+            // Deduplicate students by ID
+            val uniqueStudents = students.distinctBy { it.id }
+            
+            // Filter and sort students
+            val filteredStudents = if (query.isBlank()) {
+                uniqueStudents
+            } else {
+                uniqueStudents.filter { 
+                    it.name.contains(query, ignoreCase = true) || 
+                    it.phoneNumber?.contains(query, ignoreCase = true) == true ||
+                    it.email?.contains(query, ignoreCase = true) == true
+                }
+            }
+            
+            // Sort students alphabetically by name
+            val sortedStudents = filteredStudents.sortedBy { it.name.lowercase(Locale.getDefault()) }
+            
+            // Update adapter with filtered list
+            adapter.submitList(sortedStudents)
+            
+            // Show or hide empty state
+            binding.emptyState.visibility = if (sortedStudents.isEmpty()) View.VISIBLE else View.GONE
+        }
+    }
+
     private fun observeStudents() {
         viewModel.students.observe(viewLifecycleOwner) { students ->
             // Check for students with old image paths and update them
@@ -117,16 +275,22 @@ class WTStudentsFragment : Fragment() {
                 }
             }
             
-            // Deduplicate students by ID before submitting to adapter
-            val uniqueStudents = students.distinctBy { it.id }
-            
-            // Sort students alphabetically by name
-            val sortedStudents = uniqueStudents.sortedBy { it.name.lowercase(Locale.getDefault()) }
-            
-            adapter.submitList(sortedStudents)
-            
-            // Show or hide empty state
-            binding.emptyState.visibility = if (sortedStudents.isEmpty()) View.VISIBLE else View.GONE
+            // Apply current search filter if search is active
+            val searchView = searchMenuItem?.actionView as? SearchView
+            if (searchView?.isIconified == false && !searchView.query.isNullOrEmpty()) {
+                filterStudents(searchView.query.toString())
+            } else {
+                // Deduplicate students by ID before submitting to adapter
+                val uniqueStudents = students.distinctBy { it.id }
+                
+                // Sort students alphabetically by name
+                val sortedStudents = uniqueStudents.sortedBy { it.name.lowercase(Locale.getDefault()) }
+                
+                adapter.submitList(sortedStudents)
+                
+                // Show or hide empty state
+                binding.emptyState.visibility = if (sortedStudents.isEmpty()) View.VISIBLE else View.GONE
+            }
         }
     }
 
