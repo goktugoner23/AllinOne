@@ -1,10 +1,13 @@
 package com.example.allinone.adapters
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.example.allinone.R
@@ -48,6 +51,15 @@ class LogEntryAdapter(
         
         // Set message
         holder.messageText.text = logEntry.message
+
+        // Set long press listener to copy log entry
+        holder.cardView.setOnLongClickListener {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("Error Log", logEntry.toString())
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(context, "Log entry copied to clipboard", Toast.LENGTH_SHORT).show()
+            true
+        }
     }
 
     override fun getItemCount(): Int = logEntries.size
