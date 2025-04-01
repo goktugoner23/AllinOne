@@ -7,6 +7,7 @@ plugins {
     id 'kotlin-parcelize'
     id 'dagger.hilt.android.plugin'
     id 'com.diffplug.spotless'
+    id 'androidx.navigation.safeargs.kotlin'
 }
 
 // Spotless configuration
@@ -20,6 +21,15 @@ spotless {
     
     enforceCheck false
 }
+
+// Task to generate source code JSON
+task generateSourceCodeJson(type: Exec) {
+    workingDir project.rootDir
+    commandLine 'python3', 'scripts/generate_source_code.py'
+}
+
+// Make sure the source code JSON is generated before building
+preBuild.dependsOn generateSourceCodeJson
 
 android {
     namespace 'com.example.allinone'

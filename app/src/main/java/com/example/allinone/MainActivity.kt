@@ -53,6 +53,7 @@ import android.widget.EditText
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.example.allinone.workers.LogcatCaptureWorker
+import com.example.allinone.ui.SourceCodeViewerFragment
 
 class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedListener {
     private lateinit var binding: ActivityMainBinding
@@ -478,6 +479,67 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         destination: NavDestination,
         arguments: Bundle?
     ) {
+        when (destination.id) {
+            R.id.nav_transactions -> {
+                binding.bottomNavigation.visibility = View.VISIBLE
+                binding.bottomNavigation.setOnItemSelectedListener { item ->
+                    when (item.itemId) {
+                        R.id.nav_transactions -> true
+                        else -> false
+                    }
+                }
+            }
+            R.id.nav_wt_registry -> {
+                binding.bottomNavigation.visibility = View.VISIBLE
+                binding.bottomNavigation.setOnItemSelectedListener { item ->
+                    when (item.itemId) {
+                        R.id.nav_wt_registry -> true
+                        else -> false
+                    }
+                }
+            }
+            R.id.nav_calendar -> {
+                binding.bottomNavigation.visibility = View.VISIBLE
+                binding.bottomNavigation.setOnItemSelectedListener { item ->
+                    when (item.itemId) {
+                        R.id.nav_calendar -> true
+                        else -> false
+                    }
+                }
+            }
+            R.id.nav_notes -> {
+                binding.bottomNavigation.visibility = View.VISIBLE
+                binding.bottomNavigation.setOnItemSelectedListener { item ->
+                    when (item.itemId) {
+                        R.id.nav_notes -> true
+                        else -> false
+                    }
+                }
+            }
+            R.id.nav_history -> {
+                binding.bottomNavigation.visibility = View.GONE
+            }
+            R.id.nav_database_management -> {
+                binding.bottomNavigation.visibility = View.GONE
+            }
+            R.id.nav_backup -> {
+                binding.bottomNavigation.visibility = View.GONE
+                startActivity(Intent(this, BackupActivity::class.java))
+            }
+            R.id.nav_error_logs -> {
+                binding.bottomNavigation.visibility = View.GONE
+            }
+            R.id.nav_source_code -> {
+                binding.bottomNavigation.visibility = View.GONE
+            }
+            R.id.nav_clear_data -> {
+                binding.bottomNavigation.visibility = View.GONE
+            }
+            R.id.nav_clear_db -> {
+                binding.bottomNavigation.visibility = View.GONE
+            }
+        }
+        
         // Hide bottom navigation for certain screens
         when (destination.id) {
             R.id.homeFragment, R.id.nav_investments -> {
@@ -651,8 +713,29 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                     drawerLayout.closeDrawers()
                     true
                 }
+                R.id.nav_source_code -> {
+                    navController.navigate(R.id.nav_source_code)
+                    drawerLayout.closeDrawers()
+                    true
+                }
                 else -> false
             }
         }
+    }
+
+    private fun showAddTransactionDialog() {
+        // TODO: Implement transaction dialog
+    }
+
+    private fun showAddWTLessonDialog() {
+        // TODO: Implement WT lesson dialog
+    }
+
+    private fun showAddCalendarEventDialog() {
+        // TODO: Implement calendar event dialog
+    }
+
+    private fun showAddNoteDialog() {
+        // TODO: Implement note dialog
     }
 }

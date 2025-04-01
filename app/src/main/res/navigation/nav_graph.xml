@@ -50,4 +50,33 @@
         android:label="Database Management"
         tools:layout="@layout/fragment_database_management" />
 
+    <fragment
+        android:id="@+id/nav_source_code"
+        android:name="com.example.allinone.ui.SourceCodeViewerFragment"
+        android:label="Source Code"
+        tools:layout="@layout/fragment_source_code_viewer">
+        
+        <action
+            android:id="@+id/action_nav_source_code_to_codeViewer"
+            app:destination="@id/codeViewerFragment"
+            app:enterAnim="@anim/nav_default_enter_anim"
+            app:exitAnim="@anim/nav_default_exit_anim"
+            app:popEnterAnim="@anim/nav_default_pop_enter_anim"
+            app:popExitAnim="@anim/nav_default_pop_exit_anim" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/codeViewerFragment"
+        android:name="com.example.allinone.ui.CodeViewerFragment"
+        android:label="Code Viewer"
+        tools:layout="@layout/fragment_code_viewer">
+        
+        <argument
+            android:name="filePath"
+            app:argType="string" />
+        <argument
+            android:name="fileName"
+            app:argType="string" />
+    </fragment>
+
 </navigation> 
