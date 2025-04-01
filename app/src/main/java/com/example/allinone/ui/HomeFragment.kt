@@ -42,9 +42,8 @@ class PieChartTooltip(context: android.content.Context, layoutResource: Int) : M
     
     override fun refreshContent(e: Entry?, highlight: Highlight?) {
         if (e is PieEntry) {
-            val entry = e as PieEntry
-            val formattedValue = String.format("₺%.2f", entry.value)
-            tooltipText.text = "${entry.label}\n$formattedValue"
+            val formattedValue = String.format("₺%.2f", e.value)
+            tooltipText.text = "${e.label}\n$formattedValue"
         }
         super.refreshContent(e, highlight)
     }
@@ -163,9 +162,6 @@ class HomeFragment : Fragment() {
             binding.pieChart.invalidate()
             return
         }
-        
-        // Check if dark theme is enabled
-        val isNightMode = AppCompatDelegate.getDefaultNightMode() == AppCompatDelegate.MODE_NIGHT_YES
         
         // Prepare data for income and expense transactions
         // For income transactions, only include positive amounts - completely exclude adjustments

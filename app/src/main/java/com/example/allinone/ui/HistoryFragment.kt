@@ -345,7 +345,23 @@ class HistoryFragment : BaseFragment() {
     }
 
     private fun filterHistoryItems(query: String) {
+        // First apply any active filters
         applyFilters()
+        
+        // Then filter by search query if it's not empty
+        if (query.isNotEmpty()) {
+            val filteredList = adapter.currentList.filter { item ->
+                item.title.contains(query, ignoreCase = true) ||
+                item.description.contains(query, ignoreCase = true) ||
+                item.amount?.toString()?.contains(query) == true ||
+                item.date.toString().contains(query)
+            }
+            adapter.submitList(filteredList)
+            
+            // Update visibility of empty state
+            binding.emptyState.visibility = if (filteredList.isEmpty()) View.VISIBLE else View.GONE
+            binding.recyclerView.visibility = if (filteredList.isEmpty()) View.GONE else View.VISIBLE
+        }
     }
     
     private fun setupRecyclerView() {
