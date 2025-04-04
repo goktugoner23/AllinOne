@@ -51,6 +51,7 @@ class FirebaseRepository(private val context: Context) {
     private val cacheManager = (context.applicationContext as AllinOneApplication).cacheManager
     private val storageUtil = FirebaseStorageUtil(context)
     private val gson = Gson()
+    private val idManager = FirebaseIdManager()
     
     private val db = Firebase.firestore
     private val auth = Firebase.auth
@@ -575,8 +576,12 @@ class FirebaseRepository(private val context: Context) {
         date: Long? = null
     ) {
         Log.d(TAG, "Inserting transaction: $type, $amount, $isIncome")
+        
+        // Get next sequential ID for the transaction
+        val transactionId = idManager.getNextId("transactions")
+        
         val transaction = Transaction(
-            id = UUID.randomUUID().mostSignificantBits,
+            id = transactionId,
             amount = amount,
             type = type,
             description = description ?: "",
@@ -1167,7 +1172,7 @@ class FirebaseRepository(private val context: Context) {
     // WT Events
     suspend fun insertEvent(title: String, description: String?, date: Date) {
         val event = Event(
-            id = UUID.randomUUID().mostSignificantBits,
+            id = idManager.getNextId("events"),
             title = title,
             description = description,
             date = date
@@ -1256,7 +1261,7 @@ class FirebaseRepository(private val context: Context) {
                 if (networkUtils.isActiveNetworkConnected()) {
                     // Generate ID if not present
                     val lessonWithId = if (lesson.id == 0L) {
-                        lesson.copy(id = UUID.randomUUID().mostSignificantBits and Long.MAX_VALUE)
+                        lesson.copy(id = idManager.getNextId("lessons"))
                     } else {
                         lesson
                     }
