@@ -97,8 +97,50 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 category = investment.type
             )
             
+            // Now, update the investment by decreasing its amount
+            val updatedInvestment = investment.copy(
+                amount = investment.amount - amount
+            )
+            
+            // Update the investment in the repository
+            repository.updateInvestment(updatedInvestment)
+            
             // Refresh data
             repository.refreshTransactions()
+            repository.refreshInvestments()
+        }
+    }
+    
+    // New method to add an expense to an existing investment
+    fun addExpenseToInvestment(amount: Double, investment: Investment, description: String?) {
+        viewModelScope.launch {
+            // Create a meaningful description that includes the user's description if provided
+            val transactionDescription = if (!description.isNullOrBlank()) {
+                "Additional investment in: ${investment.name} - $description"
+            } else {
+                "Additional investment in: ${investment.name}"
+            }
+            
+            // First, add as a regular expense transaction
+            repository.insertTransaction(
+                amount = amount,
+                type = "Investment",
+                description = transactionDescription,
+                isIncome = false,
+                category = investment.type
+            )
+            
+            // Now, update the investment by increasing its amount
+            val updatedInvestment = investment.copy(
+                amount = investment.amount + amount
+            )
+            
+            // Update the investment in the repository
+            repository.updateInvestment(updatedInvestment)
+            
+            // Refresh data
+            repository.refreshTransactions()
+            repository.refreshInvestments()
         }
     }
 

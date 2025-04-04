@@ -46,6 +46,9 @@ class InvestmentsFragment : Fragment() {
     private lateinit var imageAdapter: InvestmentImageAdapter
     private val selectedImages = mutableListOf<Uri>()
     private val PERMISSION_REQUEST_CODE = 123
+    private val repository by lazy { 
+        com.example.allinone.firebase.FirebaseRepository(requireActivity().application) 
+    }
 
     private val getContent = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         uris?.let { selectedUris ->
@@ -93,6 +96,27 @@ class InvestmentsFragment : Fragment() {
         setupRecyclerView()
         setupClickListeners()
         observeViewModel()
+        
+        // Check for pending transaction data
+        arguments?.let { args ->
+            if (args.containsKey("pendingTransactionAmount")) {
+                val amount = args.getDouble("pendingTransactionAmount", 0.0)
+                val description = args.getString("pendingTransactionDescription")
+                val isIncome = args.getBoolean("pendingTransactionIsIncome", false)
+                
+                if (amount > 0) {
+                    // Show the add investment dialog with pre-filled data
+                    showAddInvestmentDialog(
+                        pendingAmount = amount,
+                        pendingDescription = description,
+                        isIncome = isIncome
+                    )
+                    
+                    // Clear the arguments to prevent processing again on configuration change
+                    arguments?.clear()
+                }
+            }
+        }
     }
 
     private fun checkAndRequestPermissions() {
@@ -123,7 +147,11 @@ class InvestmentsFragment : Fragment() {
         }
     }
 
-    private fun showAddInvestmentDialog() {
+    private fun showAddInvestmentDialog(
+        pendingAmount: Double? = null,
+        pendingDescription: String? = null,
+        isIncome: Boolean = false
+    ) {
         selectedImages.clear()
         val dialogBinding = DialogEditInvestmentBinding.inflate(layoutInflater)
         this.dialogBinding = dialogBinding
@@ -262,6 +290,19 @@ class InvestmentsFragment : Fragment() {
                                 val joinedUrls = imageUrls.joinToString(",")
                                 val updatedInvestment = investment.copy(id = investmentId, imageUri = joinedUrls)
                                 viewModel.updateInvestment(updatedInvestment)
+                            }
+                        }
+                        
+                        // 4. Apply pending transaction if exists
+                        if (pendingAmount != null) {
+                            val investmentObject = repository.getInvestmentById(investmentId)
+                            if (investmentObject != null) {
+                                if (isIncome) {
+                                    homeViewModel.addIncomeToInvestment(pendingAmount, investmentObject, pendingDescription)
+                                } else {
+                                    homeViewModel.addExpenseToInvestment(pendingAmount, investmentObject, pendingDescription)
+                                }
+                                Log.d("InvestmentsFragment", "Applied pending ${if (isIncome) "income" else "expense"} transaction of $pendingAmount to investment $investmentId")
                             }
                         }
                     } else {

@@ -825,6 +825,15 @@ class FirebaseRepository(private val context: Context) {
         _investments.value = currentInvestments // Trigger updates by resetting the same value
     }
     
+    /**
+     * Get an investment by its ID
+     * @param id The ID of the investment to retrieve
+     * @return The investment if found, null otherwise
+     */
+    fun getInvestmentById(id: Long): Investment? {
+        return _investments.value.find { it.id == id }
+    }
+    
     // Note methods
     suspend fun refreshNotes() {
         withContext(Dispatchers.IO) {

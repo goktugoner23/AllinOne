@@ -425,7 +425,13 @@ class HomeFragment : Fragment() {
         
         // Special handling for investment income
         if (isIncome && type == "Investment") {
-            showInvestmentSelectionDialog(amount, description)
+            showInvestmentSelectionDialog(amount, description, isIncome = true)
+            return
+        }
+        
+        // Special handling for investment expense
+        if (!isIncome && type == "Investment") {
+            showInvestmentSelectionDialog(amount, description, isIncome = false)
             return
         }
         
@@ -441,7 +447,7 @@ class HomeFragment : Fragment() {
         showSnackbar(if (isIncome) "Income added" else "Expense added")
     }
     
-    private fun showInvestmentSelectionDialog(amount: Double, description: String?) {
+    private fun showInvestmentSelectionDialog(amount: Double, description: String?, isIncome: Boolean) {
         val dialogView = LayoutInflater.from(requireContext()).inflate(
             R.layout.dialog_select_investment, null
         )
@@ -456,13 +462,25 @@ class HomeFragment : Fragment() {
         val cancelButton = dialogView.findViewById<Button>(R.id.cancelButton)
         val newInvestmentButton = dialogView.findViewById<Button>(R.id.newInvestmentButton)
         
+        // Add title to dialog based on transaction type
+        val titleTextView = dialogView.findViewById<TextView>(R.id.dialogTitle)
+        titleTextView.text = if (isIncome) "Select Investment for Income" else "Select Investment for Expense"
+        
         // Set up the recyclerview with adapter
         val adapter = InvestmentSelectionAdapter { investment ->
-            // Add income to the selected investment
-            viewModel.addIncomeToInvestment(amount, investment, description)
-            dialog.dismiss()
-            clearFields()
-            showSnackbar("Investment income added")
+            if (isIncome) {
+                // Add income to the selected investment
+                viewModel.addIncomeToInvestment(amount, investment, description)
+                dialog.dismiss()
+                clearFields()
+                showSnackbar("Investment income added")
+            } else {
+                // Add expense to the selected investment
+                viewModel.addExpenseToInvestment(amount, investment, description)
+                dialog.dismiss()
+                clearFields()
+                showSnackbar("Investment expense added")
+            }
         }
         
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
@@ -488,9 +506,18 @@ class HomeFragment : Fragment() {
         }
         
         newInvestmentButton.setOnClickListener {
-            // Navigate to investments page
-            findNavController().navigate(R.id.nav_investments)
+            // Navigate to investments page with pending transaction data
+            val bundle = Bundle().apply {
+                putDouble("pendingTransactionAmount", amount)
+                putString("pendingTransactionDescription", description)
+                putBoolean("pendingTransactionIsIncome", isIncome)
+            }
+            findNavController().navigate(R.id.nav_investments, bundle)
             dialog.dismiss()
+            
+            // Clear fields since we're saving this information for later processing
+            clearFields()
+            showSnackbar("Now create your investment - transaction will be applied automatically")
         }
         
         dialog.show()
