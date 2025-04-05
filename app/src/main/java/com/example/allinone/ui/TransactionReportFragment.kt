@@ -398,6 +398,22 @@ class TransactionReportFragment : BaseFragment() {
         }.sortedBy { it.first }
     }
     
+    private fun setupChart() {
+        binding.lineChart.apply {
+            description.isEnabled = false
+            axisRight.isEnabled = false
+            legend.textSize = 12f
+            legend.verticalAlignment = com.github.mikephil.charting.components.Legend.LegendVerticalAlignment.BOTTOM
+            legend.horizontalAlignment = com.github.mikephil.charting.components.Legend.LegendHorizontalAlignment.CENTER
+            legend.orientation = com.github.mikephil.charting.components.Legend.LegendOrientation.HORIZONTAL
+            legend.setDrawInside(false)
+            xAxis.position = XAxis.XAxisPosition.BOTTOM
+            xAxis.granularity = 1f
+            xAxis.textSize = 10f
+            axisLeft.textSize = 10f
+        }
+    }
+    
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null

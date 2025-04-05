@@ -138,6 +138,10 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         // Setup theme toggle switch
         setupThemeToggle()
         
+        // Ensure bottom navigation and toolbar are always visible
+        binding.bottomNavigation.visibility = View.VISIBLE
+        binding.appBarLayout.visibility = View.VISIBLE
+        
         // Allow the splash screen to dismiss
         keepSplashScreen = false
     }
@@ -542,7 +546,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         
         // Hide bottom navigation for certain screens
         when (destination.id) {
-            R.id.homeFragment, R.id.nav_investments -> {
+            R.id.homeFragment, R.id.nav_investments, R.id.nav_transaction_report -> {
                 binding.bottomNavigation.visibility = View.VISIBLE
             }
             else -> {

@@ -4,18 +4,21 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?android:colorBackground">
+    android:background="?android:colorBackground"
+    android:fitsSystemWindows="true">
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:fillViewport="true"
+        android:paddingBottom="64dp"
+        android:clipToPadding="false">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="12dp">
 
             <!-- Header Section -->
             <TextView
@@ -31,16 +34,17 @@
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
                 android:layout_marginBottom="12dp"
                 app:cardCornerRadius="8dp"
-                app:cardElevation="2dp">
+                app:cardElevation="0dp"
+                app:strokeWidth="0.5dp"
+                app:strokeColor="@color/gray">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="16dp">
+                    android:padding="12dp">
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -50,47 +54,39 @@
                         android:textStyle="bold"
                         android:layout_marginBottom="12dp"/>
 
-                    <LinearLayout
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/dateRangeLayout"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:baselineAligned="false">
+                        android:layout_marginBottom="8dp"
+                        android:hint="Date Range">
 
-                        <com.google.android.material.textfield.TextInputLayout
-                            android:id="@+id/dateRangeLayout"
-                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                            android:layout_width="0dp"
+                        <AutoCompleteTextView
+                            android:id="@+id/dateRangeAutoComplete"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:layout_marginEnd="8dp"
-                            android:hint="Date Range">
+                            android:inputType="none"
+                            android:text="Last 30 Days"/>
 
-                            <AutoCompleteTextView
-                                android:id="@+id/dateRangeAutoComplete"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:inputType="none"
-                                android:text="Last 30 Days"/>
+                    </com.google.android.material.textfield.TextInputLayout>
 
-                        </com.google.android.material.textfield.TextInputLayout>
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/categoryLayout"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:hint="Category">
 
-                        <com.google.android.material.textfield.TextInputLayout
-                            android:id="@+id/categoryLayout"
-                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                            android:layout_width="0dp"
+                        <AutoCompleteTextView
+                            android:id="@+id/categoryAutoComplete"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:hint="Category">
+                            android:inputType="none"
+                            android:text="All Categories"/>
 
-                            <AutoCompleteTextView
-                                android:id="@+id/categoryAutoComplete"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:inputType="none"
-                                android:text="All Categories"/>
-
-                        </com.google.android.material.textfield.TextInputLayout>
-                    </LinearLayout>
+                    </com.google.android.material.textfield.TextInputLayout>
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -131,8 +127,9 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="end"
-                        android:layout_marginTop="8dp"
-                        android:text="Apply Filters"
+                        android:layout_marginTop="4dp"
+                        android:text="Apply"
+                        android:textAllCaps="false"
                         app:cornerRadius="20dp"/>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -143,13 +140,16 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
                 app:cardCornerRadius="8dp"
-                app:cardElevation="1dp">
+                app:cardElevation="0dp"
+                app:strokeWidth="0.5dp"
+                app:strokeColor="@color/gray">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:padding="12dp">
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -168,66 +168,75 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:orientation="vertical">
+                            android:orientation="vertical"
+                            android:gravity="center">
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Income"
-                                android:textSize="14sp"/>
+                                android:textSize="14sp"
+                                android:textColor="@color/gray_dark"/>
 
                             <TextView
                                 android:id="@+id/totalIncomeText"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="$0.00"
+                                android:text="₺0.00"
                                 android:textColor="@color/green"
-                                android:textSize="20sp"
-                                android:textStyle="bold"/>
+                                android:textSize="16sp"
+                                android:textStyle="bold"
+                                android:layout_marginTop="4dp"/>
                         </LinearLayout>
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:orientation="vertical">
+                            android:orientation="vertical"
+                            android:gravity="center">
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Expense"
-                                android:textSize="14sp"/>
+                                android:textSize="14sp"
+                                android:textColor="@color/gray_dark"/>
 
                             <TextView
                                 android:id="@+id/totalExpenseText"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="$0.00"
+                                android:text="₺0.00"
                                 android:textColor="@color/red"
-                                android:textSize="20sp"
-                                android:textStyle="bold"/>
+                                android:textSize="16sp"
+                                android:textStyle="bold"
+                                android:layout_marginTop="4dp"/>
                         </LinearLayout>
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:orientation="vertical">
+                            android:orientation="vertical"
+                            android:gravity="center">
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="Balance"
-                                android:textSize="14sp"/>
+                                android:textSize="14sp"
+                                android:textColor="@color/gray_dark"/>
 
                             <TextView
                                 android:id="@+id/balanceText"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="$0.00"
+                                android:text="₺0.00"
                                 android:textColor="@color/navy_accent"
-                                android:textSize="20sp"
-                                android:textStyle="bold"/>
+                                android:textSize="16sp"
+                                android:textStyle="bold"
+                                android:layout_marginTop="4dp"/>
                         </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
@@ -239,13 +248,15 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
                 app:cardCornerRadius="8dp"
-                app:cardElevation="1dp">
+                app:cardElevation="0dp"
+                app:strokeWidth="0.5dp"
+                app:strokeColor="@color/gray">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="16dp">
+                    android:padding="12dp">
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -259,8 +270,7 @@
                     <com.github.mikephil.charting.charts.LineChart
                         android:id="@+id/lineChart"
                         android:layout_width="match_parent"
-                        android:layout_height="250dp"
-                        android:layout_marginTop="8dp"/>
+                        android:layout_height="200dp"/>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -270,7 +280,9 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
                 app:cardCornerRadius="8dp"
-                app:cardElevation="1dp">
+                app:cardElevation="0dp"
+                app:strokeWidth="0.5dp"
+                app:strokeColor="@color/gray">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -282,7 +294,8 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Recent Transactions"
-                        android:textSize="16sp"
+                        android:textSize="14sp"
+                        android:textColor="@android:color/black"
                         android:textStyle="bold"
                         android:layout_marginBottom="8dp"/>
 
@@ -315,8 +328,9 @@
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/prevPageButton"
                             android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Previous"
+                            android:layout_height="36dp"
+                            android:text="Prev"
+                            android:textAllCaps="false"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_marginEnd="8dp"/>
                             
@@ -325,14 +339,15 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Page 1"
-                            android:textSize="16sp"
+                            android:textSize="12sp"
                             android:layout_marginHorizontal="8dp"/>
                             
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/nextPageButton"
                             android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
+                            android:layout_height="36dp"
                             android:text="Next"
+                            android:textAllCaps="false"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             android:layout_marginStart="8dp"/>
                     </LinearLayout>

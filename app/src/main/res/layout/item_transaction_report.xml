@@ -36,6 +36,7 @@
                 android:layout_height="wrap_content"
                 android:textSize="14sp"
                 android:textStyle="bold"
+                android:textColor="@android:color/black"
                 tools:text="Salary"/>
 
             <TextView
