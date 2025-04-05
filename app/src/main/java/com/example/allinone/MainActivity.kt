@@ -559,6 +559,10 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             R.id.nav_history -> {
                 binding.toolbar.visibility = View.GONE
             }
+            R.id.nav_transaction_report -> {
+                binding.toolbar.visibility = View.VISIBLE
+                binding.appBarLayout.visibility = View.VISIBLE
+            }
             else -> {
                 binding.toolbar.visibility = View.VISIBLE
             }
@@ -568,6 +572,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         val title = when (destination.id) {
             R.id.homeFragment -> "Transactions"
             R.id.nav_investments -> "Investments"
+            R.id.nav_transaction_report -> "Reports"
             R.id.nav_notes -> "Notes"
             R.id.nav_wt_registry -> "Wing Tzun Registry"
             R.id.nav_history -> "History"
@@ -723,6 +728,19 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                     true
                 }
                 else -> false
+            }
+        }
+
+        // Make sure the hamburger icon is always showing on specific screens
+        navController.addOnDestinationChangedListener { _, destination, _ ->
+            if (destination.id == R.id.nav_transaction_report) {
+                binding.toolbar.visibility = View.VISIBLE
+                binding.appBarLayout.visibility = View.VISIBLE
+                toggle.isDrawerIndicatorEnabled = true
+                supportActionBar?.setDisplayHomeAsUpEnabled(false)
+                supportActionBar?.setDisplayShowHomeEnabled(true)
+                supportActionBar?.setHomeButtonEnabled(true)
+                toggle.syncState()
             }
         }
     }

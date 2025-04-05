@@ -7,9 +7,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
+import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.allinone.MainActivity
 import com.example.allinone.R
 import com.example.allinone.adapters.TransactionReportAdapter
 import com.example.allinone.config.TransactionCategories
@@ -50,8 +52,6 @@ class TransactionReportFragment : BaseFragment() {
     private val dateRangeOptions = arrayOf("Last 7 Days", "Last 30 Days", "Last 90 Days", "This Year", "All Time")
     private var selectedDateRange = "Last 30 Days"
     private var selectedCategory = "All Categories"
-    private var showIncome = true
-    private var showExpense = true
     
     // Filtered transactions
     private var allTransactions: List<Transaction> = emptyList()
@@ -74,9 +74,10 @@ class TransactionReportFragment : BaseFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
+        // Let MainActivity handle the toolbar configuration
+        
         setupRecyclerView()
         setupFilterOptions()
-        setupChipListeners()
         setupApplyButton()
         setupPaginationButtons()
         observeTransactions()
@@ -118,16 +119,6 @@ class TransactionReportFragment : BaseFragment() {
         }
     }
     
-    private fun setupChipListeners() {
-        binding.incomeChip.setOnCheckedChangeListener { _, isChecked ->
-            showIncome = isChecked
-        }
-        
-        binding.expenseChip.setOnCheckedChangeListener { _, isChecked ->
-            showExpense = isChecked
-        }
-    }
-    
     private fun setupApplyButton() {
         binding.applyFiltersButton.setOnClickListener {
             applyFilters()
@@ -166,10 +157,9 @@ class TransactionReportFragment : BaseFragment() {
         // Apply all filters
         filteredTransactions = allTransactions.filter { transaction ->
             val passesDateFilter = startDate == null || transaction.date.after(startDate) || transaction.date == startDate
-            val passesTypeFilter = (showIncome && transaction.isIncome) || (showExpense && !transaction.isIncome)
             val passesCategoryFilter = selectedCategory == "All Categories" || transaction.category == selectedCategory
             
-            passesDateFilter && passesTypeFilter && passesCategoryFilter
+            passesDateFilter && passesCategoryFilter
         }.sortedByDescending { it.date }
         
         currentPage = 0 // Reset to first page
