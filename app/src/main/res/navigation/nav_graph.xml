@@ -39,6 +39,12 @@
         tools:layout="@layout/fragment_calendar" />
 
     <fragment
+        android:id="@+id/nav_transaction_report"
+        android:name="com.example.allinone.ui.TransactionReportFragment"
+        android:label="Financial Report"
+        tools:layout="@layout/fragment_transaction_report" />
+
+    <fragment
         android:id="@+id/nav_error_logs"
         android:name="com.example.allinone.ui.LogErrorsFragment"
         android:label="Error Logs"

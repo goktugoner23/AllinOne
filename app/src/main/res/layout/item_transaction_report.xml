@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="6dp"
+    app:cardCornerRadius="6dp"
+    app:cardElevation="1dp"
+    app:strokeWidth="0.5dp"
+    app:strokeColor="@color/gray">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp">
+
+        <!-- Category indicator color bar -->
+        <View
+            android:id="@+id/categoryColorIndicator"
+            android:layout_width="3dp"
+            android:layout_height="match_parent"
+            android:background="@color/green"
+            android:layout_marginEnd="8dp"/>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/transactionTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                tools:text="Salary"/>
+
+            <TextView
+                android:id="@+id/transactionDescription"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="@color/gray_dark"
+                android:maxLines="1"
+                android:ellipsize="end"
+                tools:text="Monthly salary payment"/>
+
+            <TextView
+                android:id="@+id/transactionDate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="11sp"
+                android:textColor="@color/gray"
+                tools:text="April 10, 2023"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="end">
+
+            <TextView
+                android:id="@+id/transactionAmount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_gravity="end"
+                tools:text="$2,500.00"
+                tools:textColor="@color/green"/>
+                
+            <TextView
+                android:id="@+id/categoryChip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="10sp"
+                android:layout_gravity="end"
+                android:layout_marginTop="2dp"
+                tools:text="Salary"
+                android:textColor="@color/gray_dark"/>
+        </LinearLayout>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView> 

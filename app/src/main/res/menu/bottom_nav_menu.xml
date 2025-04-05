@@ -8,4 +8,8 @@
         android:id="@+id/nav_investments"
         android:icon="@drawable/ic_investments"
         android:title="Investments" />
+    <item
+        android:id="@+id/nav_transaction_report"
+        android:icon="@drawable/ic_reports"
+        android:title="Reports" />
 </menu> 
