@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# Gradle wrapper that uses the OS-specific init.gradle script
+./gradlew --init-script init.gradle "$@" 

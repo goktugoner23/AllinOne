@@ -178,6 +178,23 @@ allinone/
 - Gradle 7.0 or later
 - Internet connection for initial Firebase setup
 
+### Cross-Platform Java Configuration
+
+The project includes an `init.gradle` file that automatically detects your operating system and sets the appropriate Java home path. This enables seamless switching between development environments (Windows, macOS, Linux).
+
+To customize the Java paths for your specific environment:
+
+1. Open the `init.gradle` file in the project root
+2. Update the following variables with your specific Java installations:
+   ```groovy
+   def windowsJavaHome = "C:\\Program Files\\Java\\jdk-17" // Update for Windows
+   def macJavaHome = "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home" // Update for macOS
+   def linuxJavaHome = "/usr/lib/jvm/java-17-openjdk" // Update for Linux
+   ```
+3. Save the file, and Gradle will automatically use the correct path based on your current OS
+
+The script also includes fallback logic to use the system's default Java installation if the specified path doesn't exist.
+
 ### Steps
 
 1. Clone the repository

@@ -486,39 +486,15 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         when (destination.id) {
             R.id.nav_transactions -> {
                 binding.bottomNavigation.visibility = View.VISIBLE
-                binding.bottomNavigation.setOnItemSelectedListener { item ->
-                    when (item.itemId) {
-                        R.id.nav_transactions -> true
-                        else -> false
-                    }
-                }
             }
             R.id.nav_wt_registry -> {
                 binding.bottomNavigation.visibility = View.VISIBLE
-                binding.bottomNavigation.setOnItemSelectedListener { item ->
-                    when (item.itemId) {
-                        R.id.nav_wt_registry -> true
-                        else -> false
-                    }
-                }
             }
             R.id.nav_calendar -> {
                 binding.bottomNavigation.visibility = View.VISIBLE
-                binding.bottomNavigation.setOnItemSelectedListener { item ->
-                    when (item.itemId) {
-                        R.id.nav_calendar -> true
-                        else -> false
-                    }
-                }
             }
             R.id.nav_notes -> {
                 binding.bottomNavigation.visibility = View.VISIBLE
-                binding.bottomNavigation.setOnItemSelectedListener { item ->
-                    when (item.itemId) {
-                        R.id.nav_notes -> true
-                        else -> false
-                    }
-                }
             }
             R.id.nav_history -> {
                 binding.bottomNavigation.visibility = View.GONE
@@ -664,6 +640,25 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
 
         // Setup bottom navigation with NavController
         binding.bottomNavigation.setupWithNavController(navController)
+        
+        // Add custom navigation for bottom navigation items
+        binding.bottomNavigation.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.homeFragment -> {
+                    navController.navigate(R.id.homeFragment)
+                    true
+                }
+                R.id.nav_investments -> {
+                    navController.navigate(R.id.nav_investments)
+                    true
+                }
+                R.id.nav_transaction_report -> {
+                    navController.navigate(R.id.nav_transaction_report)
+                    true
+                }
+                else -> false
+            }
+        }
 
         // Handle navigation item selection
         navigationView.setNavigationItemSelectedListener { menuItem ->

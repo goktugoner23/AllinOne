@@ -1,0 +1,39 @@
+/**
+ * Gradle initialization script that sets the correct Java home path based on the operating system.
+ * Place this file in the root of your project or in your USER_HOME/.gradle/ directory.
+ */
+
+allprojects {
+    // Define OS-specific Java paths
+    def windowsJavaHome = "C:\\Program Files\\Java\\jdk-17" // Update this to your Windows Java path
+    def macJavaHome = "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home" // Mac default path
+    def linuxJavaHome = "/usr/lib/jvm/java-17-openjdk" // Linux default path
+    
+    // Detect operating system and set the appropriate Java home
+    def currentOs = org.gradle.internal.os.OperatingSystem.current()
+    def javaHome = ""
+    
+    if (currentOs.isWindows()) {
+        javaHome = windowsJavaHome
+        logger.lifecycle("Detected Windows OS, setting Java home to: ${javaHome}")
+    } else if (currentOs.isMacOsX()) {
+        javaHome = macJavaHome
+        logger.lifecycle("Detected Mac OS, setting Java home to: ${javaHome}")
+    } else if (currentOs.isLinux()) {
+        javaHome = linuxJavaHome
+        logger.lifecycle("Detected Linux OS, setting Java home to: ${javaHome}")
+    }
+    
+    // Only set Java home if the path exists and we've detected a valid OS
+    if (javaHome) {
+        def javaHomeDir = new File(javaHome)
+        if (javaHomeDir.exists()) {
+            // Use Gradle's property API to set Java home
+            gradle.startParameter.projectProperties.put("org.gradle.java.home", javaHome)
+            logger.lifecycle("Java home set to: ${javaHome}")
+        } else {
+            logger.warn("WARNING: Java home path does not exist: ${javaHome}")
+            logger.warn("Using system default Java installation instead.")
+        }
+    }
+} 
