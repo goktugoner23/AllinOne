@@ -13,8 +13,12 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.allinone.R
+import com.example.allinone.adapters.InvestmentSelectionAdapter
 import com.example.allinone.config.TransactionCategories
+import com.example.allinone.data.Investment
 import com.example.allinone.databinding.FragmentTransactionsOverviewBinding
 import com.example.allinone.viewmodels.HomeViewModel
 import com.github.mikephil.charting.data.Entry
@@ -35,6 +39,9 @@ class TransactionsOverviewFragment : Fragment() {
     private val viewModel: HomeViewModel by viewModels()
     private val random = Random()
     private val categoryColors = mutableMapOf<String, Int>()
+    
+    // Flag to track if the current transaction is investment-related
+    private var isInvestmentTransaction = false
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentTransactionsOverviewBinding.inflate(inflater, container, false)
@@ -48,6 +55,7 @@ class TransactionsOverviewFragment : Fragment() {
         setupPieChart()
         observeTransactions()
         observeCombinedBalance()
+        observeSelectedInvestment()
     }
 
     private fun setupPieChart() {
@@ -128,6 +136,19 @@ class TransactionsOverviewFragment : Fragment() {
             
             binding.expenseText.text = String.format("Expense: ₺%.2f", totalExpense)
             binding.expenseText.setTextColor(expenseColor)
+        }
+    }
+    
+    private fun observeSelectedInvestment() {
+        viewModel.selectedInvestment.observe(viewLifecycleOwner) { investment ->
+            // Update UI to show selected investment if any
+            investment?.let {
+                // Update the category field to show the investment name + type
+                (binding.typeLayout.editText as? AutoCompleteTextView)?.setText("${it.name} (${it.type})", false)
+                isInvestmentTransaction = true
+            } ?: run {
+                isInvestmentTransaction = false
+            }
         }
     }
     
@@ -252,12 +273,21 @@ class TransactionsOverviewFragment : Fragment() {
     }
 
     private fun setupTypeDropdowns() {
+        // Set up adapter for regular transaction categories
         val adapter = ArrayAdapter(
             requireContext(),
             android.R.layout.simple_dropdown_item_1line,
             TransactionCategories.CATEGORIES
         )
         (binding.typeLayout.editText as? AutoCompleteTextView)?.setAdapter(adapter)
+        
+        // Add button to allow selecting from investments
+        (binding.typeLayout.editText as? AutoCompleteTextView)?.setOnClickListener {
+            // If it's an investment transaction, show the investment selection dialog
+            if (binding.typeLayout.editText?.text.toString().contains("Investment")) {
+                showInvestmentSelectionDialog()
+            }
+        }
     }
 
     private fun setupButtons() {
@@ -270,12 +300,163 @@ class TransactionsOverviewFragment : Fragment() {
         binding.addExpenseButton.backgroundTintList = android.content.res.ColorStateList.valueOf(expenseColor)
         
         binding.addIncomeButton.setOnClickListener {
-            handleTransaction(true)
+            val category = (binding.typeLayout.editText as? AutoCompleteTextView)?.text.toString()
+            
+            // Check if it's investment-related
+            if (category.contains("Investment") || isInvestmentTransaction) {
+                // Show investment selection dialog for income
+                showInvestmentSelectionDialog(true)
+            } else {
+                // Handle as a regular income transaction
+                handleTransaction(true)
+            }
         }
 
         binding.addExpenseButton.setOnClickListener {
-            handleTransaction(false)
+            val category = (binding.typeLayout.editText as? AutoCompleteTextView)?.text.toString()
+            
+            // Check if it's investment-related
+            if (category.contains("Investment") || isInvestmentTransaction) {
+                // Show investment selection dialog for expense
+                showInvestmentSelectionDialog(false)
+            } else {
+                // Handle as a regular expense transaction
+                handleTransaction(false)
+            }
         }
+    }
+    
+    private fun showInvestmentSelectionDialog(isIncome: Boolean = false) {
+        val dialogView = LayoutInflater.from(requireContext())
+            .inflate(
+                if (isIncome) R.layout.dialog_income_investment 
+                else R.layout.dialog_expense_investment, 
+                null
+            )
+        
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setView(dialogView)
+            .setTitle(if (isIncome) "Select Investment for Income" else "Select Investment for Expense")
+            .setNegativeButton("Cancel") { dialog, _ ->
+                dialog.dismiss()
+                viewModel.clearSelectedInvestment()
+            }
+            .create()
+        
+        // Set up RecyclerView for investments
+        val recyclerView = dialogView.findViewById<androidx.recyclerview.widget.RecyclerView>(
+            R.id.investmentsRecyclerView
+        )
+        
+        // Get and update title text view if it exists in the layout
+        if (isIncome) {
+            dialogView.findViewById<android.widget.TextView>(R.id.dialogTitle)?.let {
+                it.text = "Select Investment to Receive Income From"
+            }
+        } else {
+            dialogView.findViewById<android.widget.TextView>(R.id.titleText)?.let {
+                it.text = "Select Investment to Add Expense To"
+            }
+        }
+        
+        recyclerView.layoutManager = LinearLayoutManager(requireContext())
+        
+        // Create adapter for investment selection
+        val adapter = InvestmentSelectionAdapter { investment ->
+            // When an investment is selected
+            viewModel.setSelectedInvestment(investment)
+            dialog.dismiss()
+            
+            // Process the transaction if we have all required information
+            if (isIncome) {
+                handleInvestmentIncome(investment)
+            } else {
+                handleInvestmentExpense(investment)
+            }
+        }
+        
+        recyclerView.adapter = adapter
+        
+        // Observe investments and update adapter
+        viewModel.allInvestments.observe(viewLifecycleOwner) { investments ->
+            // Filter out past investments
+            val activeInvestments = investments.filter { !it.isPast }
+            adapter.submitList(activeInvestments)
+            
+            // Show empty state if needed
+            if (isIncome) {
+                dialogView.findViewById<android.widget.TextView>(R.id.emptyStateText)?.let { emptyText ->
+                    emptyText.visibility = if (activeInvestments.isEmpty()) View.VISIBLE else View.GONE
+                }
+            }
+        }
+        
+        // Handle new investment button if present (only in income dialog)
+        if (isIncome) {
+            dialogView.findViewById<android.widget.Button>(R.id.newInvestmentButton)?.setOnClickListener {
+                dialog.dismiss()
+                // Navigate to investment creation
+                findNavController().navigate(R.id.nav_investments)
+            }
+        }
+        
+        dialog.show()
+    }
+    
+    private fun handleInvestmentIncome(investment: Investment) {
+        val amount = binding.amountInput.text.toString().toDoubleOrNull()
+        val description = binding.descriptionInput.text.toString()
+        
+        if (amount == null || amount <= 0) {
+            showError("Please enter a valid amount")
+            return
+        }
+        
+        // Process the investment income
+        viewModel.addIncomeToInvestment(amount, investment, description)
+        
+        // Clear inputs
+        binding.amountInput.text?.clear()
+        binding.descriptionInput.text?.clear()
+        (binding.typeLayout.editText as? AutoCompleteTextView)?.text?.clear()
+        
+        // Clear the selected investment
+        viewModel.clearSelectedInvestment()
+        
+        // Show success message
+        Snackbar.make(
+            binding.root, 
+            "Income of ₺${String.format("%.2f", amount)} added from ${investment.name}", 
+            Snackbar.LENGTH_SHORT
+        ).show()
+    }
+    
+    private fun handleInvestmentExpense(investment: Investment) {
+        val amount = binding.amountInput.text.toString().toDoubleOrNull()
+        val description = binding.descriptionInput.text.toString()
+        
+        if (amount == null || amount <= 0) {
+            showError("Please enter a valid amount")
+            return
+        }
+        
+        // Process the investment expense
+        viewModel.addExpenseToInvestment(amount, investment, description)
+        
+        // Clear inputs
+        binding.amountInput.text?.clear()
+        binding.descriptionInput.text?.clear()
+        (binding.typeLayout.editText as? AutoCompleteTextView)?.text?.clear()
+        
+        // Clear the selected investment
+        viewModel.clearSelectedInvestment()
+        
+        // Show success message
+        Snackbar.make(
+            binding.root, 
+            "Expense of ₺${String.format("%.2f", amount)} added to ${investment.name}", 
+            Snackbar.LENGTH_SHORT
+        ).show()
     }
     
     private fun handleTransaction(isIncome: Boolean) {
