@@ -111,6 +111,20 @@
                         android:background="?android:attr/listDivider" />
 
                     <ImageButton
+                        android:id="@+id/drawingButton"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/create_drawing"
+                        android:src="@drawable/ic_draw" />
+
+                    <View
+                        android:layout_width="1dp"
+                        android:layout_height="match_parent"
+                        android:layout_marginHorizontal="8dp"
+                        android:background="?android:attr/listDivider" />
+
+                    <ImageButton
                         android:id="@+id/addImageButton"
                         android:layout_width="40dp"
                         android:layout_height="40dp"

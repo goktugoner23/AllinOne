@@ -26,6 +26,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.app.Dialog
 import com.github.chrisbanes.photoview.PhotoView
 import com.bumptech.glide.Glide
+import com.example.allinone.ui.drawing.DrawingActivity
 
 class EditNoteActivity : AppCompatActivity() {
     
@@ -53,6 +54,25 @@ class EditNoteActivity : AppCompatActivity() {
             }
             imageAdapter.submitList(selectedImages.toList())
             binding.imagesRecyclerView.visibility = if (selectedImages.isEmpty()) View.GONE else View.VISIBLE
+        }
+    }
+    
+    // Drawing activity result
+    private val drawingLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            result.data?.getStringExtra(DrawingActivity.RESULT_DRAWING_URI)?.let { uriString ->
+                try {
+                    val uri = Uri.parse(uriString)
+                    // No need to call takePersistableUriPermission as we already granted permission
+                    selectedImages.add(uri)
+                    imageAdapter.submitList(selectedImages.toList())
+                    binding.imagesRecyclerView.visibility = View.VISIBLE
+                    Toast.makeText(this, getString(R.string.drawing_added), Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Log.e("EditNoteActivity", "Error with drawing URI: ${e.message}", e)
+                    Toast.makeText(this, getString(R.string.error_adding_drawing), Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
     
@@ -135,6 +155,11 @@ class EditNoteActivity : AppCompatActivity() {
         binding.numberedListButton.setOnClickListener {
             // For numbered lists, we'll insert actual numbers
             insertNumberedList()
+        }
+        
+        // Setup drawing button
+        binding.drawingButton?.setOnClickListener {
+            openDrawingActivity()
         }
     }
     
@@ -250,6 +275,26 @@ class EditNoteActivity : AppCompatActivity() {
             Log.e("EditNoteActivity", "Error applying numbered list: ${e.message}", e)
             Toast.makeText(this, "Error formatting text", Toast.LENGTH_SHORT).show()
         }
+    }
+    
+    private fun openDrawingActivity() {
+        // Show drawing options dialog directly
+        showDrawingOptions()
+    }
+    
+    private fun showDrawingOptions() {
+        val options = arrayOf(getString(R.string.save_to_note), getString(R.string.save_to_note_and_gallery))
+        
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.drawing_options))
+            .setItems(options) { _, which ->
+                val saveToGallery = which == 1
+                val intent = Intent(this, com.example.allinone.ui.drawing.DrawingActivity::class.java).apply {
+                    putExtra(com.example.allinone.ui.drawing.DrawingActivity.EXTRA_SAVE_TO_GALLERY, saveToGallery)
+                }
+                drawingLauncher.launch(intent)
+            }
+            .show()
     }
     
     private fun setupButtons() {

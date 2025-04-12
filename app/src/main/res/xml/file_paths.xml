@@ -8,4 +8,10 @@
     
     <!-- For temporary files that might be shared -->
     <cache-path name="cache" path="." />
+    
+    <!-- For drawings stored in internal storage -->
+    <files-path name="drawings" path="." />
+    
+    <!-- For images captured in the app -->
+    <external-path name="my_images" path="Pictures" />
 </paths> 

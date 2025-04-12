@@ -14,6 +14,35 @@
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
     
+    <!-- Drawing tool -->
+    <string name="create_drawing">Create Drawing</string>
+    <string name="drawing_options">Drawing Options</string>
+    <string name="save_to_note">Save to Note Only</string>
+    <string name="save_to_note_and_gallery">Save to Note and Gallery</string>
+    <string name="drawing_added">Drawing added to note</string>
+    <string name="error_adding_drawing">Error adding drawing</string>
+    <string name="brush_size">Brush Size:</string>
+    <string name="clear">Clear</string>
+    <string name="drawing_saved_to_gallery">Drawing saved to gallery</string>
+    <string name="error_saving_drawing">Error saving drawing: %1$s</string>
+    <string name="choose_color">Choose a Color</string>
+    <string name="select_color">Select Color</string>
+    <string name="selected_color">Selected:</string>
+    <string name="select">Select</string>
+    <string name="color">Color:</string>
+    
+    <!-- Drawing color names -->
+    <string name="color_black">Black Color</string>
+    <string name="color_red">Red Color</string>
+    <string name="color_green">Green Color</string>
+    <string name="color_blue">Blue Color</string>
+    <string name="color_yellow">Yellow Color</string>
+    <string name="color_purple">Purple Color</string>
+    <string name="color_orange">Orange Color</string>
+    <string name="color_brown">Brown Color</string>
+    <string name="color_teal">Teal Color</string>
+    <string name="color_pink">Pink Color</string>
+    
     <!-- Google Play Services -->
     <string name="app_id">954911141967</string>
     
@@ -162,4 +191,7 @@
     <!-- Search -->
     <string name="search" translatable="false">Search</string>
     <string name="search_hint" translatable="false">Search...</string>
+    
+    <!-- New string from the code block -->
+    <string name="brightness">Brightness:</string>
 </resources>
