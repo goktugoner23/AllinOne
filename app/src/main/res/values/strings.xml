@@ -200,6 +200,10 @@
     <string name="voice_note_deleted">Voice note deleted</string>
     <string name="error_playing_audio">Error playing audio</string>
     
+    <!-- Upload and Saving -->
+    <string name="saving">Saving</string>
+    <string name="uploading_attachments">Uploading attachments...</string>
+    
     <!-- Search -->
     <string name="search" translatable="false">Search</string>
     <string name="search_hint" translatable="false">Search...</string>

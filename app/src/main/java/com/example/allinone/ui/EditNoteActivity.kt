@@ -52,6 +52,9 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Locale
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 
 class EditNoteActivity : AppCompatActivity() {
     
@@ -571,8 +574,8 @@ class EditNoteActivity : AppCompatActivity() {
                 // Upload file to Firebase Storage
                 val downloadUrl = storageUtil.uploadFile(
                     fileUri = Uri.fromFile(file), 
-                    folderName = "voice_notes", 
-                    id = noteId?.toString()
+                    folderName = "note-attachments", 
+                    id = noteId?.toString() ?: "temp" // Use note ID as the subfolder or "temp" for new notes
                 )
                 
                 if (downloadUrl != null) {
@@ -600,7 +603,8 @@ class EditNoteActivity : AppCompatActivity() {
     
     private fun playVoiceNote(voiceNote: VoiceNote) {
         try {
-            val mediaPlayer = MediaPlayer().apply {
+            // Create and configure MediaPlayer
+            MediaPlayer().apply {
                 setDataSource(voiceNote.filePath)
                 setOnPreparedListener {
                     start()
@@ -734,23 +738,104 @@ class EditNoteActivity : AppCompatActivity() {
         // First ensure we only have valid images
         updateImageAttachmentSection()
         
-        // Convert selected images to comma-separated string
-        val imageUris = if (selectedImages.isNotEmpty()) {
-            selectedImages.joinToString(",") { it.toString() }
-        } else {
-            null
-        }
+        // Process and upload new images that need to be uploaded to Firebase
+        val processedImageUris = mutableListOf<String>()
         
-        // Convert voice note URIs to comma-separated string
-        val voiceNoteUris = if (voiceNotes.isNotEmpty()) {
-            // Only save Firebase URLs for permanent storage
-            voiceNotes.mapNotNull { 
-                if (it.firebaseUrl.isNotEmpty()) it.firebaseUrl else null 
-            }.joinToString(",")
+        if (selectedImages.isNotEmpty()) {
+            CoroutineScope(Dispatchers.Main).launch {
+                val dialog = MaterialAlertDialogBuilder(this@EditNoteActivity)
+                    .setTitle(R.string.saving)
+                    .setMessage(R.string.uploading_attachments)
+                    .setCancelable(false)
+                    .create()
+                dialog.show()
+                
+                try {
+                    val uploadJobs = selectedImages.map { uri ->
+                        CoroutineScope(Dispatchers.IO).async {
+                            // Skip urls that are already uploaded (http/https)
+                            if (uri.toString().startsWith("http")) {
+                                processedImageUris.add(uri.toString())
+                                return@async
+                            }
+
+                            // Upload new image to Firebase
+                            val downloadUrl = uploadImageToFirebase(uri)
+                            if (downloadUrl != null) {
+                                processedImageUris.add(downloadUrl)
+                            } else {
+                                // Keep original URI if upload fails
+                                processedImageUris.add(uri.toString())
+                            }
+                        }
+                    }
+                    
+                    // Wait for all uploads to complete
+                    uploadJobs.awaitAll()
+                    
+                    dialog.dismiss()
+                    
+                    // Convert processed URIs to comma-separated string
+                    val imageUris = if (processedImageUris.isNotEmpty()) {
+                        processedImageUris.joinToString(",")
+                    } else {
+                        null
+                    }
+                    
+                    // Convert voice note URIs to comma-separated string
+                    val voiceNoteUris = if (voiceNotes.isNotEmpty()) {
+                        // Only save Firebase URLs for permanent storage
+                        voiceNotes.mapNotNull { 
+                            if (it.firebaseUrl.isNotEmpty()) it.firebaseUrl else null 
+                        }.joinToString(",")
+                    } else {
+                        null
+                    }
+                    
+                    finalizeSaveNote(title, content, imageUris, voiceNoteUris)
+                } catch (e: Exception) {
+                    dialog.dismiss()
+                    Toast.makeText(
+                        this@EditNoteActivity,
+                        "Error uploading images: ${e.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    Log.e(TAG, "Error uploading images: ${e.message}", e)
+                    
+                    // Fallback to original URIs if uploads fail
+                    val imageUris = if (selectedImages.isNotEmpty()) {
+                        selectedImages.joinToString(",") { it.toString() }
+                    } else {
+                        null
+                    }
+                    
+                    // Convert voice note URIs to comma-separated string
+                    val voiceNoteUris = if (voiceNotes.isNotEmpty()) {
+                        voiceNotes.mapNotNull { 
+                            if (it.firebaseUrl.isNotEmpty()) it.firebaseUrl else null 
+                        }.joinToString(",")
+                    } else {
+                        null
+                    }
+                    
+                    finalizeSaveNote(title, content, imageUris, voiceNoteUris)
+                }
+            }
         } else {
-            null
+            // No images to upload
+            val voiceNoteUris = if (voiceNotes.isNotEmpty()) {
+                voiceNotes.mapNotNull { 
+                    if (it.firebaseUrl.isNotEmpty()) it.firebaseUrl else null 
+                }.joinToString(",")
+            } else {
+                null
+            }
+            
+            finalizeSaveNote(title, content, null, voiceNoteUris)
         }
-        
+    }
+    
+    private fun finalizeSaveNote(title: String, content: String, imageUris: String?, voiceNoteUris: String?) {
         if (isNewNote) {
             viewModel.addNote(
                 title = title,
@@ -761,6 +846,32 @@ class EditNoteActivity : AppCompatActivity() {
             Toast.makeText(this, getString(R.string.note_saved), Toast.LENGTH_SHORT).show()
         } else {
             noteId?.let { id ->
+                // Get the current note to compare image URIs
+                viewModel.allNotes.value?.find { it.id == id }?.let { existingNote ->
+                    // Check for deleted images
+                    val existingImageUris = existingNote.imageUris?.split(",")?.filter { it.isNotEmpty() } ?: emptyList()
+                    val currentImageUris = imageUris?.split(",")?.filter { it.isNotEmpty() } ?: emptyList()
+                    
+                    // Find images that were deleted (in existing note but not in current list)
+                    val deletedImages = existingImageUris.filter { uri -> !currentImageUris.contains(uri) }
+                    
+                    // Delete removed images from Firebase Storage
+                    if (deletedImages.isNotEmpty()) {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            deletedImages.forEach { imageUrl ->
+                                try {
+                                    if (imageUrl.contains("firebase")) {
+                                        val success = storageUtil.deleteFile(imageUrl)
+                                        Log.d(TAG, "Deleted image from Firebase: $imageUrl, success: $success")
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Error deleting image from Firebase: ${e.message}")
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 val updatedNote = Note(
                     id = id,
                     title = title,
@@ -857,6 +968,21 @@ class EditNoteActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e("EditNoteActivity", "Error showing fullscreen image: ${e.message}", e)
             Toast.makeText(this, "Error showing image: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun uploadImageToFirebase(imageUri: Uri): String? = runBlocking {
+        try {
+            // Upload file to Firebase Storage using the new folder structure
+            val downloadUrl = storageUtil.uploadFile(
+                fileUri = imageUri,
+                folderName = "note-attachments",
+                id = noteId?.toString() ?: "temp" // Use note ID as the subfolder or "temp" for new notes
+            )
+            return@runBlocking downloadUrl
+        } catch (e: Exception) {
+            Log.e(TAG, "Error uploading image: ${e.message}")
+            return@runBlocking null
         }
     }
 } 

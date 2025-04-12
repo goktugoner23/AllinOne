@@ -39,6 +39,7 @@ class FirebaseManager(private val context: Context? = null) {
     // Storage references
     private val imagesRef: StorageReference = storage.reference.child("images")
     private val attachmentsRef: StorageReference = storage.reference.child("attachments")
+    private val storageRef: StorageReference = storage.reference
     
     // Constants
     companion object {
@@ -208,9 +209,14 @@ class FirebaseManager(private val context: Context? = null) {
                     // Only process valid content URIs
                     if (uriString.startsWith("content://")) {
                         val uri = Uri.parse(uriString)
-                        // Use sequential ID instead of UUID for image name
-                        val imageId = idManager.getNextId("note_images")
-                        val imageRef = imagesRef.child("note_$imageId")
+                        
+                        // Use the note-attachments folder and note ID subfolder
+                        val noteAttachmentsRef = storageRef.child("note-attachments/${note.id}")
+                        
+                        // Generate a unique filename for the image
+                        val imageFileName = "img_${System.currentTimeMillis()}_${idManager.getNextId("note_images")}"
+                        val imageRef = noteAttachmentsRef.child(imageFileName)
+                        
                         imageRef.putFile(uri).await()
                         val downloadUrl = imageRef.downloadUrl.await().toString()
                         uploadedImageUrls.add(downloadUrl)
