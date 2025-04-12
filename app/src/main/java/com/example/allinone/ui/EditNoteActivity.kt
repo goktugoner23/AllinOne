@@ -9,6 +9,7 @@ import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -22,6 +23,9 @@ import com.example.allinone.viewmodels.NotesViewModel
 import io.github.mthli.knife.KnifeText
 import java.util.Date
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import android.app.Dialog
+import com.github.chrisbanes.photoview.PhotoView
+import com.bumptech.glide.Glide
 
 class EditNoteActivity : AppCompatActivity() {
     
@@ -33,11 +37,22 @@ class EditNoteActivity : AppCompatActivity() {
     private var isNewNote = true
     private var noteId: Long? = null
     
-    private val getContent = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let {
-            selectedImages.add(it)
+    private val getContent = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+        uris?.let { selectedUris ->
+            selectedUris.forEach { uri ->
+                try {
+                    // Take persistable permission for the URI
+                    contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                    selectedImages.add(uri)
+                } catch (e: Exception) {
+                    Log.e("EditNoteActivity", "Error with image permission: ${e.message}", e)
+                }
+            }
             imageAdapter.submitList(selectedImages.toList())
-            binding.imagesRecyclerView.visibility = View.VISIBLE
+            binding.imagesRecyclerView.visibility = if (selectedImages.isEmpty()) View.GONE else View.VISIBLE
         }
     }
     
@@ -86,6 +101,9 @@ class EditNoteActivity : AppCompatActivity() {
                 selectedImages.remove(uri)
                 imageAdapter.submitList(selectedImages.toList())
                 binding.imagesRecyclerView.visibility = if (selectedImages.isEmpty()) View.GONE else View.VISIBLE
+            },
+            onImageClick = { uri ->
+                showFullscreenImage(uri)
             }
         )
         binding.imagesRecyclerView.apply {
@@ -370,6 +388,43 @@ class EditNoteActivity : AppCompatActivity() {
                         .show()
                 }
             }
+        }
+    }
+    
+    private fun showFullscreenImage(uri: Uri) {
+        try {
+            val dialog = Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+            val photoView = PhotoView(this).apply {
+                try {
+                    // Use Glide to load the image
+                    Glide.with(this@EditNoteActivity)
+                        .load(uri)
+                        .placeholder(R.drawable.ic_image)
+                        .error(android.R.drawable.ic_menu_close_clear_cancel)
+                        .into(this)
+                    
+                    // Set layout parameters
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                } catch (e: Exception) {
+                    Log.e("EditNoteActivity", "Error loading image: ${e.message}", e)
+                    Toast.makeText(this@EditNoteActivity, "Error loading image: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            
+            // Set content view and show dialog
+            dialog.setContentView(photoView)
+            dialog.show()
+
+            // Add click listener to dismiss on tap
+            photoView.setOnClickListener {
+                dialog.dismiss()
+            }
+        } catch (e: Exception) {
+            Log.e("EditNoteActivity", "Error showing fullscreen image: ${e.message}", e)
+            Toast.makeText(this, "Error showing image: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 } 

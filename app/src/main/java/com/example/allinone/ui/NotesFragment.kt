@@ -39,6 +39,10 @@ import java.util.Date
 import android.transition.TransitionManager
 import android.transition.Slide
 import android.view.Gravity
+import android.app.Dialog
+import com.github.chrisbanes.photoview.PhotoView
+import com.bumptech.glide.Glide
+import android.util.Log
 
 // Extension property to get HTML content from KnifeText
 val KnifeText.html: String
@@ -241,7 +245,8 @@ class NotesFragment : Fragment() {
         notesAdapter = NotesAdapter(
             onNoteClick = { note -> 
                 startActivity(EditNoteActivity.newIntent(requireContext(), note.id))
-            }
+            },
+            onImageClick = { uri -> showFullscreenImage(uri) }
         )
         
         binding.notesRecyclerView.apply {
@@ -424,6 +429,43 @@ class NotesFragment : Fragment() {
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+    
+    private fun showFullscreenImage(uri: Uri) {
+        try {
+            val dialog = Dialog(requireContext(), android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+            val photoView = PhotoView(requireContext()).apply {
+                try {
+                    // Use Glide to load the image
+                    Glide.with(requireContext())
+                        .load(uri)
+                        .placeholder(R.drawable.ic_image)
+                        .error(android.R.drawable.ic_menu_close_clear_cancel)
+                        .into(this)
+                    
+                    // Set layout parameters
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                } catch (e: Exception) {
+                    Log.e("NotesFragment", "Error loading image: ${e.message}", e)
+                    Toast.makeText(requireContext(), "Error loading image: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            
+            // Set content view and show dialog
+            dialog.setContentView(photoView)
+            dialog.show()
+
+            // Add click listener to dismiss on tap
+            photoView.setOnClickListener {
+                dialog.dismiss()
+            }
+        } catch (e: Exception) {
+            Log.e("NotesFragment", "Error showing fullscreen image: ${e.message}", e)
+            Toast.makeText(requireContext(), "Error showing image: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
     
     override fun onDestroyView() {

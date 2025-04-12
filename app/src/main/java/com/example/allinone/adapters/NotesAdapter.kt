@@ -17,14 +17,18 @@ import com.example.allinone.R
 import com.example.allinone.data.Note
 import java.text.SimpleDateFormat
 import java.util.Locale
+import com.bumptech.glide.Glide
 
-class NotesAdapter(private val onNoteClick: (Note) -> Unit) : 
+class NotesAdapter(
+    private val onNoteClick: (Note) -> Unit,
+    private val onImageClick: (Uri) -> Unit = { }
+) : 
     ListAdapter<Note, NotesAdapter.NoteViewHolder>(NoteDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): NoteViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_note, parent, false)
-        return NoteViewHolder(view)
+        return NoteViewHolder(view, onImageClick)
     }
 
     override fun onBindViewHolder(holder: NoteViewHolder, position: Int) {
@@ -33,11 +37,13 @@ class NotesAdapter(private val onNoteClick: (Note) -> Unit) :
         holder.itemView.setOnClickListener { onNoteClick(note) }
     }
 
-    class NoteViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    class NoteViewHolder(
+        itemView: View, 
+        private val onImageClick: (Uri) -> Unit
+    ) : RecyclerView.ViewHolder(itemView) {
         private val titleTextView: TextView = itemView.findViewById(R.id.noteTitle)
         private val dateTextView: TextView = itemView.findViewById(R.id.noteDate)
         private val contentTextView: TextView = itemView.findViewById(R.id.noteContent)
-        private val imageView: ImageView = itemView.findViewById(R.id.noteImage)
         private val shareButton: ImageButton = itemView.findViewById(R.id.shareButton)
         private val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
 
@@ -68,23 +74,40 @@ class NotesAdapter(private val onNoteClick: (Note) -> Unit) :
                 contentTextView.text = ""
             }
 
-            // Handle image if present
+            // Handle images if present
+            val imageContainer = itemView.findViewById<ViewGroup>(R.id.imageContainer)
+            imageContainer.removeAllViews()
+            
             if (!note.imageUris.isNullOrEmpty()) {
-                // Use the first image from the list for preview
-                val firstImageUri = note.imageUris.split(",").firstOrNull()
-                if (firstImageUri != null) {
-                    imageView.visibility = View.VISIBLE
+                imageContainer.visibility = View.VISIBLE
+                
+                // Split by comma and process each URI
+                val imageUris = note.imageUris.split(",").filter { it.isNotEmpty() }
+                
+                // For each image URI, create and add an ImageView
+                for (uriString in imageUris) {
                     try {
-                        imageView.setImageURI(Uri.parse(firstImageUri))
+                        val uri = Uri.parse(uriString)
+                        val imageView = ImageView(itemView.context).apply {
+                            layoutParams = ViewGroup.LayoutParams(120, 120)
+                            scaleType = ImageView.ScaleType.CENTER_CROP
+                            setPadding(4, 4, 4, 4)
+                            setOnClickListener { onImageClick(uri) }
+                        }
+                        
+                        Glide.with(itemView.context)
+                            .load(uri)
+                            .placeholder(R.drawable.ic_image)
+                            .error(android.R.drawable.ic_menu_close_clear_cancel)
+                            .into(imageView)
+                        
+                        imageContainer.addView(imageView)
                     } catch (e: Exception) {
-                        Log.e("NotesAdapter", "Error loading image: ${e.message}", e)
-                        imageView.visibility = View.GONE
+                        Log.e("NotesAdapter", "Error adding image preview: ${e.message}", e)
                     }
-                } else {
-                    imageView.visibility = View.GONE
                 }
             } else {
-                imageView.visibility = View.GONE
+                imageContainer.visibility = View.GONE
             }
         }
 

@@ -10,7 +10,8 @@ import com.bumptech.glide.Glide
 import com.example.allinone.databinding.ItemNoteImageBinding
 
 class NoteImageAdapter(
-    private val onDeleteClick: (Uri) -> Unit
+    private val onDeleteClick: (Uri) -> Unit,
+    private val onImageClick: (Uri) -> Unit = { }
 ) : ListAdapter<Uri, NoteImageAdapter.ImageViewHolder>(ImageDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ImageViewHolder {
@@ -38,6 +39,10 @@ class NoteImageAdapter(
                 
             binding.deleteButton.setOnClickListener {
                 onDeleteClick(uri)
+            }
+            
+            binding.imageView.setOnClickListener {
+                onImageClick(uri)
             }
         }
     }
