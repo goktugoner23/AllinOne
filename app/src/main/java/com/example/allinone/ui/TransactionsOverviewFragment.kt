@@ -8,6 +8,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
+import android.widget.Button
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -327,6 +329,9 @@ class TransactionsOverviewFragment : Fragment() {
     }
     
     private fun showInvestmentSelectionDialog(isIncome: Boolean = false) {
+        // Refresh data first to ensure we have latest investments
+        viewModel.refreshData()
+        
         val dialogView = LayoutInflater.from(requireContext())
             .inflate(
                 if (isIncome) R.layout.dialog_income_investment 
@@ -336,67 +341,82 @@ class TransactionsOverviewFragment : Fragment() {
         
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setView(dialogView)
-            .setTitle(if (isIncome) "Select Investment for Income" else "Select Investment for Expense")
-            .setNegativeButton("Cancel") { dialog, _ ->
-                dialog.dismiss()
-                viewModel.clearSelectedInvestment()
-            }
             .create()
         
-        // Set up RecyclerView for investments
-        val recyclerView = dialogView.findViewById<androidx.recyclerview.widget.RecyclerView>(
-            R.id.investmentsRecyclerView
-        )
+        // Get dropdown views
+        val investmentDropdown = dialogView.findViewById<AutoCompleteTextView>(R.id.investmentDropdown)
+        val emptyStateText = dialogView.findViewById<TextView>(R.id.emptyStateText)
         
-        // Get and update title text view if it exists in the layout
+        // Setup buttons
+        dialogView.findViewById<Button>(R.id.cancelButton)?.setOnClickListener {
+            dialog.dismiss()
+            viewModel.clearSelectedInvestment()
+        }
+        
+        // Handle new investment button if present
+        dialogView.findViewById<Button>(R.id.newInvestmentButton)?.setOnClickListener {
+            dialog.dismiss()
+            // Navigate to investment creation
+            findNavController().navigate(R.id.nav_investments)
+        }
+        
+        // Get title view and set appropriate text based on dialog type
         if (isIncome) {
-            dialogView.findViewById<android.widget.TextView>(R.id.dialogTitle)?.let {
+            dialogView.findViewById<TextView>(R.id.dialogTitle)?.let {
                 it.text = "Select Investment to Receive Income From"
             }
         } else {
-            dialogView.findViewById<android.widget.TextView>(R.id.titleText)?.let {
+            dialogView.findViewById<TextView>(R.id.titleText)?.let {
                 it.text = "Select Investment to Add Expense To"
             }
         }
         
-        recyclerView.layoutManager = LinearLayoutManager(requireContext())
-        
-        // Create adapter for investment selection
-        val adapter = InvestmentSelectionAdapter { investment ->
-            // When an investment is selected
-            viewModel.setSelectedInvestment(investment)
-            dialog.dismiss()
-            
-            // Process the transaction if we have all required information
-            if (isIncome) {
-                handleInvestmentIncome(investment)
-            } else {
-                handleInvestmentExpense(investment)
-            }
-        }
-        
-        recyclerView.adapter = adapter
-        
-        // Observe investments and update adapter
+        // Use observe pattern instead of directly accessing value
         viewModel.allInvestments.observe(viewLifecycleOwner) { investments ->
-            // Filter out past investments
-            val activeInvestments = investments.filter { !it.isPast }
-            adapter.submitList(activeInvestments)
+            // Show ALL investments regardless of isPast value
+            // This is intentional as isPast is designed to not affect total transaction value
             
-            // Show empty state if needed
-            if (isIncome) {
-                dialogView.findViewById<android.widget.TextView>(R.id.emptyStateText)?.let { emptyText ->
-                    emptyText.visibility = if (activeInvestments.isEmpty()) View.VISIBLE else View.GONE
+            // Log for debugging
+            if (investments.isEmpty()) {
+                android.util.Log.d("TransactionsOverview", "No investments found")
+            } else {
+                android.util.Log.d("TransactionsOverview", "Found ${investments.size} investments")
+                investments.forEach {
+                    android.util.Log.d("TransactionsOverview", "Investment: ${it.name}, amount: ${it.amount}, isPast: ${it.isPast}")
                 }
             }
-        }
-        
-        // Handle new investment button if present (only in income dialog)
-        if (isIncome) {
-            dialogView.findViewById<android.widget.Button>(R.id.newInvestmentButton)?.setOnClickListener {
-                dialog.dismiss()
-                // Navigate to investment creation
-                findNavController().navigate(R.id.nav_investments)
+            
+            // Show/hide empty state based on found investments
+            emptyStateText.visibility = if (investments.isEmpty()) View.VISIBLE else View.GONE
+            
+            if (investments.isNotEmpty()) {
+                // Use our custom adapter for better display
+                val adapter = com.example.allinone.adapters.InvestmentDropdownAdapter(
+                    requireContext(),
+                    investments
+                )
+                
+                investmentDropdown.setAdapter(adapter)
+                
+                // Make dropdown show only when clicked
+                investmentDropdown.setOnClickListener {
+                    investmentDropdown.showDropDown()
+                }
+                
+                // Handle selection
+                investmentDropdown.setOnItemClickListener { _, _, position, _ ->
+                    val selectedInvestment = investments[position]
+                    
+                    // Close dialog and process the transaction
+                    dialog.dismiss()
+                    if (isIncome) {
+                        handleInvestmentIncome(selectedInvestment)
+                    } else {
+                        handleInvestmentExpense(selectedInvestment)
+                    }
+                }
+                
+                // No automatic dropdown opening
             }
         }
         

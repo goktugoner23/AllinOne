@@ -13,12 +13,19 @@
         android:textAppearance="?attr/textAppearanceSubtitle1"
         android:layout_marginBottom="16dp"/>
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/investmentsRecyclerView"
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/investmentDropdownLayout"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:maxHeight="300dp"
-        android:scrollbars="vertical" />
+        android:hint="Select Investment">
+
+        <AutoCompleteTextView
+            android:id="@+id/investmentDropdown"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="none" />
+    </com.google.android.material.textfield.TextInputLayout>
 
     <TextView
         android:id="@+id/emptyStateText"
