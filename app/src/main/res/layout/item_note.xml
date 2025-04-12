@@ -60,22 +60,62 @@
             app:layout_constraintTop_toBottomOf="@id/noteDate"
             tools:text="This is the content of the note that might be very long and span multiple lines. It will be truncated after 3 lines." />
 
-        <HorizontalScrollView
+        <!-- Attachments Section -->
+        <LinearLayout
+            android:id="@+id/attachmentsSection"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
+            android:orientation="vertical"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/noteContent">
 
+            <!-- Voice Notes Indicator -->
             <LinearLayout
-                android:id="@+id/imageContainer"
+                android:id="@+id/voiceNoteIndicator"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
+                android:layout_marginBottom="4dp"
+                android:gravity="center_vertical"
                 android:visibility="gone"
-                tools:visibility="visible" />
-        </HorizontalScrollView>
+                android:padding="4dp"
+                android:background="@drawable/rounded_background"
+                tools:visibility="visible">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@android:drawable/ic_btn_speak_now"
+                    android:contentDescription="@string/voice_notes" />
+
+                <TextView
+                    android:id="@+id/voiceNoteCountText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:textSize="12sp"
+                    android:textColor="?attr/colorOnSurface"
+                    tools:text="2 voice notes" />
+
+            </LinearLayout>
+
+            <!-- Image Previews -->
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <LinearLayout
+                    android:id="@+id/imageContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:visibility="gone"
+                    tools:visibility="visible" />
+
+            </HorizontalScrollView>
+        </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView> 

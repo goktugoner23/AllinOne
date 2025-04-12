@@ -190,6 +190,8 @@
     
     <!-- Voice Notes -->
     <string name="voice_notes">Voice Notes</string>
+    <string name="voice_note_singular">1 voice note</string>
+    <string name="voice_note_plural">%d voice notes</string>
     <string name="record">Record</string>
     <string name="recording">Recording…</string>
     <string name="stop">Stop</string>

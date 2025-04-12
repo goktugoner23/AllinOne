@@ -45,6 +45,8 @@ class NotesAdapter(
         private val dateTextView: TextView = itemView.findViewById(R.id.noteDate)
         private val contentTextView: TextView = itemView.findViewById(R.id.noteContent)
         private val shareButton: ImageButton = itemView.findViewById(R.id.shareButton)
+        private val voiceNoteIndicator: View = itemView.findViewById(R.id.voiceNoteIndicator)
+        private val voiceNoteCountText: TextView = itemView.findViewById(R.id.voiceNoteCountText)
         private val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
 
         fun bind(note: Note) {
@@ -72,6 +74,24 @@ class NotesAdapter(
                 }
             } else {
                 contentTextView.text = ""
+            }
+
+            // Handle voice notes if present
+            if (!note.voiceNoteUris.isNullOrEmpty()) {
+                val voiceNoteUris = note.voiceNoteUris.split(",").filter { it.isNotEmpty() }
+                if (voiceNoteUris.isNotEmpty()) {
+                    voiceNoteIndicator.visibility = View.VISIBLE
+                    val voiceNoteCount = voiceNoteUris.size
+                    voiceNoteCountText.text = if (voiceNoteCount == 1) {
+                        itemView.context.getString(R.string.voice_note_singular)
+                    } else {
+                        itemView.context.getString(R.string.voice_note_plural, voiceNoteCount)
+                    }
+                } else {
+                    voiceNoteIndicator.visibility = View.GONE
+                }
+            } else {
+                voiceNoteIndicator.visibility = View.GONE
             }
 
             // Handle images if present
