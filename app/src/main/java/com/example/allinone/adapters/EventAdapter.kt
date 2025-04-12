@@ -44,7 +44,7 @@ class EventAdapter(private val onItemClicked: (Event) -> Unit) :
         fun bind(event: Event) {
             eventTitle.text = event.title
             
-            // Format the time
+            // Format the time - only show start time
             eventTime.text = timeFormat.format(event.date)
             
             // Format the date (day and month)
@@ -57,6 +57,14 @@ class EventAdapter(private val onItemClicked: (Event) -> Unit) :
             when (event.type) {
                 "Lesson" -> eventTypeTag.setBackgroundResource(R.drawable.bg_tag_blue)
                 "Seminar" -> eventTypeTag.setBackgroundResource(R.drawable.bg_tag_red)
+                "Registration Start" -> {
+                    eventTypeTag.setBackgroundResource(R.drawable.bg_tag_green)
+                    eventTypeTag.text = "Start"
+                }
+                "Registration End" -> {
+                    eventTypeTag.setBackgroundResource(R.drawable.bg_tag_red)
+                    eventTypeTag.text = "End"
+                }
                 else -> eventTypeTag.setBackgroundResource(R.drawable.bg_tag_green)
             }
         }

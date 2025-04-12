@@ -212,6 +212,15 @@ class CalendarFragment : Fragment() {
             val currentMonth = now.get(Calendar.MONTH)
             val currentDay = now.get(Calendar.DAY_OF_MONTH)
             
+            // Debug: Log events with endDate
+            events.forEach { event ->
+                if (event.endDate != null) {
+                    val startTime = eventDateFormat.format(event.date)
+                    val endTime = eventDateFormat.format(event.endDate)
+                    android.util.Log.d("CalendarDebug", "Event with endDate: ${event.title}, ${event.date}, End: ${event.endDate}, $startTime-$endTime")
+                }
+            }
+            
             // Process all events - STRICTLY FUTURE ONLY
             events.forEach { event ->
                 val eventCal = Calendar.getInstance().apply { time = event.date }
@@ -226,17 +235,39 @@ class CalendarFragment : Fragment() {
                                      (year == currentYear && month == currentMonth && day >= currentDay)
                 
                 if (isFutureOrToday) {
-                    // Store all future events by year/month/day
-                    if (!allEvents.containsKey(year)) {
-                        allEvents[year] = mutableMapOf()
+                    // Store the event on its start date
+                    addEventToDateMap(year, month, day, event)
+                    
+                    // If the event has an end date and it's different from the start date,
+                    // add references to the event on all days it spans
+                    if (event.endDate != null) {
+                        val endCal = Calendar.getInstance().apply { time = event.endDate }
+                        val endYear = endCal.get(Calendar.YEAR)
+                        val endMonth = endCal.get(Calendar.MONTH)
+                        val endDay = endCal.get(Calendar.DAY_OF_MONTH)
+                        
+                        // Check if end date is different from start date
+                        if (endYear != year || endMonth != month || endDay != day) {
+                            // Create a temporary calendar for iteration
+                            val tempCal = Calendar.getInstance().apply { time = event.date }
+                            
+                            // Move to the next day after the start date
+                            tempCal.add(Calendar.DAY_OF_MONTH, 1)
+                            
+                            // Add the event to each day until we reach the end date
+                            while (!isCalendarDateAfter(tempCal, endCal)) {
+                                val spanYear = tempCal.get(Calendar.YEAR)
+                                val spanMonth = tempCal.get(Calendar.MONTH)
+                                val spanDay = tempCal.get(Calendar.DAY_OF_MONTH)
+                                
+                                // Add to this intermediate day
+                                addEventToDateMap(spanYear, spanMonth, spanDay, event)
+                                
+                                // Move to next day
+                                tempCal.add(Calendar.DAY_OF_MONTH, 1)
+                            }
+                        }
                     }
-                    if (!allEvents[year]!!.containsKey(month)) {
-                        allEvents[year]!![month] = mutableMapOf()
-                    }
-                    if (!allEvents[year]!![month]!!.containsKey(day)) {
-                        allEvents[year]!![month]!![day] = mutableListOf()
-                    }
-                    allEvents[year]!![month]!![day]!!.add(event)
                 }
             }
             
@@ -261,6 +292,38 @@ class CalendarFragment : Fragment() {
         }
     }
     
+    // Helper method to add an event to the date map
+    private fun addEventToDateMap(year: Int, month: Int, day: Int, event: Event) {
+        if (!allEvents.containsKey(year)) {
+            allEvents[year] = mutableMapOf()
+        }
+        if (!allEvents[year]!!.containsKey(month)) {
+            allEvents[year]!![month] = mutableMapOf()
+        }
+        if (!allEvents[year]!![month]!!.containsKey(day)) {
+            allEvents[year]!![month]!![day] = mutableListOf()
+        }
+        // Avoid adding duplicate events
+        if (!allEvents[year]!![month]!![day]!!.contains(event)) {
+            allEvents[year]!![month]!![day]!!.add(event)
+        }
+    }
+    
+    // Helper method to check if first date is after the second
+    private fun isCalendarDateAfter(cal1: Calendar, cal2: Calendar): Boolean {
+        val year1 = cal1.get(Calendar.YEAR)
+        val month1 = cal1.get(Calendar.MONTH)
+        val day1 = cal1.get(Calendar.DAY_OF_MONTH)
+        
+        val year2 = cal2.get(Calendar.YEAR)
+        val month2 = cal2.get(Calendar.MONTH)
+        val day2 = cal2.get(Calendar.DAY_OF_MONTH)
+        
+        return (year1 > year2) || 
+               (year1 == year2 && month1 > month2) || 
+               (year1 == year2 && month1 == month2 && day1 > day2)
+    }
+    
     private fun updateEventsList() {
         // Check if a day is selected
         if (selectedDay > 0) {
@@ -282,7 +345,7 @@ class CalendarFragment : Fragment() {
                 eventAdapter.submitList(filteredEvents)
             }
             
-            // Update events header
+            // Update events header with date
             val selectedDate = Calendar.getInstance().apply {
                 set(selectedYear, selectedMonth, selectedDay)
             }.time
@@ -482,10 +545,11 @@ class CalendarFragment : Fragment() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_add_event, null)
         val titleInput = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.eventTitleInput)
         val timeInput = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.eventTimeInput)
+        val endTimeInput = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.eventEndTimeInput)
         val descInput = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.eventDescriptionInput)
         
         // Set up time input formatter
-        timeInput.addTextChangedListener(object : TextWatcher {
+        val timeWatcher = object : TextWatcher {
             private var isFormatting = false
             
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -507,7 +571,10 @@ class CalendarFragment : Fragment() {
                 
                 isFormatting = false
             }
-        })
+        }
+        
+        timeInput.addTextChangedListener(timeWatcher)
+        endTimeInput.addTextChangedListener(timeWatcher)
         
         // Allow clicking on the time input to show a time picker
         timeInput.setOnClickListener {
@@ -520,6 +587,17 @@ class CalendarFragment : Fragment() {
             }, hour, minute, true).show()
         }
         
+        // Allow clicking on the end time input to show a time picker
+        endTimeInput.setOnClickListener {
+            val cal = Calendar.getInstance()
+            val hour = cal.get(Calendar.HOUR_OF_DAY)
+            val minute = cal.get(Calendar.MINUTE)
+            
+            TimePickerDialog(requireContext(), { _, selectedHour, selectedMinute ->
+                endTimeInput.setText(String.format("%02d:%02d", selectedHour, selectedMinute))
+            }, hour, minute, true).show()
+        }
+        
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Add Event for ${eventDayFormat.format(eventCal.time)}")
             .setView(dialogView)
@@ -527,24 +605,46 @@ class CalendarFragment : Fragment() {
                 val title = titleInput.text.toString()
                 val description = descInput.text.toString().takeIf { it.isNotEmpty() }
                 val timeText = timeInput.text.toString()
+                val endTimeText = endTimeInput.text.toString()
                 
                 if (title.isNotEmpty() && timeText.matches(Regex("\\d{2}:\\d{2}"))) {
-                    // Parse time
+                    // Parse start time
                     val parts = timeText.split(":")
                     val hour = parts[0].toInt()
                     val minute = parts[1].toInt()
                     
-                    // Set time on the event calendar
-                    eventCal.set(Calendar.HOUR_OF_DAY, hour)
-                    eventCal.set(Calendar.MINUTE, minute)
+                    // Set start time on the event calendar
+                    val startCalendar = Calendar.getInstance()
+                    startCalendar.time = eventCal.time
+                    startCalendar.set(Calendar.HOUR_OF_DAY, hour)
+                    startCalendar.set(Calendar.MINUTE, minute)
+                    
+                    // Parse end time if provided
+                    var endCalendar: Calendar? = null
+                    if (endTimeText.matches(Regex("\\d{2}:\\d{2}"))) {
+                        val endParts = endTimeText.split(":")
+                        val endHour = endParts[0].toInt()
+                        val endMinute = endParts[1].toInt()
+                        
+                        endCalendar = Calendar.getInstance()
+                        endCalendar.time = eventCal.time
+                        endCalendar.set(Calendar.HOUR_OF_DAY, endHour)
+                        endCalendar.set(Calendar.MINUTE, endMinute)
+                        
+                        // Ensure end time is after start time
+                        if (endCalendar.before(startCalendar)) {
+                            Toast.makeText(context, "End time must be after start time", Toast.LENGTH_SHORT).show()
+                            return@setPositiveButton
+                        }
+                    }
                     
                     // Ensure again that the event isn't in the past after setting the time
-                    if (eventCal.before(now)) {
+                    if (startCalendar.before(now)) {
                         Toast.makeText(context, "Cannot add events in the past", Toast.LENGTH_SHORT).show()
                         return@setPositiveButton
                     }
                     
-                    viewModel.addEvent(title, description, eventCal.time)
+                    viewModel.addEvent(title, description, startCalendar.time, endCalendar?.time)
                     Toast.makeText(context, "Event added", Toast.LENGTH_SHORT).show()
                     
                     // Refresh data to ensure the new event is displayed correctly
@@ -565,14 +665,25 @@ class CalendarFragment : Fragment() {
     }
     
     private fun showEventOptionsDialog(event: Event) {
+        // Add a debug log to see the event details
+        android.util.Log.d("EventDialog", "Event: ${event.title}, Type: ${event.type}, Start: ${event.date}, End: ${event.endDate}")
+        
         val options = if (event.type == "Lesson") {
             arrayOf("View Details", "Cancel Lesson", "Postpone Lesson")
         } else {
             arrayOf("View Details", "Delete Event")
         }
         
+        // Prepare the title text to include start/end time for lessons
+        var titleText = event.title
+        if (event.type == "Lesson" && event.endDate != null) {
+            val startTime = eventDateFormat.format(event.date)
+            val endTime = eventDateFormat.format(event.endDate)
+            titleText = "$titleText ($startTime-$endTime)"
+        }
+        
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle(event.title)
+            .setTitle(titleText)
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> showEventDetailsDialog(event)
@@ -599,13 +710,23 @@ class CalendarFragment : Fragment() {
         val date = fullDateFormat.format(event.date)
         val time = eventDateFormat.format(event.date)
         
-        val details = """
-            |Title: ${event.title}
-            |Date: $date
-            |Time: $time
-            |Type: ${event.type}
-            |${if (event.description != null) "Description: ${event.description}" else ""}
-        """.trimMargin()
+        // Format event details
+        val details = buildString {
+            append("Title: ${event.title}\n")
+            append("Date: $date\n")
+            append("Start Time: $time\n")
+            
+            // Add end time if available
+            if (event.endDate != null) {
+                append("End Time: ${eventDateFormat.format(event.endDate)}\n")
+            }
+            
+            append("Type: ${event.type}\n")
+            
+            if (event.description != null) {
+                append("Description: ${event.description}")
+            }
+        }
         
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Event Details")

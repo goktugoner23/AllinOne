@@ -442,6 +442,7 @@ class FirebaseManager(private val context: Context? = null) {
                 "title" to event.title,
                 "description" to event.description,
                 "date" to event.date,
+                "endDate" to event.endDate,
                 "type" to event.type,
                 "deviceId" to deviceId
             )
@@ -461,9 +462,10 @@ class FirebaseManager(private val context: Context? = null) {
                 val title = doc.getString("title") ?: ""
                 val description = doc.getString("description")
                 val date = doc.getDate("date") ?: Date()
+                val endDate = doc.getDate("endDate")
                 val type = doc.getString("type") ?: "Event"
                 
-                Event(id, title, description, date, type)
+                Event(id, title, description, date, endDate, type)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error getting events", e)

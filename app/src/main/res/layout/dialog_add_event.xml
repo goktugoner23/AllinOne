@@ -36,7 +36,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginEnd="4dp"
-            android:hint="Time (HH:MM)"
+            android:hint="Start Time (HH:MM)"
             app:boxBackgroundMode="filled"
             app:boxBackgroundColor="@color/white">
 
@@ -55,16 +55,16 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginStart="4dp"
-            android:hint="Duration (min)"
+            android:hint="End Time (HH:MM)"
             app:boxBackgroundMode="filled"
             app:boxBackgroundColor="@color/white">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/eventDurationInput"
+                android:id="@+id/eventEndTimeInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="number"
-                android:text="60"
+                android:inputType="time"
+                android:text="13:00"
                 android:background="@color/white" />
 
         </com.google.android.material.textfield.TextInputLayout>

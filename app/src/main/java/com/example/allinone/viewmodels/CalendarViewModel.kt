@@ -7,6 +7,8 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.allinone.data.Event
 import com.example.allinone.data.WTLesson
+import com.example.allinone.data.WTRegistration
+import com.example.allinone.data.WTStudent
 import com.example.allinone.firebase.FirebaseRepository
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -33,12 +35,19 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     // Lesson schedule from WT Registry
     private val _lessonSchedule = MutableLiveData<List<WTLesson>>(emptyList())
     
+    // Registrations and students for calendar events
+    private val _registrations = MutableLiveData<List<WTRegistration>>(emptyList())
+    private val _students = MutableLiveData<List<WTStudent>>(emptyList())
+    
     // In-memory storage to complement Firebase data
     private val eventsList = mutableListOf<Event>()
     
     init {
         // Initial load
         loadEvents()
+        
+        // Also load registrations and students
+        loadRegistrationsAndStudents()
     }
     
     /**
@@ -95,9 +104,31 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     }
     
     /**
+     * Load registrations and students to display in calendar
+     */
+    private fun loadRegistrationsAndStudents() {
+        viewModelScope.launch {
+            try {
+                // Load registrations
+                repository.refreshRegistrations()
+                _registrations.value = repository.registrations.value
+                
+                // Load students
+                repository.refreshStudents()
+                _students.value = repository.students.value
+                
+                // Generate registration events
+                generateRegistrationEvents()
+            } catch (e: Exception) {
+                _errorMessage.value = "Failed to load registrations: ${e.message}"
+            }
+        }
+    }
+    
+    /**
      * Add a new event to the calendar
      */
-    fun addEvent(title: String, description: String?, date: Date) {
+    fun addEvent(title: String, description: String?, date: Date, endDate: Date? = null) {
         viewModelScope.launch {
             try {
                 val newEvent = Event(
@@ -105,6 +136,7 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                     title = title,
                     description = description,
                     date = date,
+                    endDate = endDate,
                     type = "Event"
                 )
                 
@@ -191,10 +223,21 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                 }
                 
                 lessonToPostpone?.let { lesson ->
+                    // Calculate the new end date if one exists
+                    val newEndDate = if (lesson.endDate != null) {
+                        // Get the duration between original start and end
+                        val durationMs = lesson.endDate.time - lesson.date.time
+                        // Apply same duration to new date
+                        Date(newDate.time + durationMs)
+                    } else {
+                        null
+                    }
+                    
                     // Create a new event with the postponed date
                     val postponedEvent = lesson.copy(
                         id = System.currentTimeMillis(), // New ID for the postponed event
                         date = newDate,
+                        endDate = newEndDate,
                         title = "${lesson.title} (Postponed)",
                         description = "${lesson.description ?: ""}\nPostponed from ${origCal.time}".trim()
                     )
@@ -269,22 +312,25 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             
             // Keep adding weekly lessons until we reach the far future date
             while (lessonCalendar.before(farFutureDate)) {
-                // Set the lesson time
-                val eventCalendar = Calendar.getInstance()
-                eventCalendar.time = lessonCalendar.time
-                eventCalendar.set(Calendar.HOUR_OF_DAY, lesson.startHour)
-                eventCalendar.set(Calendar.MINUTE, lesson.startMinute)
+                // Set the lesson start time
+                val startCalendar = Calendar.getInstance()
+                startCalendar.time = lessonCalendar.time
+                startCalendar.set(Calendar.HOUR_OF_DAY, lesson.startHour)
+                startCalendar.set(Calendar.MINUTE, lesson.startMinute)
                 
-                // Create a formatted time string
-                val startTime = String.format("%02d:%02d", lesson.startHour, lesson.startMinute)
-                val endTime = String.format("%02d:%02d", lesson.endHour, lesson.endMinute)
+                // Set the lesson end time
+                val endCalendar = Calendar.getInstance()
+                endCalendar.time = lessonCalendar.time
+                endCalendar.set(Calendar.HOUR_OF_DAY, lesson.endHour)
+                endCalendar.set(Calendar.MINUTE, lesson.endMinute)
                 
                 // Create the event
                 val event = Event(
                     id = System.currentTimeMillis() + eventsList.size, // Simple unique ID
-                    title = "WT Lesson ($startTime-$endTime)",
+                    title = "WT Lesson", // Simplified title since we now use endDate properly
                     description = "Regular weekly Wing Tzun lesson",
-                    date = eventCalendar.time,
+                    date = startCalendar.time,
+                    endDate = endCalendar.time,
                     type = "Lesson"
                 )
                 
@@ -298,6 +344,62 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         
         // Update the LiveData
         _events.value = eventsList.toList()
+    }
+    
+    /**
+     * Generate calendar events for registration start and end dates
+     */
+    private fun generateRegistrationEvents() {
+        val registrations = _registrations.value ?: return
+        val students = _students.value ?: return
+        
+        if (registrations.isEmpty()) return
+        
+        // First remove any existing registration events
+        eventsList.removeIf { it.type == "Registration Start" || it.type == "Registration End" }
+        
+        // Create a student ID to name map for quick lookup
+        val studentNames = students.associateBy({ it.id }, { it.name })
+        
+        // For each registration, create start and end date events
+        for (registration in registrations) {
+            val studentName = studentNames[registration.studentId] ?: "Unknown Student"
+            
+            // Only process registrations with valid dates
+            if (registration.startDate != null) {
+                // Create start date event
+                val startEvent = Event(
+                    id = registration.id * 10 + 1, // Use a formula to ensure unique IDs
+                    title = "$studentName - Registration Start",
+                    description = "Training period starts (${formatAmount(registration.amount)})",
+                    date = registration.startDate,
+                    type = "Registration Start"
+                )
+                eventsList.add(startEvent)
+            }
+            
+            if (registration.endDate != null) {
+                // Create end date event
+                val endEvent = Event(
+                    id = registration.id * 10 + 2, // Different ID from start event
+                    title = "$studentName - Registration End",
+                    description = "Training period ends (${formatAmount(registration.amount)})",
+                    date = registration.endDate,
+                    type = "Registration End"
+                )
+                eventsList.add(endEvent)
+            }
+        }
+        
+        // Update the LiveData to show all events
+        _events.value = eventsList.toList()
+    }
+    
+    /**
+     * Format amount as currency
+     */
+    private fun formatAmount(amount: Double): String {
+        return String.format("%.2f ₺", amount)
     }
     
     /**
@@ -323,8 +425,19 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                 // Update our local events
                 updateEventsFromFirebase(firebaseEvents)
                 
+                // Refresh registrations
+                repository.refreshRegistrations()
+                _registrations.value = repository.registrations.value
+                
+                // Refresh students
+                repository.refreshStudents()
+                _students.value = repository.students.value
+                
                 // Generate lesson events based on current lesson schedule
                 generateLessonEvents()
+                
+                // Generate registration events
+                generateRegistrationEvents()
                 
                 // Update UI state
                 _isLoading.value = false
