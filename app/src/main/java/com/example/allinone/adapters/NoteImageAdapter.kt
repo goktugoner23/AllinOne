@@ -8,6 +8,7 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.allinone.databinding.ItemNoteImageBinding
+import java.io.File
 
 class NoteImageAdapter(
     private val onDeleteClick: (Uri) -> Unit,
@@ -24,7 +25,23 @@ class NoteImageAdapter(
     }
 
     override fun onBindViewHolder(holder: ImageViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        val uri = getItem(position)
+        if (isValidUri(uri)) {
+            holder.bind(uri)
+        } else {
+            // If invalid URI, notify for removal
+            onDeleteClick(uri)
+        }
+    }
+    
+    private fun isValidUri(uri: Uri): Boolean {
+        if (uri.toString().isEmpty()) return false
+        
+        return when (uri.scheme) {
+            "content" -> true  // Content provider URI
+            "file" -> File(uri.path ?: "").exists()  // File exists check
+            else -> true  // Other schemes like http, https, etc.
+        }
     }
 
     inner class ImageViewHolder(

@@ -31,6 +31,7 @@ AllInOne is an Android application designed to centralize various aspects of per
 ### Note Taking
 - **Rich Text Editor**: Comprehensive formatting including bold, italic, underline, headings, and lists
 - **Image Support**: Embed and resize images within notes
+- **Drawing Tool**: Create and embed drawings directly in notes with customizable brush size and color picker
 - **Organization System**: Organize notes with folders, tags, and color-coding
 - **Search Functionality**: Full-text search across all notes with highlighted results
 - **Markdown Support**: Write and preview in Markdown format
@@ -38,6 +39,16 @@ AllInOne is an Android application designed to centralize various aspects of per
 - **Version History**: Track changes to notes over time with restore capabilities
 - **Sharing Options**: Share notes as text, HTML, or PDF
 - **Templates**: Create and use templates for frequently used note structures
+
+### Drawing Features
+- **Interactive Canvas**: Responsive drawing surface with smooth line rendering
+- **Circular Color Picker**: Intuitive color wheel with brightness adjustment for precise color selection
+- **Adjustable Brush Size**: Customize brush thickness for different drawing styles
+- **Gallery Integration**: Save drawings directly to device gallery or embed in notes
+- **Background Preservation**: Maintains drawing background when saving to ensure visual consistency
+- **Clear Canvas**: One-touch reset to start fresh
+- **Real-time Preview**: See changes immediately as you draw
+- **Non-destructive Editing**: Add to existing drawings without losing previous work
 
 ### Wing Tzun Student Management
 - **Student Profiles**: Comprehensive student information including contact details and training history
@@ -108,12 +119,15 @@ AllInOne is an Android application designed to centralize various aspects of per
   - Firebase Storage for binary data
   - Firebase Authentication for user identity
   - Firebase Crashlytics for error reporting
+- **Custom Components**:
+  - ColorPickerView for interactive color selection
+  - DrawingView for canvas-based drawing functionality
+  - KnifeText for rich text editing
 - **Third-Party Libraries**:
   - Glide for image loading and caching
   - MPAndroidChart for data visualization
   - Timber for enhanced logging
   - PhotoView for image interaction
-  - KnifeText for rich text editing
 
 ## Firebase Setup
 

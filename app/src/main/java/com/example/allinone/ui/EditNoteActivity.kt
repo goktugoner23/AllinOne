@@ -38,22 +38,19 @@ class EditNoteActivity : AppCompatActivity() {
     private var isNewNote = true
     private var noteId: Long? = null
     
-    private val getContent = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
-        uris?.let { selectedUris ->
-            selectedUris.forEach { uri ->
-                try {
-                    // Take persistable permission for the URI
-                    contentResolver.takePersistableUriPermission(
-                        uri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
-                    selectedImages.add(uri)
-                } catch (e: Exception) {
-                    Log.e("EditNoteActivity", "Error with image permission: ${e.message}", e)
-                }
+    // Image picker launcher
+    private val getContent = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            try {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                selectedImages.add(uri)
+                updateImageAttachmentSection()
+            } catch (e: Exception) {
+                Log.e("EditNoteActivity", "Error with image permission: ${e.message}", e)
             }
-            imageAdapter.submitList(selectedImages.toList())
-            binding.imagesRecyclerView.visibility = if (selectedImages.isEmpty()) View.GONE else View.VISIBLE
         }
     }
     
@@ -65,8 +62,7 @@ class EditNoteActivity : AppCompatActivity() {
                     val uri = Uri.parse(uriString)
                     // No need to call takePersistableUriPermission as we already granted permission
                     selectedImages.add(uri)
-                    imageAdapter.submitList(selectedImages.toList())
-                    binding.imagesRecyclerView.visibility = View.VISIBLE
+                    updateImageAttachmentSection()
                     Toast.makeText(this, getString(R.string.drawing_added), Toast.LENGTH_SHORT).show()
                 } catch (e: Exception) {
                     Log.e("EditNoteActivity", "Error with drawing URI: ${e.message}", e)
@@ -119,8 +115,7 @@ class EditNoteActivity : AppCompatActivity() {
         imageAdapter = NoteImageAdapter(
             onDeleteClick = { uri -> 
                 selectedImages.remove(uri)
-                imageAdapter.submitList(selectedImages.toList())
-                binding.imagesRecyclerView.visibility = if (selectedImages.isEmpty()) View.GONE else View.VISIBLE
+                updateImageAttachmentSection()
             },
             onImageClick = { uri ->
                 showFullscreenImage(uri)
@@ -131,6 +126,28 @@ class EditNoteActivity : AppCompatActivity() {
             layoutManager = LinearLayoutManager(this@EditNoteActivity, LinearLayoutManager.HORIZONTAL, false)
         }
         binding.imagesRecyclerView.visibility = View.GONE
+    }
+    
+    private fun updateImageAttachmentSection() {
+        // Filter out any invalid URIs
+        val validImages = selectedImages.filter { uri ->
+            val isValid = try {
+                contentResolver.getType(uri) != null
+            } catch (e: Exception) {
+                false
+            }
+            isValid
+        }.toMutableList()
+        
+        // Update the list if needed
+        if (validImages.size != selectedImages.size) {
+            selectedImages.clear()
+            selectedImages.addAll(validImages)
+        }
+        
+        // Update adapter and visibility
+        imageAdapter.submitList(selectedImages.toList())
+        binding.imagesRecyclerView.visibility = if (selectedImages.isEmpty()) View.GONE else View.VISIBLE
     }
     
     private fun setupRichTextEditor() {
@@ -341,10 +358,11 @@ class EditNoteActivity : AppCompatActivity() {
                     // Load images
                     selectedImages.clear()
                     foundNote.imageUris?.split(",")?.forEach { uriString ->
-                        selectedImages.add(Uri.parse(uriString))
+                        if (uriString.isNotEmpty()) {
+                            selectedImages.add(Uri.parse(uriString))
+                        }
                     }
-                    imageAdapter.submitList(selectedImages.toList())
-                    binding.imagesRecyclerView.visibility = if (selectedImages.isEmpty()) View.GONE else View.VISIBLE
+                    updateImageAttachmentSection()
                 }
             }
         }
@@ -358,6 +376,9 @@ class EditNoteActivity : AppCompatActivity() {
             Toast.makeText(this, getString(R.string.please_enter_title), Toast.LENGTH_SHORT).show()
             return
         }
+        
+        // First ensure we only have valid images
+        updateImageAttachmentSection()
         
         // Convert selected images to comma-separated string
         val imageUris = if (selectedImages.isNotEmpty()) {
