@@ -46,4 +46,7 @@
     <!-- Registration event colors -->
     <color name="registration_start">#4CAF50</color>  <!-- Green -->
     <color name="registration_end">@color/red</color>  <!-- Red -->
+    
+    <!-- Tag colors -->
+    <color name="bg_tag_blue">#2196F3</color>  <!-- Blue color for tags and indicators -->
 </resources>

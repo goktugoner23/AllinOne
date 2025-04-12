@@ -464,6 +464,10 @@ class CalendarFragment : Fragment() {
             dayView.isClickable = false  // Disable click for empty cells
         }
         
+        // Get the current year and month for checking events
+        val currentCalendarYear = cal.get(Calendar.YEAR)
+        val currentCalendarMonth = cal.get(Calendar.MONTH)
+        
         // Fill in the days of the month
         for (i in 1..daysInMonth) {
             val position = i + firstDayPosition - 1
@@ -483,7 +487,23 @@ class CalendarFragment : Fragment() {
                           cal.get(Calendar.MONTH) == currentDate.get(Calendar.MONTH) &&
                           i == currentDate.get(Calendar.DAY_OF_MONTH))
             
-            // Apply styling - MINIMAL DESIGN: only show selection and today indicators
+            // Get events for this day if any
+            val dayEventsList = allEvents[currentCalendarYear]?.get(currentCalendarMonth)?.get(i) ?: emptyList()
+            
+            // Determine what types of events exist for this day
+            var hasOtherEvents = false
+            var hasRegistrationEnd = false
+            var hasLesson = false
+            
+            for (event in dayEventsList) {
+                when (event.type) {
+                    "Lesson" -> hasLesson = true
+                    "Registration End" -> hasRegistrationEnd = true
+                    else -> hasOtherEvents = true
+                }
+            }
+            
+            // Apply styling based on priority
             when {
                 isSelectedDay -> {
                     // Selected day always gets black circle
@@ -498,20 +518,60 @@ class CalendarFragment : Fragment() {
                     dayView.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
                     dayView.setTypeface(null, android.graphics.Typeface.NORMAL)
                     dayView.textSize = 14f
+                    
+                    // Add event indicator based on priority
+                    if (hasOtherEvents) {
+                        dayView.foreground = ContextCompat.getDrawable(requireContext(), R.drawable.bg_day_with_event)
+                    } else if (hasRegistrationEnd) {
+                        dayView.foreground = ContextCompat.getDrawable(requireContext(), R.drawable.bg_day_with_registration)
+                    } else if (hasLesson) {
+                        dayView.foreground = ContextCompat.getDrawable(requireContext(), R.drawable.bg_day_with_lesson)
+                    }
                 }
                 isToday -> {
                     // Today gets themed bold text when another day is selected
                     updateTodayHighlighting(dayView, true)
+                    
+                    // Add event indicator based on priority
+                    if (hasOtherEvents) {
+                        dayView.foreground = ContextCompat.getDrawable(requireContext(), R.drawable.bg_day_with_event)
+                    } else if (hasRegistrationEnd) {
+                        dayView.foreground = ContextCompat.getDrawable(requireContext(), R.drawable.bg_day_with_registration)
+                    } else if (hasLesson) {
+                        dayView.foreground = ContextCompat.getDrawable(requireContext(), R.drawable.bg_day_with_lesson)
+                    }
                 }
-                else -> {
-                    // Regular day styling
+                hasOtherEvents -> {
+                    // Regular day styling with green indicator (highest priority)
                     dayView.background = null
                     dayView.setTextColor(ContextCompat.getColor(requireContext(), R.color.textPrimary))
                     dayView.setTypeface(null, android.graphics.Typeface.NORMAL)
-                    // Reset text size to default
+                    dayView.textSize = 14f
+                    dayView.foreground = ContextCompat.getDrawable(requireContext(), R.drawable.bg_day_with_event)
+                }
+                hasRegistrationEnd -> {
+                    // Regular day styling with red indicator (medium priority)
+                    dayView.background = null
+                    dayView.setTextColor(ContextCompat.getColor(requireContext(), R.color.textPrimary))
+                    dayView.setTypeface(null, android.graphics.Typeface.NORMAL)
+                    dayView.textSize = 14f
+                    dayView.foreground = ContextCompat.getDrawable(requireContext(), R.drawable.bg_day_with_registration)
+                }
+                hasLesson -> {
+                    // Regular day styling with blue indicator (lowest priority)
+                    dayView.background = null
+                    dayView.setTextColor(ContextCompat.getColor(requireContext(), R.color.textPrimary))
+                    dayView.setTypeface(null, android.graphics.Typeface.NORMAL)
+                    dayView.textSize = 14f
+                    dayView.foreground = ContextCompat.getDrawable(requireContext(), R.drawable.bg_day_with_lesson)
+                }
+                else -> {
+                    // Regular day styling with no indicator
+                    dayView.background = null
+                    dayView.setTextColor(ContextCompat.getColor(requireContext(), R.color.textPrimary))
+                    dayView.setTypeface(null, android.graphics.Typeface.NORMAL)
                     dayView.textSize = 14f
                 }
-                // No styling for lesson days - keeping minimal design
             }
         }
         
