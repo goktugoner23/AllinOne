@@ -232,6 +232,7 @@ class FirebaseManager(private val context: Context? = null) {
             "date" to note.date,
             "imageUri" to note.imageUri,
             "imageUris" to uploadedImageUrls.joinToString(","),
+            "voiceNoteUris" to note.voiceNoteUris,
             "lastEdited" to note.lastEdited,
             "isRichText" to note.isRichText,
             "deviceId" to deviceId
@@ -251,10 +252,21 @@ class FirebaseManager(private val context: Context? = null) {
                     val date = doc.getDate("date") ?: Date()
                     val imageUri = doc.getString("imageUri")
                     val imageUris = doc.getString("imageUris")
+                    val voiceNoteUris = doc.getString("voiceNoteUris")
                     val lastEdited = doc.getDate("lastEdited") ?: Date()
                     val isRichText = doc.getBoolean("isRichText") ?: true
                     
-                    Note(id, title, content, date, imageUri, imageUris, lastEdited, isRichText)
+                    Note(
+                        id = id, 
+                        title = title, 
+                        content = content, 
+                        date = date, 
+                        imageUri = imageUri, 
+                        imageUris = imageUris,
+                        voiceNoteUris = voiceNoteUris,
+                        lastEdited = lastEdited, 
+                        isRichText = isRichText
+                    )
                 }
             } catch (e: Exception) {
                 emptyList()

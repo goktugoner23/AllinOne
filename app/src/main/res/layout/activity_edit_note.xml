@@ -197,6 +197,73 @@
                 android:text="Add Image"
                 android:drawableStart="@drawable/ic_add_photo"
                 android:drawablePadding="8dp" />
+                
+            <!-- Voice Notes Section -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:orientation="vertical">
+                
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/voice_notes"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:textColor="?attr/colorPrimary"
+                    android:textAppearance="?attr/textAppearanceSubtitle1"
+                    android:visibility="visible" />
+                
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/voiceNotesRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:minHeight="80dp"
+                    android:paddingBottom="8dp"
+                    android:clipToPadding="false"
+                    android:orientation="vertical"
+                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+                
+                <!-- Voice Recording Controls -->
+                <LinearLayout
+                    android:id="@+id/recordingControlsLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:layout_marginTop="8dp">
+                    
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/recordButton"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/record"
+                        app:icon="@android:drawable/ic_btn_speak_now"
+                        android:drawablePadding="8dp" />
+                        
+                    <TextView
+                        android:id="@+id/recordingTimeText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="00:00"
+                        android:layout_marginStart="16dp"
+                        android:layout_marginEnd="16dp"
+                        android:textSize="18sp"
+                        android:visibility="gone" />
+                        
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/stopRecordingButton"
+                        style="@style/Widget.MaterialComponents.Button"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/stop"
+                        app:backgroundTint="@android:color/holo_red_light"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </LinearLayout>
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
