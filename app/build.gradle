@@ -31,23 +31,17 @@ task generateSourceCodeJson(type: Exec) {
 // Make sure the source code JSON is generated before building
 preBuild.dependsOn generateSourceCodeJson
 
-def readEnvFile() {
-    def token = "NOT_SET"
+def getEnvValue(String key, String defaultVal = "NOT_SET") {
     def envFile = new File(rootDir, '.env')
-    
     if (envFile.exists()) {
-        println "Reading Instagram token from .env file"
-        envFile.eachLine { line ->
-            if (line.startsWith("INSTAGRAM_TOKEN=")) {
-                token = line.substring("INSTAGRAM_TOKEN=".length())
-                println "Found Instagram token in .env file"
-            }
+        def props = new Properties()
+        envFile.withInputStream { stream ->
+            props.load(stream)
         }
+        return props.getProperty(key, defaultVal)
     } else {
-        println "Warning: .env file not found at ${envFile.absolutePath}"
+        return System.getenv(key) ?: defaultVal
     }
-    
-    return token
 }
 
 android {
@@ -63,10 +57,25 @@ android {
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         
-        // Read token from .env file and bake it into the app
-        def instagramToken = readEnvFile()
-        buildConfigField "String", "INSTAGRAM_TOKEN", "\"${instagramToken}\""
-        println "Instagram token will be baked into the app: ${instagramToken.take(4)}..."
+        // Read Instagram access token from .env file
+        def instagramAccessToken = getEnvValue('INSTAGRAM_ACCESS_TOKEN')
+        buildConfigField "String", "INSTAGRAM_ACCESS_TOKEN", "\"${instagramAccessToken}\""
+        println "Instagram access token will be baked into the app: ${instagramAccessToken.take(4)}..."
+        
+        // Read Facebook Graph API token for Instagram insights
+        def instagramGraphToken = getEnvValue('FACEBOOK_GRAPH_TOKEN')
+        buildConfigField "String", "INSTAGRAM_GRAPH_TOKEN", "\"${instagramGraphToken}\""
+        println "Instagram Graph API token will be baked into the app: ${instagramGraphToken.take(4)}..."
+        
+        // Read Instagram Business Account ID from .env file
+        def instagramBusinessAccountId = getEnvValue('INSTAGRAM_BUSINESS_ACCOUNT_ID')
+        buildConfigField "String", "INSTAGRAM_BUSINESS_ACCOUNT_ID", "\"${instagramBusinessAccountId}\""
+        println "Instagram Business Account ID will be baked into the app: ${instagramBusinessAccountId}"
+        
+        // Read client secret from .env file
+        def instagramClientSecret = getEnvValue('INSTAGRAM_CLIENT_SECRET')
+        buildConfigField "String", "INSTAGRAM_CLIENT_SECRET", "\"${instagramClientSecret}\""
+        println "Instagram client secret will be baked into the app: ${instagramClientSecret.take(4) != "NOT_" ? "Found" : "Not found"}"
     }
 
     signingConfigs {
