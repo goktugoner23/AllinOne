@@ -138,7 +138,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                         title = item.title,
                         content = item.description,
                         date = item.date,
-                        imageUri = item.imageUri
+                        imageUris = item.imageUri
                     )
                     repository.deleteNote(note)
                 }
@@ -205,7 +205,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
             description = content,
             date = date,
             type = "Note",
-            imageUri = imageUri,
+            imageUri = imageUris,
             itemType = HistoryItem.ItemType.NOTE
         )
     }

@@ -88,6 +88,16 @@ class NotesFragment : Fragment() {
     }
     
     private var dialogBinding: DialogEditNoteBinding? = null
+    
+    // Register for activity result from EditNoteActivity
+    private val editNoteLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == AppCompatActivity.RESULT_OK) {
+            // Refresh notes data when a note is added, updated, or deleted
+            viewModel.refreshData()
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -244,7 +254,8 @@ class NotesFragment : Fragment() {
     private fun setupRecyclerView() {
         notesAdapter = NotesAdapter(
             onNoteClick = { note -> 
-                startActivity(EditNoteActivity.newIntent(requireContext(), note.id))
+                // Use the activity result launcher instead of direct startActivity
+                editNoteLauncher.launch(EditNoteActivity.newIntent(requireContext(), note.id))
             },
             onImageClick = { uri -> showFullscreenImage(uri) }
         )
@@ -257,7 +268,8 @@ class NotesFragment : Fragment() {
     
     private fun setupFab() {
         binding.addNoteFab.setOnClickListener {
-            startActivity(EditNoteActivity.newIntent(requireContext()))
+            // Use the activity result launcher instead of direct startActivity
+            editNoteLauncher.launch(EditNoteActivity.newIntent(requireContext()))
         }
     }
     

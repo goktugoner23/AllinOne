@@ -236,7 +236,6 @@ class FirebaseManager(private val context: Context? = null) {
             "title" to note.title,
             "content" to note.content,
             "date" to note.date,
-            "imageUri" to note.imageUri,
             "imageUris" to uploadedImageUrls.joinToString(","),
             "voiceNoteUris" to note.voiceNoteUris,
             "lastEdited" to note.lastEdited,
@@ -256,8 +255,7 @@ class FirebaseManager(private val context: Context? = null) {
                     val title = doc.getString("title") ?: ""
                     val content = doc.getString("content") ?: ""
                     val date = doc.getDate("date") ?: Date()
-                    val imageUri = doc.getString("imageUri")
-                    val imageUris = doc.getString("imageUris")
+                    val imageUris = doc.getString("imageUris") ?: doc.getString("imageUri") // Migrate old data
                     val voiceNoteUris = doc.getString("voiceNoteUris")
                     val lastEdited = doc.getDate("lastEdited") ?: Date()
                     val isRichText = doc.getBoolean("isRichText") ?: true
@@ -267,7 +265,6 @@ class FirebaseManager(private val context: Context? = null) {
                         title = title, 
                         content = content, 
                         date = date, 
-                        imageUri = imageUri, 
                         imageUris = imageUris,
                         voiceNoteUris = voiceNoteUris,
                         lastEdited = lastEdited, 

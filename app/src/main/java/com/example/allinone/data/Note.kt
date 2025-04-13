@@ -7,7 +7,6 @@ data class Note(
     val title: String,
     val content: String,
     val date: Date = Date(),
-    val imageUri: String? = null,  // Single image URI
     val imageUris: String? = null,  // Comma-separated list of image URIs
     val voiceNoteUris: String? = null,  // Comma-separated list of voice note URIs
     val lastEdited: Date = Date(),

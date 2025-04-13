@@ -974,6 +974,7 @@ class EditNoteActivity : AppCompatActivity() {
                 voiceNoteUris = voiceNoteUris
             )
             Toast.makeText(this, getString(R.string.note_saved), Toast.LENGTH_SHORT).show()
+            setResult(RESULT_OK)
         } else {
             noteId?.let { id ->
                 // Get the current note to compare image URIs
@@ -1011,6 +1012,7 @@ class EditNoteActivity : AppCompatActivity() {
                 )
                 viewModel.updateNote(updatedNote)
                 Toast.makeText(this, getString(R.string.note_updated), Toast.LENGTH_SHORT).show()
+                setResult(RESULT_OK)
             }
         }
         
@@ -1054,6 +1056,7 @@ class EditNoteActivity : AppCompatActivity() {
                         .setPositiveButton(R.string.delete) { _, _ ->
                             viewModel.deleteNote(foundNote)
                             Toast.makeText(this, getString(R.string.note_deleted), Toast.LENGTH_SHORT).show()
+                            setResult(RESULT_OK)
                             finish()
                         }
                         .setNegativeButton(R.string.cancel, null)

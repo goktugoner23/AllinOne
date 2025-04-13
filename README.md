@@ -358,3 +358,12 @@ The project includes comprehensive tests:
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Recent Changes
+
+### Data Model Updates
+
+#### Note Model
+- **Removed Single Image Field**: The `imageUri` field has been removed from the `Note` data class to standardize on the plural `imageUris` field for handling multiple images.
+- **Backward Compatibility**: The Firebase Manager includes migration code to handle old notes by checking for the `imageUri` field when loading notes from Firestore.
+- **Improved Consistency**: All code now consistently uses the `imageUris` field (a comma-separated list) for both single and multiple images.
