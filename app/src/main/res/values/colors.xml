@@ -5,7 +5,9 @@
     <color name="gray_dark">#FF444444</color>
     <color name="gray_light">#FFD3D3D3</color>
     <color name="gray">#999999</color>
-    <color name="colorPrimary">@color/black</color>
+    <color name="colorPrimary">#2196F3</color>
+    <color name="colorPrimaryDark">#1976D2</color>
+    <color name="colorAccent">#FF4081</color>
     <color name="expiration_color">#FFEBEE</color>
     <color name="start_color">#E8F5E9</color>
     <color name="default_event_color">#FFFFFF</color>
@@ -49,4 +51,19 @@
     
     <!-- Tag colors -->
     <color name="bg_tag_blue">#2196F3</color>  <!-- Blue color for tags and indicators -->
+    
+    <!-- Instagram card colors -->
+    <color name="feedCard">#FFFFFF</color>
+    <color name="reelsCard">#F0F8FF</color>
+    <color name="storyCard">#F0FFF0</color>
+    <color name="albumCard">#F5F5F5</color>
+    <color name="cardStroke">#E0E0E0</color>
+    
+    <!-- New color for bold text that adapts to dark/light mode -->
+    <color name="boldTextColor">@color/black</color>
+    
+    <!-- Instagram Post Type Background Colors -->
+    <color name="reels_background">@color/reelsCard</color>
+    <color name="video_background">@color/storyCard</color>
+    <color name="carousel_background">@color/albumCard</color>
 </resources>

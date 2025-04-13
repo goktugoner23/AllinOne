@@ -38,4 +38,7 @@
     <!-- Bright tab colors for dark theme -->
     <color name="bright_tab_selected">#64B5F6</color>   <!-- Bright blue for selected tabs -->
     <color name="bright_tab_unselected">#4F5B62</color> <!-- Muted color for unselected -->
+    
+    <!-- Dark theme specific colors -->
+    <color name="boldTextColor">@color/white</color>
 </resources> 
