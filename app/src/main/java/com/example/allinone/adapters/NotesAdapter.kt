@@ -79,7 +79,10 @@ class NotesAdapter(
             // Handle voice notes if present
             if (!note.voiceNoteUris.isNullOrEmpty()) {
                 val voiceNoteUris = note.voiceNoteUris.split(",").filter { it.isNotEmpty() }
+                Log.d("NotesAdapter", "Note ${note.id} has voiceNoteUris: ${note.voiceNoteUris}")
+                
                 if (voiceNoteUris.isNotEmpty()) {
+                    Log.d("NotesAdapter", "Note ${note.id} has ${voiceNoteUris.size} voice notes: ${voiceNoteUris.joinToString()}")
                     voiceNoteIndicator.visibility = View.VISIBLE
                     val voiceNoteCount = voiceNoteUris.size
                     voiceNoteCountText.text = if (voiceNoteCount == 1) {
@@ -88,9 +91,11 @@ class NotesAdapter(
                         itemView.context.getString(R.string.voice_note_plural, voiceNoteCount)
                     }
                 } else {
+                    Log.d("NotesAdapter", "Note ${note.id} has empty voice note list after filtering")
                     voiceNoteIndicator.visibility = View.GONE
                 }
             } else {
+                Log.d("NotesAdapter", "Note ${note.id} has null or empty voiceNoteUris")
                 voiceNoteIndicator.visibility = View.GONE
             }
 

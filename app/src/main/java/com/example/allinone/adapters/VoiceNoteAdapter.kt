@@ -2,6 +2,7 @@ package com.example.allinone.adapters
 
 import android.media.MediaPlayer
 import android.net.Uri
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -29,6 +30,7 @@ class VoiceNoteAdapter(
     private var currentlyPlayingPosition: Int = -1
     private var mediaPlayer: MediaPlayer? = null
     private var updateJob: Job? = null
+    private var currentPlaybackTime: Int = 0
     
     // Coroutine scope for updating playback progress
     private val scope = CoroutineScope(Dispatchers.Main)
@@ -49,6 +51,8 @@ class VoiceNoteAdapter(
     inner class VoiceNoteViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val titleText: TextView = itemView.findViewById(R.id.voiceNoteTitle)
         private val durationText: TextView = itemView.findViewById(R.id.voiceNoteDuration)
+        private val currentTimeText: TextView = itemView.findViewById(R.id.voiceNoteCurrentTime)
+        private val timeSlash: TextView = itemView.findViewById(R.id.timeSlash)
         private val playPauseButton: ImageButton = itemView.findViewById(R.id.playPauseButton)
         private val deleteButton: ImageButton = itemView.findViewById(R.id.deleteVoiceNoteButton)
 
@@ -61,12 +65,27 @@ class VoiceNoteAdapter(
             durationText.text = voiceNote.getFormattedDuration()
             
             // Set play/pause icon based on current state
+            val isPlaying = position == currentlyPlayingPosition && mediaPlayer?.isPlaying == true
+            
             playPauseButton.setImageResource(
-                if (position == currentlyPlayingPosition && mediaPlayer?.isPlaying == true)
-                    android.R.drawable.ic_media_pause
-                else
-                    android.R.drawable.ic_media_play
+                if (isPlaying) android.R.drawable.ic_media_pause
+                else android.R.drawable.ic_media_play
             )
+            
+            // Show current playback time if this is the playing item
+            if (isPlaying) {
+                currentTimeText.visibility = View.VISIBLE
+                timeSlash.visibility = View.VISIBLE
+                
+                // Format and display current time
+                val currentSeconds = currentPlaybackTime / 1000
+                val minutes = currentSeconds / 60
+                val seconds = currentSeconds % 60
+                currentTimeText.text = String.format("%02d:%02d", minutes, seconds)
+            } else {
+                currentTimeText.visibility = View.GONE
+                timeSlash.visibility = View.GONE
+            }
             
             // Set click listeners
             playPauseButton.setOnClickListener {
@@ -102,6 +121,7 @@ class VoiceNoteAdapter(
             release()
         }
         mediaPlayer = null
+        currentPlaybackTime = 0
         val oldPosition = currentlyPlayingPosition
         currentlyPlayingPosition = -1
         if (oldPosition != -1) notifyItemChanged(oldPosition)
@@ -110,16 +130,43 @@ class VoiceNoteAdapter(
     private fun startProgressUpdates() {
         updateJob?.cancel()
         updateJob = scope.launch {
-            while (mediaPlayer?.isPlaying == true) {
-                delay(500) // Update every half second
-                notifyItemChanged(currentlyPlayingPosition)
+            val isActive = true
+            while (isActive) {
+                try {
+                    val player = mediaPlayer
+                    if (player != null && player.isPlaying) {
+                        currentPlaybackTime = player.currentPosition
+                        notifyItemChanged(currentlyPlayingPosition)
+                    } else {
+                        break // Exit the loop if the player is not playing
+                    }
+                    delay(500) // Update every half second
+                } catch (e: Exception) {
+                    Log.e("VoiceNoteAdapter", "Error updating progress: ${e.message}")
+                    break // Break the loop if there's an error
+                }
             }
         }
     }
     
-    fun updatePlaybackState(isPlaying: Boolean, position: Int) {
+    fun updatePlaybackState(isPlaying: Boolean, position: Int, player: MediaPlayer? = null) {
+        val oldPosition = currentlyPlayingPosition
         currentlyPlayingPosition = if (isPlaying) position else -1
-        notifyDataSetChanged()
+        
+        // Set the media player reference if provided
+        if (player != null) {
+            this.mediaPlayer = player
+            if (isPlaying) {
+                startProgressUpdates()
+            }
+        }
+        
+        if (oldPosition != position) {
+            if (oldPosition != -1) notifyItemChanged(oldPosition)
+            if (position != -1) notifyItemChanged(position)
+        } else {
+            notifyItemChanged(position)
+        }
     }
     
     fun releaseMediaPlayer() {

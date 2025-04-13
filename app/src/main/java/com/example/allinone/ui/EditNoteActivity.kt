@@ -165,8 +165,29 @@ class EditNoteActivity : AppCompatActivity() {
     private fun setupImageRecyclerView() {
         imageAdapter = NoteImageAdapter(
             onDeleteClick = { uri -> 
-                selectedImages.remove(uri)
-                updateImageAttachmentSection()
+                // Show confirmation dialog before deleting
+                MaterialAlertDialogBuilder(this)
+                    .setTitle(R.string.delete_image)
+                    .setMessage(R.string.delete_image_confirmation)
+                    .setPositiveButton(R.string.delete) { _, _ ->
+                        // Delete from Firebase if it's a Firebase URL
+                        if (uri.toString().contains("firebase")) {
+                            CoroutineScope(Dispatchers.IO).launch {
+                                try {
+                                    val success = storageUtil.deleteFile(uri.toString())
+                                    Log.d(TAG, "Image deleted from Firebase: $success")
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Error deleting image from Firebase: ${e.message}")
+                                }
+                            }
+                        }
+                        
+                        // Remove from UI list
+                        selectedImages.remove(uri)
+                        updateImageAttachmentSection()
+                    }
+                    .setNegativeButton(R.string.cancel, null)
+                    .show()
             },
             onImageClick = { uri ->
                 showFullscreenImage(uri)
@@ -183,8 +204,14 @@ class EditNoteActivity : AppCompatActivity() {
         // Filter out any invalid URIs
         val validImages = selectedImages.filter { uri ->
             val isValid = try {
-                contentResolver.getType(uri) != null
+                // For http/https URIs, we assume they're valid
+                if (uri.toString().startsWith("http")) {
+                    true
+                } else {
+                    contentResolver.getType(uri) != null
+                }
             } catch (e: Exception) {
+                Log.e(TAG, "Invalid image URI: $uri", e)
                 false
             }
             isValid
@@ -192,6 +219,7 @@ class EditNoteActivity : AppCompatActivity() {
         
         // Update the list if needed
         if (validImages.size != selectedImages.size) {
+            Log.d(TAG, "Filtered out ${selectedImages.size - validImages.size} invalid image URIs")
             selectedImages.clear()
             selectedImages.addAll(validImages)
         }
@@ -199,6 +227,7 @@ class EditNoteActivity : AppCompatActivity() {
         // Update adapter and visibility
         imageAdapter.submitList(selectedImages.toList())
         binding.imagesRecyclerView.visibility = if (selectedImages.isEmpty()) View.GONE else View.VISIBLE
+        Log.d(TAG, "Image section updated with ${selectedImages.size} images")
     }
     
     private fun setupRichTextEditor() {
@@ -579,14 +608,18 @@ class EditNoteActivity : AppCompatActivity() {
                 )
                 
                 if (downloadUrl != null) {
+                    Log.d(TAG, "Voice note uploaded successfully to Firebase: $downloadUrl")
                     withContext(Dispatchers.Main) {
                         // Update voice note with Firebase URL
                         val index = voiceNotes.indexOf(voiceNote)
                         if (index != -1) {
                             voiceNotes[index] = voiceNote.copy(firebaseUrl = downloadUrl)
                             voiceNoteAdapter.notifyItemChanged(index)
+                            Log.d(TAG, "Voice note at index $index updated with Firebase URL")
                         }
                     }
+                } else {
+                    Log.e(TAG, "Failed to get download URL for voice note")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error uploading voice note: ${e.message}")
@@ -603,12 +636,15 @@ class EditNoteActivity : AppCompatActivity() {
     
     private fun playVoiceNote(voiceNote: VoiceNote) {
         try {
+            // Stop any currently playing voice note
+            voiceNoteAdapter.stopPlayback()
+            
             // Create and configure MediaPlayer
             MediaPlayer().apply {
                 setDataSource(voiceNote.filePath)
                 setOnPreparedListener {
                     start()
-                    voiceNoteAdapter.updatePlaybackState(true, voiceNotes.indexOf(voiceNote))
+                    voiceNoteAdapter.updatePlaybackState(true, voiceNotes.indexOf(voiceNote), this)
                 }
                 setOnCompletionListener {
                     voiceNoteAdapter.updatePlaybackState(false, -1)
@@ -640,30 +676,68 @@ class EditNoteActivity : AppCompatActivity() {
         if (position >= 0 && position < voiceNotes.size) {
             val voiceNote = voiceNotes[position]
             
-            // Delete from Firebase Storage if URL exists
-            if (voiceNote.firebaseUrl.isNotEmpty()) {
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        val success = storageUtil.deleteFile(voiceNote.firebaseUrl)
-                        Log.d(TAG, "Voice note deleted from Firebase: ${success}")
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error deleting voice note from Firebase: ${e.message}")
+            // Show confirmation dialog
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.delete_voice_note)
+                .setMessage(R.string.delete_voice_note_confirmation)
+                .setPositiveButton(R.string.delete) { _, _ ->
+                    // Delete from Firebase Storage if URL exists
+                    if (voiceNote.firebaseUrl.isNotEmpty()) {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                val success = storageUtil.deleteFile(voiceNote.firebaseUrl)
+                                
+                                if (success && !isNewNote && noteId != null) {
+                                    // Update the note's voiceNoteUris field to remove this URL
+                                    updateNoteAfterVoiceNoteDeletion(voiceNote.firebaseUrl)
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error deleting voice note from Firebase: ${e.message}")
+                            }
+                        }
                     }
+                    
+                    // Delete local file if it exists and is not a Firebase URL
+                    try {
+                        if (!voiceNote.filePath.startsWith("http")) {
+                            val file = File(voiceNote.filePath)
+                            file.delete()
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error deleting local voice note file: ${e.message}")
+                    }
+                    
+                    // Remove from list and update adapter
+                    voiceNotes.removeAt(position)
+                    voiceNoteAdapter.notifyItemRemoved(position)
+                    
+                    Toast.makeText(this, getString(R.string.voice_note_deleted), Toast.LENGTH_SHORT).show()
                 }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
+        }
+    }
+    
+    private fun updateNoteAfterVoiceNoteDeletion(deletedUrl: String) {
+        noteId?.let { id ->
+            viewModel.allNotes.value?.find { it.id == id }?.let { existingNote ->
+                // Filter out the deleted URL from voiceNoteUris
+                val currentUris = existingNote.voiceNoteUris?.split(",")?.filter { 
+                    it.isNotEmpty() && it != deletedUrl 
+                } ?: emptyList()
+                
+                // Create updated voice note URIs string
+                val updatedVoiceNoteUris = if (currentUris.isEmpty()) null else currentUris.joinToString(",")
+                
+                // Create updated note with the new voice note URIs
+                val updatedNote = existingNote.copy(
+                    voiceNoteUris = updatedVoiceNoteUris,
+                    lastEdited = Date()
+                )
+                
+                // Update the note in the database
+                viewModel.updateNote(updatedNote)
             }
-            
-            // Delete local file
-            try {
-                File(voiceNote.filePath).delete()
-            } catch (e: Exception) {
-                Log.e(TAG, "Error deleting local voice note file: ${e.message}")
-            }
-            
-            // Remove from list and update adapter
-            voiceNotes.removeAt(position)
-            voiceNoteAdapter.notifyItemRemoved(position)
-            
-            Toast.makeText(this, getString(R.string.voice_note_deleted), Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -683,46 +757,70 @@ class EditNoteActivity : AppCompatActivity() {
                     selectedImages.clear()
                     foundNote.imageUris?.split(",")?.forEach { uriString ->
                         if (uriString.isNotEmpty()) {
-                            selectedImages.add(Uri.parse(uriString))
+                            try {
+                                val uri = Uri.parse(uriString)
+                                selectedImages.add(uri)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error parsing image URI: $uriString", e)
+                            }
                         }
                     }
                     updateImageAttachmentSection()
                     
                     // Load voice notes if any exist
                     voiceNotes.clear()
-                    foundNote.voiceNoteUris?.let { uriString ->
-                        if (uriString.isNotEmpty()) {
-                            val voiceNoteUrls = uriString.split(",").filter { it.isNotEmpty() }
-                            
-                            // Create voice note objects for each URL
-                            CoroutineScope(Dispatchers.Main).launch {
-                                for (url in voiceNoteUrls) {
-                                    try {
-                                        val fileName = url.substring(url.lastIndexOf('/') + 1)
-                                        val voiceNoteId = idManager.getNextId("voice_notes").toString()
-                                        
-                                        voiceNotes.add(
-                                            VoiceNote(
-                                                id = voiceNoteId,
-                                                fileName = fileName,
-                                                filePath = url, // Use remote URL as filePath for playback
-                                                duration = 0, // Duration unknown until played
-                                                timestamp = foundNote.lastEdited.time,
-                                                firebaseUrl = url
-                                            )
-                                        )
-                                    } catch (e: Exception) {
-                                        Log.e(TAG, "Error parsing voice note URL: $url", e)
-                                    }
-                                }
-                                
-                                // Update adapter
-                                voiceNoteAdapter.notifyDataSetChanged()
-                            }
-                        }
+                    
+                    if (!foundNote.voiceNoteUris.isNullOrEmpty()) {
+                        loadVoiceNotesFromUris(foundNote.voiceNoteUris)
+                    } else {
+                        binding.voiceNotesRecyclerView?.visibility = View.GONE
                     }
                 }
             }
+        }
+    }
+    
+    private fun loadVoiceNotesFromUris(voiceNoteUrisString: String) {
+        val voiceNoteUrls = voiceNoteUrisString.split(",").filter { it.isNotEmpty() }
+        
+        if (voiceNoteUrls.isNotEmpty()) {
+            // Create voice note objects for each URL
+            CoroutineScope(Dispatchers.Main).launch {
+                for (url in voiceNoteUrls) {
+                    try {
+                        if (url.isNotEmpty() && url.startsWith("http")) {
+                            val fileName = url.substring(url.lastIndexOf('/') + 1)
+                            val voiceNoteId = idManager.getNextId("voice_notes").toString()
+                            
+                            voiceNotes.add(
+                                VoiceNote(
+                                    id = voiceNoteId,
+                                    fileName = fileName,
+                                    filePath = url, // Use remote URL as filePath for playback
+                                    duration = 0, // Duration unknown until played
+                                    timestamp = Date().time,
+                                    firebaseUrl = url
+                                )
+                            )
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error parsing voice note URL: $url", e)
+                    }
+                }
+                
+                updateVoiceNotesList()
+            }
+        } else {
+            binding.voiceNotesRecyclerView?.visibility = View.GONE
+        }
+    }
+    
+    private fun updateVoiceNotesList() {
+        if (voiceNotes.isNotEmpty()) {
+            voiceNoteAdapter.notifyDataSetChanged()
+            binding.voiceNotesRecyclerView?.visibility = View.VISIBLE
+        } else {
+            binding.voiceNotesRecyclerView?.visibility = View.GONE
         }
     }
     
@@ -785,9 +883,19 @@ class EditNoteActivity : AppCompatActivity() {
                     // Convert voice note URIs to comma-separated string
                     val voiceNoteUris = if (voiceNotes.isNotEmpty()) {
                         // Only save Firebase URLs for permanent storage
-                        voiceNotes.mapNotNull { 
-                            if (it.firebaseUrl.isNotEmpty()) it.firebaseUrl else null 
-                        }.joinToString(",")
+                        val filteredUrls = voiceNotes.mapNotNull { 
+                            if (it.firebaseUrl.isNotEmpty() && it.firebaseUrl.startsWith("http")) {
+                                it.firebaseUrl 
+                            } else {
+                                null
+                            }
+                        }
+                        
+                        if (filteredUrls.isEmpty()) {
+                            null
+                        } else {
+                            filteredUrls.joinToString(",")
+                        }
                     } else {
                         null
                     }
@@ -811,9 +919,20 @@ class EditNoteActivity : AppCompatActivity() {
                     
                     // Convert voice note URIs to comma-separated string
                     val voiceNoteUris = if (voiceNotes.isNotEmpty()) {
-                        voiceNotes.mapNotNull { 
-                            if (it.firebaseUrl.isNotEmpty()) it.firebaseUrl else null 
-                        }.joinToString(",")
+                        // Only save Firebase URLs for permanent storage
+                        val filteredUrls = voiceNotes.mapNotNull { 
+                            if (it.firebaseUrl.isNotEmpty() && it.firebaseUrl.startsWith("http")) {
+                                it.firebaseUrl 
+                            } else {
+                                null
+                            }
+                        }
+                        
+                        if (filteredUrls.isEmpty()) {
+                            null
+                        } else {
+                            filteredUrls.joinToString(",")
+                        }
                     } else {
                         null
                     }
@@ -824,9 +943,20 @@ class EditNoteActivity : AppCompatActivity() {
         } else {
             // No images to upload
             val voiceNoteUris = if (voiceNotes.isNotEmpty()) {
-                voiceNotes.mapNotNull { 
-                    if (it.firebaseUrl.isNotEmpty()) it.firebaseUrl else null 
-                }.joinToString(",")
+                // Only save Firebase URLs for permanent storage
+                val filteredUrls = voiceNotes.mapNotNull { 
+                    if (it.firebaseUrl.isNotEmpty() && it.firebaseUrl.startsWith("http")) {
+                        it.firebaseUrl 
+                    } else {
+                        null
+                    }
+                }
+                
+                if (filteredUrls.isEmpty()) {
+                    null
+                } else {
+                    filteredUrls.joinToString(",")
+                }
             } else {
                 null
             }
@@ -861,8 +991,7 @@ class EditNoteActivity : AppCompatActivity() {
                             deletedImages.forEach { imageUrl ->
                                 try {
                                     if (imageUrl.contains("firebase")) {
-                                        val success = storageUtil.deleteFile(imageUrl)
-                                        Log.d(TAG, "Deleted image from Firebase: $imageUrl, success: $success")
+                                        storageUtil.deleteFile(imageUrl)
                                     }
                                 } catch (e: Exception) {
                                     Log.e(TAG, "Error deleting image from Firebase: ${e.message}")

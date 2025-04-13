@@ -75,15 +75,12 @@ class FirebaseStorageUtil(private val context: Context) {
      */
     suspend fun deleteFile(fileUrl: String): Boolean {
         return try {
-            Log.d(TAG, "Deleting file: $fileUrl")
-            
             // Get reference from URL
             val fileRef = FirebaseStorage.getInstance().getReferenceFromUrl(fileUrl)
             
             // Delete the file
             fileRef.delete().await()
             
-            Log.d(TAG, "File deleted successfully")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Error deleting file: ${e.message}", e)
@@ -100,8 +97,6 @@ class FirebaseStorageUtil(private val context: Context) {
      */
     suspend fun deleteFolder(folderName: String, folderId: String): Boolean {
         return try {
-            Log.d(TAG, "Deleting folder: $folderName/$folderId")
-            
             // Create reference to the folder
             val folderRef = storageRef.child("$folderName/$folderId")
             
@@ -111,7 +106,6 @@ class FirebaseStorageUtil(private val context: Context) {
             // Delete each item
             result.items.forEach { item ->
                 item.delete().await()
-                Log.d(TAG, "Deleted file: ${item.path}")
             }
             
             // Delete subfolders recursively if any
@@ -119,7 +113,6 @@ class FirebaseStorageUtil(private val context: Context) {
                 deleteFolder(folderName, "$folderId/${prefix.name}")
             }
             
-            Log.d(TAG, "Folder deleted successfully: $folderName/$folderId")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Error deleting folder: ${e.message}", e)
