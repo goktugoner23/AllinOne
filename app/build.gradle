@@ -136,13 +136,16 @@ android {
     kapt {
         correctErrorTypes true
         
-        // Configure Dagger/Hilt processor options properly
+        // Only include essential kapt arguments
         arguments {
-            // Clean up the processor options to only include valid ones
-            arg("dagger.fastInit", "enabled")
-            // kapt specific argument
-            arg("kapt.kotlin.generated", "true") 
+            // Only keep the kapt specific argument
+            arg("kapt.kotlin.generated", "${buildDir}/generated/source/kapt/")
         }
+    }
+    
+    // Ensure Hilt compiler options are properly handled
+    hilt {
+        enableAggregatingTask = true
     }
 }
 
@@ -150,7 +153,7 @@ dependencies {
     def nav_version = "2.7.7"
     def lifecycle_version = "2.7.0"
     def firebase_version = "32.8.0"
-    def hilt_version = "2.48"
+    def hilt_version = "2.48.1" // Updated to latest stable version
     
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
@@ -192,6 +195,9 @@ dependencies {
     // Hilt for dependency injection
     implementation "com.google.dagger:hilt-android:$hilt_version"
     kapt "com.google.dagger:hilt-android-compiler:$hilt_version"
+    // Add Hilt testing dependencies
+    testImplementation "com.google.dagger:hilt-android-testing:$hilt_version"
+    kaptTest "com.google.dagger:hilt-android-compiler:$hilt_version"
     
     // Security for encryption
     implementation "androidx.security:security-crypto:1.1.0-alpha06"

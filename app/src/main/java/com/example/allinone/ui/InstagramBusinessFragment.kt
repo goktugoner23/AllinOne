@@ -54,9 +54,9 @@ class InstagramBusinessFragment : BaseFragment() {
         Log.d(TAG, "Graph token length: ${graphToken.length}")
         Log.d(TAG, "Business Account ID: $businessAccountId")
         
-        if (accessToken.isNotEmpty() && accessToken != "NOT_SET") {
-            // We already have a token, show it's ready
-            binding.textInstagramBusiness.text = "Instagram Business\nLoading data..."
+        if (graphToken.isNotEmpty() && graphToken != "NOT_SET") {
+            // We already have a token, show loading temporarily
+            binding.textInstagramBusiness.visibility = View.GONE
             
             // Hide both buttons as we'll fetch data automatically
             binding.btnFetchProfileData.visibility = View.GONE
@@ -65,14 +65,17 @@ class InstagramBusinessFragment : BaseFragment() {
             // No need for login button since we're using the existing token
             binding.btnInstagramLogin.visibility = View.GONE
             
-            // Automatically fetch data when the fragment opens
-            fetchDataAutomatically()
+            // Automatically fetch insights when the fragment opens
+            // Launch in a coroutine since fetchInsightsData is a suspend function
+            lifecycleScope.launch {
+                fetchInsightsData()
+            }
         } else {
-            binding.textInstagramBusiness.text = "Instagram Business\nAPI Token not found in .env file"
+            binding.textInstagramBusiness.text = "Instagram API Token not found"
             Log.e(TAG, "Instagram token not configured in .env file")
             Toast.makeText(
                 context,
-                "Please add a valid INSTAGRAM_ACCESS_TOKEN to your .env file",
+                "Please add a valid INSTAGRAM_GRAPH_TOKEN to your .env file",
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -83,10 +86,7 @@ class InstagramBusinessFragment : BaseFragment() {
         
         lifecycleScope.launch {
             try {
-                // First fetch profile data
-                fetchProfileData()
-                
-                // Then fetch insights data if we have the graph token
+                // Only fetch insights data
                 if (graphToken.isNotEmpty() && graphToken != "NOT_SET") {
                     fetchInsightsData()
                 }
@@ -100,84 +100,15 @@ class InstagramBusinessFragment : BaseFragment() {
         }
     }
     
-    private suspend fun fetchProfileData() {
-        try {
-            // Directly construct the URL with the raw token
-            val baseUrl = "https://graph.instagram.com/v22.0/me"
-            val fields = "id,username,account_type,media_count"
-            val urlStr = "$baseUrl?fields=$fields&access_token=$accessToken"
-            
-            Log.d(TAG, "Making API call to: $baseUrl?fields=$fields&access_token=[TOKEN_HIDDEN]")
-            
-            // Fetch user profile data
-            val response = withContext(Dispatchers.IO) {
-                val url = URL(urlStr)
-                val connection = url.openConnection() as HttpURLConnection
-                connection.requestMethod = "GET"
-                connection.setRequestProperty("Accept", "application/json")
-                
-                val responseCode = connection.responseCode
-                Log.d(TAG, "API Response code: $responseCode")
-                
-                val responseText = if (responseCode == HttpURLConnection.HTTP_OK) {
-                    connection.inputStream.bufferedReader().use { it.readText() }
-                } else {
-                    connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "No error details available"
-                }
-                
-                // Log the raw API response
-                Log.d(TAG, "Profile endpoint response: $responseText")
-                
-                responseText
-            }
-            
-            // Parse the response
-            val jsonResponse = JSONObject(response)
-            
-            // Check for error
-            if (jsonResponse.has("error")) {
-                val error = jsonResponse.getJSONObject("error")
-                val message = error.optString("message", "Unknown error")
-                val type = error.optString("type", "Unknown type")
-                val code = error.optInt("code", -1)
-                val traceId = error.optString("fbtrace_id", "None")
-                
-                Log.e(TAG, "API Error: [$code] $type - $message (Trace: $traceId)")
-                
-                // Display error to user
-                binding.textInstagramStats.text = "Error: $message\nCode: $code\nType: $type"
-                binding.textInstagramStats.visibility = View.VISIBLE
-            } else {
-                // Success! Parse and display profile data
-                val profile = jsonResponse
-                val statsBuilder = StringBuilder()
-                statsBuilder.append("Instagram Business Profile:\n\n")
-                
-                // Store user ID for insights requests
-                userId = profile.optString("id")
-                
-                if (profile.has("id")) statsBuilder.append("ID: ${profile.getString("id")}\n")
-                if (profile.has("username")) statsBuilder.append("Username: ${profile.getString("username")}\n")
-                if (profile.has("account_type")) statsBuilder.append("Account Type: ${profile.getString("account_type")}\n")
-                if (profile.has("media_count")) statsBuilder.append("Media Count: ${profile.getInt("media_count")}\n")
-                
-                binding.textInstagramStats.text = statsBuilder.toString()
-                binding.textInstagramStats.visibility = View.VISIBLE
-                
-                // Fetch recent media
-                fetchRecentMedia()
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error fetching profile", e)
-            binding.textInstagramStats.text = "Error fetching profile: ${e.message}"
-            binding.textInstagramStats.visibility = View.VISIBLE
-            throw e
-        }
-    }
-    
     private suspend fun fetchInsightsData() {
         try {
-            // Only fetch media insights (removed account insights part)
+            // Show loading indicator
+            withContext(Dispatchers.Main) {
+                binding.progressBar.visibility = View.VISIBLE
+                binding.textInstagramBusiness.visibility = View.GONE
+            }
+            
+            // Only fetch media insights
             val mediaInsights = fetchMediaInsights()
             
             // Display only media insights
@@ -189,109 +120,141 @@ class InstagramBusinessFragment : BaseFragment() {
             combinedInsights.append(mediaInsights)
             
             // Update UI
-            binding.textInstagramStats.text = combinedInsights.toString()
-            binding.textInstagramStats.visibility = View.VISIBLE
+            withContext(Dispatchers.Main) {
+                binding.textInstagramStats.text = combinedInsights.toString()
+                binding.textInstagramStats.visibility = View.VISIBLE
+                binding.progressBar.visibility = View.GONE
+                binding.textInstagramBusiness.visibility = View.GONE // Keep it hidden after loading
+            }
             
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching insights", e)
-            binding.textInstagramStats.text = "Error fetching insights: ${e.message}"
-            binding.textInstagramStats.visibility = View.VISIBLE
-            throw e
+            withContext(Dispatchers.Main) {
+                binding.textInstagramStats.text = "Error fetching insights: ${e.message}"
+                binding.textInstagramStats.visibility = View.VISIBLE
+                binding.progressBar.visibility = View.GONE
+                binding.textInstagramBusiness.visibility = View.GONE // Keep it hidden even on error
+            }
         }
     }
     
     private suspend fun fetchMediaInsights(): String {
         return withContext(Dispatchers.IO) {
             try {
-                // Directly fetch media from the business account using Facebook Graph API
-                val mediaUrl = "https://graph.facebook.com/v22.0/$businessAccountId/media?fields=id,media_type,media_product_type,media_url,permalink,thumbnail_url,caption,timestamp,like_count,comments_count&limit=10&access_token=$graphToken"
-                val mediaConnection = URL(mediaUrl).openConnection() as HttpURLConnection
-                val mediaResponse = mediaConnection.inputStream.bufferedReader().use { it.readText() }
-                
-                Log.d(TAG, "Facebook Graph Media Response: $mediaResponse")
-                
-                val mediaJson = JSONObject(mediaResponse)
                 val insightsBuilder = StringBuilder()
+                var nextPageUrl: String? = "https://graph.facebook.com/v22.0/$businessAccountId/media?fields=id,media_type,media_product_type,permalink,caption,timestamp&limit=25&access_token=$graphToken"
+                var totalPostCount = 0
                 
-                // Process the media items
-                if (mediaJson.has("data")) {
-                    val mediaArray = mediaJson.getJSONArray("data")
+                // Loop to fetch all pages
+                while (nextPageUrl != null) {
+                    // Fetch current page of media
+                    val mediaConnection = URL(nextPageUrl).openConnection() as HttpURLConnection
+                    val mediaResponse = mediaConnection.inputStream.bufferedReader().use { it.readText() }
                     
-                    if (mediaArray.length() == 0) {
-                        return@withContext "No media found on your business account through Facebook Graph API."
-                    }
+                    Log.d(TAG, "Fetching media page, posts so far: $totalPostCount")
                     
-                    // Display up to 3 most recent posts
-                    for (i in 0 until mediaArray.length().coerceAtMost(3)) {
-                        val media = mediaArray.getJSONObject(i)
-                        val mediaId = media.getString("id")
-                        val mediaType = media.optString("media_type", "UNKNOWN")
-                        val mediaProductType = media.optString("media_product_type", "")
-                        val caption = media.optString("caption", "No caption")
-                        val timestamp = media.optString("timestamp", "")
-                        val permalink = media.optString("permalink", "")
-                        val likesCount = media.optInt("like_count", 0)
-                        val commentsCount = media.optInt("comments_count", 0)
+                    val mediaJson = JSONObject(mediaResponse)
+                    
+                    // Process the media items on this page
+                    if (mediaJson.has("data")) {
+                        val mediaArray = mediaJson.getJSONArray("data")
                         
-                        insightsBuilder.append("Post #${i+1}: ${caption.take(30)}${if (caption.length > 30) "..." else ""}\n")
-                        
-                        if (timestamp.isNotEmpty()) {
-                            try {
-                                val date = parseIsoDate(timestamp)
-                                insightsBuilder.append("📅 Posted: ${formatDate(date)}\n")
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Error parsing date: $timestamp", e)
-                                insightsBuilder.append("📅 Posted: $timestamp\n")
-                            }
+                        if (mediaArray.length() == 0 && totalPostCount == 0) {
+                            return@withContext "No media found on your business account through Facebook Graph API."
                         }
                         
-                        insightsBuilder.append("🔗 Link: $permalink\n")
-                        
-                        // Determine media product type for display and metrics selection
-                        val displayMediaType = when {
-                            mediaProductType == "REELS" -> "REELS"
-                            mediaProductType == "STORY" -> "STORY"
-                            mediaType == "CAROUSEL_ALBUM" -> "ALBUM"
-                            mediaType == "VIDEO" -> "VIDEO"
-                            else -> "FEED"
+                        // Display all posts on this page
+                        for (i in 0 until mediaArray.length()) {
+                            val media = mediaArray.getJSONObject(i)
+                            val mediaId = media.getString("id")
+                            val mediaType = media.optString("media_type", "UNKNOWN")
+                            val mediaProductType = media.optString("media_product_type", "")
+                            val caption = media.optString("caption", "No caption")
+                            val timestamp = media.optString("timestamp", "")
+                            val permalink = media.optString("permalink", "")
+                            
+                            totalPostCount++
+                            insightsBuilder.append("Post #$totalPostCount: ${caption.take(30)}${if (caption.length > 30) "..." else ""}\n")
+                            
+                            if (timestamp.isNotEmpty()) {
+                                try {
+                                    val date = parseIsoDate(timestamp)
+                                    insightsBuilder.append("📅 Posted: ${formatDate(date)}\n")
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Error parsing date: $timestamp", e)
+                                    insightsBuilder.append("📅 Posted: $timestamp\n")
+                                }
+                            }
+                            
+                            insightsBuilder.append("🔗 Link: $permalink\n")
+                            
+                            // Determine media product type for display and metrics selection
+                            val displayMediaType = when {
+                                mediaProductType == "REELS" -> "REELS"
+                                mediaProductType == "STORY" -> "STORY"
+                                mediaType == "CAROUSEL_ALBUM" -> "ALBUM"
+                                mediaType == "VIDEO" -> "VIDEO"
+                                else -> "FEED"
+                            }
+                            
+                            insightsBuilder.append("📊 Media Type: $displayMediaType\n")
+                            
+                            // Handle insights according to media type
+                            when (displayMediaType) {
+                                "ALBUM" -> {
+                                    insightsBuilder.append("ℹ️ Note: Instagram does not provide insights for albums\n")
+                                }
+                                "REELS" -> {
+                                    fetchReelsInsights(mediaId, insightsBuilder)
+                                }
+                                "STORY" -> {
+                                    fetchStoryInsights(mediaId, insightsBuilder)
+                                }
+                                else -> {
+                                    fetchFeedInsights(mediaId, insightsBuilder)
+                                }
+                            }
+                            
+                            insightsBuilder.append("\n")
                         }
                         
-                        insightsBuilder.append("📊 Media Type: $displayMediaType\n")
-                        insightsBuilder.append("❤️ Likes: $likesCount\n")
-                        insightsBuilder.append("💬 Comments: $commentsCount\n")
-                        
-                        // Handle insights according to media type
-                        when (displayMediaType) {
-                            "ALBUM" -> {
-                                insightsBuilder.append("ℹ️ Note: Instagram does not provide insights for albums\n")
-                            }
-                            "REELS" -> {
-                                fetchReelsInsights(mediaId, insightsBuilder)
-                            }
-                            "STORY" -> {
-                                fetchStoryInsights(mediaId, insightsBuilder)
-                            }
-                            else -> {
-                                fetchFeedInsights(mediaId, insightsBuilder)
-                            }
+                        // Check if there's another page of results
+                        nextPageUrl = if (mediaJson.has("paging") && mediaJson.getJSONObject("paging").has("next")) {
+                            mediaJson.getJSONObject("paging").getString("next")
+                        } else {
+                            null // No more pages
                         }
                         
-                        insightsBuilder.append("\n")
-                    }
-                } else {
-                    insightsBuilder.append("No media found on your business account through Facebook Graph API.\n")
-                    
-                    // Check if there's an error message in the response
-                    if (mediaJson.has("error")) {
-                        val error = mediaJson.getJSONObject("error")
-                        val message = error.optString("message", "Unknown error")
-                        val code = error.optInt("code", -1)
-                        insightsBuilder.append("Error: $message (Code: $code)\n")
+                        // Add a page separator if there are more pages
+                        if (nextPageUrl != null) {
+                            insightsBuilder.append("─────── Loading more posts ───────\n\n")
+                        }
+                    } else {
+                        // No data in this page
+                        nextPageUrl = null
+                        
+                        // If this was the first page and no posts were found, show error
+                        if (totalPostCount == 0) {
+                            insightsBuilder.append("No media found on your business account through Facebook Graph API.\n")
+                            
+                            // Check if there's an error message in the response
+                            if (mediaJson.has("error")) {
+                                val error = mediaJson.getJSONObject("error")
+                                val message = error.optString("message", "Unknown error")
+                                val code = error.optInt("code", -1)
+                                insightsBuilder.append("Error: $message (Code: $code)\n")
+                            }
+                        }
                     }
                 }
                 
                 if (insightsBuilder.isEmpty()) {
                     return@withContext "No media insights data available through Facebook Graph API. Note that this requires a Business or Creator account with Facebook page and proper permissions."
+                }
+                
+                // Add summary at the beginning
+                if (totalPostCount > 0) {
+                    insightsBuilder.insert(0, "📊 Found $totalPostCount Instagram posts with insights 📊\n\n")
                 }
                 
                 insightsBuilder.toString()
@@ -502,7 +465,7 @@ class InstagramBusinessFragment : BaseFragment() {
                             "reach" -> insightsBuilder.append("🔍 Reach: $value\n")
                             "saved" -> insightsBuilder.append("🔖 Saved: $value\n")
                             "shares" -> insightsBuilder.append("↗️ Shares: $value\n")
-                            "likes" -> insightsBuilder.append("❤️ Likes (API): $value\n")
+                            "likes" -> insightsBuilder.append("❤️ Likes: $value\n")
                             "views" -> insightsBuilder.append("👀 Views: $value\n")
                             "replies" -> insightsBuilder.append("↩️ Replies: $value\n")
                             "profile_visits" -> insightsBuilder.append("👤 Profile Visits: $value\n")
@@ -590,79 +553,6 @@ class InstagramBusinessFragment : BaseFragment() {
     private fun formatDate(date: Date): String {
         val format = SimpleDateFormat("MMM dd, yyyy", Locale.US)
         return format.format(date)
-    }
-    
-    private fun fetchRecentMedia() {
-        lifecycleScope.launch {
-            try {
-                // Directly construct the URL with the raw token
-                val baseUrl = "https://graph.instagram.com/v22.0/me/media"
-                val fields = "id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,username"
-                val urlStr = "$baseUrl?fields=$fields&access_token=$accessToken"
-                
-                val response = withContext(Dispatchers.IO) {
-                    val url = URL(urlStr)
-                    val connection = url.openConnection() as HttpURLConnection
-                    connection.requestMethod = "GET"
-                    connection.setRequestProperty("Accept", "application/json")
-                    
-                    val responseCode = connection.responseCode
-                    Log.d(TAG, "Media API Response code: $responseCode")
-                    
-                    val responseText = if (responseCode == HttpURLConnection.HTTP_OK) {
-                        connection.inputStream.bufferedReader().use { it.readText() }
-                    } else {
-                        connection.errorStream?.bufferedReader()?.use { it.readText() } ?: "No error details available"
-                    }
-                    
-                    // Log the raw API response
-                    Log.d(TAG, "Media endpoint response: $responseText")
-                    
-                    responseText
-                }
-                
-                // Parse the response
-                val mediaResponse = JSONObject(response)
-                
-                // Check for error
-                if (mediaResponse.has("error")) {
-                    val error = mediaResponse.getJSONObject("error")
-                    val message = error.optString("message", "Unknown error")
-                    binding.textInstagramStats.append("\n\nError fetching media: $message")
-                } else if (mediaResponse.has("data")) {
-                    val mediaArray = mediaResponse.getJSONArray("data")
-                    
-                    if (mediaArray.length() > 0) {
-                        val mediaBuilder = StringBuilder()
-                        mediaBuilder.append("\n\nRecent Media:\n\n")
-                        
-                        for (i in 0 until mediaArray.length().coerceAtMost(5)) {
-                            val media = mediaArray.getJSONObject(i)
-                            mediaBuilder.append("Post #${i+1}:\n")
-                            if (media.has("caption")) mediaBuilder.append("Caption: ${media.getString("caption")}\n")
-                            if (media.has("media_type")) mediaBuilder.append("Type: ${media.getString("media_type")}\n")
-                            if (media.has("timestamp")) {
-                                try {
-                                    val date = parseIsoDate(media.getString("timestamp"))
-                                    mediaBuilder.append("Posted: ${formatDate(date)}\n")
-                                } catch (e: Exception) {
-                                    mediaBuilder.append("Posted: ${media.getString("timestamp")}\n")
-                                }
-                            }
-                            mediaBuilder.append("\n")
-                            
-                            // Log each media item individually for detailed inspection
-                            Log.d(TAG, "Media item #${i+1}: ${media}")
-                        }
-                        
-                        binding.textInstagramStats.append(mediaBuilder.toString())
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error fetching media", e)
-                binding.textInstagramStats.append("\n\nError fetching media: ${e.message}")
-            }
-        }
     }
     
     // Helper function to mask token for display
