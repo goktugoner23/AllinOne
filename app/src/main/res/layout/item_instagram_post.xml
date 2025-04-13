@@ -27,12 +27,24 @@
             android:paddingTop="2dp"
             android:paddingEnd="8dp"
             android:paddingBottom="2dp"
-            android:textColor="@color/colorPrimary"
+            android:textColor="@android:color/black"
             android:textSize="12sp"
             android:textStyle="bold"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             tools:text="REELS" />
+            
+        <ImageView
+            android:id="@+id/postThumbnail"
+            android:layout_width="match_parent"
+            android:layout_height="160dp"
+            android:layout_marginTop="8dp"
+            android:scaleType="centerCrop"
+            android:background="#E0E0E0"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/postType" />
 
         <TextView
             android:id="@+id/postCaption"
@@ -45,7 +57,7 @@
             android:textColor="@android:color/black"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/postType"
+            app:layout_constraintTop_toBottomOf="@+id/postThumbnail"
             tools:text="This is a sample caption for an Instagram post" />
 
         <TextView

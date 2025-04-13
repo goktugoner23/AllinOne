@@ -154,8 +154,6 @@ class InstagramBusinessFragment : BaseFragment() {
             val linkView = dialog.findViewById<TextView>(R.id.postLink)
             val insightsView = dialog.findViewById<TextView>(R.id.postInsights)
             val closeButton = dialog.findViewById<Button>(R.id.closeButton)
-            val openInInstagramButton = dialog.findViewById<Button>(R.id.openInInstagramButton)
-            val copyLinkButton = dialog.findViewById<Button>(R.id.copyLinkButton)
             
             // Set data to views
             captionView.text = post.caption
@@ -168,8 +166,18 @@ class InstagramBusinessFragment : BaseFragment() {
             post.metrics.forEach { (key, value) ->
                 // Skip metrics with empty or zero values
                 if (value.toString().isNotEmpty() && value.toString() != "0") {
-                    val formattedKey = key.replace("_", " ").split(" ").joinToString(" ") { 
-                        it.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() } 
+                    // Format the key name
+                    val formattedKey = when (key) {
+                        "ig_reels_avg_watch_time" -> "Average Watch Time"
+                        else -> key.replace("_", " ").split(" ").joinToString(" ") { 
+                            it.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() } 
+                        }
+                    }
+                    
+                    // Format the value for special cases
+                    val formattedValue = when (key) {
+                        "ig_reels_avg_watch_time" -> formatWatchTime(value)
+                        else -> value.toString()
                     }
                     
                     // Add appropriate emoji based on metric type
@@ -183,28 +191,17 @@ class InstagramBusinessFragment : BaseFragment() {
                         "saved" -> "🔖"
                         "shares" -> "🔄"
                         "engagement" -> "✨"
+                        "total_interactions" -> "📊"
+                        "ig_reels_avg_watch_time" -> "⏱️"
                         else -> "📊"
                     }
                     
-                    insights.append("$emoji $formattedKey: $value\n")
+                    insights.append("$emoji $formattedKey: $formattedValue\n")
                 }
             }
             
             // Apply bold formatting to insights
             insightsView.text = formatMetricsWithBoldTitles(insights.toString())
-            
-            // Set button click listeners
-            openInInstagramButton.setOnClickListener {
-                openInstagramLink(post.permalink)
-            }
-            
-            // Set click listener for copy button
-            copyLinkButton.setOnClickListener {
-                val clipboard = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("Instagram Post Link", post.permalink)
-                clipboard.setPrimaryClip(clip)
-                Toast.makeText(ctx, "Link copied to clipboard", Toast.LENGTH_SHORT).show()
-            }
             
             // Set close button click listener
             closeButton.setOnClickListener {
@@ -740,6 +737,32 @@ class InstagramBusinessFragment : BaseFragment() {
         return format.format(date)
     }
     
+    private fun formatWatchTime(seconds: Any): String {
+        try {
+            val totalSeconds = when(seconds) {
+                is Int -> seconds
+                is String -> seconds.toIntOrNull() ?: 0
+                else -> 0
+            }
+            
+            // Calculate hours, minutes, and seconds
+            val hours = totalSeconds / 3600
+            val minutes = (totalSeconds % 3600) / 60
+            val secs = totalSeconds % 60
+            
+            // Format as Xh Ym Zs
+            val formattedTime = StringBuilder()
+            if (hours > 0) formattedTime.append("${hours}h ")
+            if (minutes > 0) formattedTime.append("${minutes}m ")
+            if (secs > 0 || formattedTime.isEmpty()) formattedTime.append("${secs}s")
+            
+            return formattedTime.toString().trim()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error formatting watch time", e)
+            return seconds.toString()
+        }
+    }
+    
     // Instagram Post adapter for RecyclerView
     inner class InstagramPostAdapter(
         private val posts: List<InstagramPost>,
@@ -781,20 +804,19 @@ class InstagramBusinessFragment : BaseFragment() {
                 if (post.metrics.containsKey("video_plays")) {
                     insights.append("▶️ Plays: ${post.metrics["video_plays"]}\n")
                 }
-                if (post.metrics.containsKey("engagement")) {
-                    insights.append("✨ Engagement: ${post.metrics["engagement"]}\n")
+                if (post.metrics.containsKey("total_interactions")) {
+                    insights.append("📊 Total Interactions: ${post.metrics["total_interactions"]}\n")
+                }
+                if (post.metrics.containsKey("ig_reels_avg_watch_time")) {
+                    val watchTime = formatWatchTime(post.metrics["ig_reels_avg_watch_time"]!!)
+                    insights.append("⏱️ Average Watch Time: $watchTime\n")
                 }
                 
                 // Apply bold formatting to metric titles
                 binding.postInsights.text = formatMetricsWithBoldTitles(insights.toString())
                 
-                // Set custom background color based on post type for visual differentiation
-                when (post.mediaType.uppercase()) {
-                    "REELS" -> binding.root.setCardBackgroundColor(binding.root.context.getColor(R.color.reels_background))
-                    "VIDEO" -> binding.root.setCardBackgroundColor(binding.root.context.getColor(R.color.video_background))
-                    "CAROUSEL_ALBUM" -> binding.root.setCardBackgroundColor(binding.root.context.getColor(R.color.carousel_background))
-                    else -> binding.root.setCardBackgroundColor(binding.root.context.getColor(R.color.white))
-                }
+                // Set background color to white for all cards
+                binding.root.setCardBackgroundColor(binding.root.context.getColor(R.color.white))
                 
                 // Set click listener
                 binding.root.setOnClickListener {
