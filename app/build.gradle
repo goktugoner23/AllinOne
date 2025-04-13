@@ -31,6 +31,25 @@ task generateSourceCodeJson(type: Exec) {
 // Make sure the source code JSON is generated before building
 preBuild.dependsOn generateSourceCodeJson
 
+def readEnvFile() {
+    def token = "NOT_SET"
+    def envFile = new File(rootDir, '.env')
+    
+    if (envFile.exists()) {
+        println "Reading Instagram token from .env file"
+        envFile.eachLine { line ->
+            if (line.startsWith("INSTAGRAM_TOKEN=")) {
+                token = line.substring("INSTAGRAM_TOKEN=".length())
+                println "Found Instagram token in .env file"
+            }
+        }
+    } else {
+        println "Warning: .env file not found at ${envFile.absolutePath}"
+    }
+    
+    return token
+}
+
 android {
     namespace 'com.example.allinone'
     compileSdk 34
@@ -43,6 +62,11 @@ android {
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Read token from .env file and bake it into the app
+        def instagramToken = readEnvFile()
+        buildConfigField "String", "INSTAGRAM_TOKEN", "\"${instagramToken}\""
+        println "Instagram token will be baked into the app: ${instagramToken.take(4)}..."
     }
 
     signingConfigs {
@@ -102,6 +126,14 @@ android {
 
     kapt {
         correctErrorTypes true
+        
+        // Configure Dagger/Hilt processor options properly
+        arguments {
+            // Clean up the processor options to only include valid ones
+            arg("dagger.fastInit", "enabled")
+            // kapt specific argument
+            arg("kapt.kotlin.generated", "true") 
+        }
     }
 }
 

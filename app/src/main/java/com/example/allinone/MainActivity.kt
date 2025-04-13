@@ -496,6 +496,9 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             R.id.nav_notes -> {
                 binding.bottomNavigation.visibility = View.VISIBLE
             }
+            R.id.nav_instagram_business -> {
+                binding.bottomNavigation.visibility = View.VISIBLE
+            }
             R.id.nav_history -> {
                 binding.bottomNavigation.visibility = View.GONE
             }
@@ -551,6 +554,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             R.id.nav_transaction_report -> "Reports"
             R.id.nav_notes -> "Notes"
             R.id.nav_wt_registry -> "Wing Tzun Registry"
+            R.id.nav_instagram_business -> "Instagram Business"
             R.id.nav_history -> "History"
             R.id.wtRegisterFragment -> "Wing Tzun Registry"
             R.id.nav_database_management -> "Database Management"
@@ -680,6 +684,11 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                 }
                 R.id.nav_notes -> {
                     navController.navigate(R.id.nav_notes)
+                    drawerLayout.closeDrawers()
+                    true
+                }
+                R.id.nav_instagram_business -> {
+                    navController.navigate(R.id.nav_instagram_business)
                     drawerLayout.closeDrawers()
                     true
                 }
