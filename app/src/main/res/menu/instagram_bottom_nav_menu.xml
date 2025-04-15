@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/tab_posts"
+        android:icon="@drawable/ic_home"
+        android:title="Posts" />
+    <item
+        android:id="@+id/tab_insight"
+        android:icon="@drawable/ic_reports"
+        android:title="Insight" />
+    <item
+        android:id="@+id/tab_ask_ai"
+        android:icon="@drawable/ic_notes"
+        android:title="Ask AI" />
+</menu> 

@@ -103,6 +103,9 @@ class InstagramBusinessFragment : BaseFragment() {
             refreshData()
         }
         
+        // Setup bottom navigation
+        setupBottomNavigation()
+        
         if (graphToken.isNotEmpty() && graphToken != "NOT_SET") {
             // Hide both buttons as we'll fetch data automatically
             binding.btnFetchProfileData.visibility = View.GONE
@@ -851,6 +854,52 @@ class InstagramBusinessFragment : BaseFragment() {
         val permalink: String = "",
         val metrics: HashMap<String, Any> = HashMap()
     )
+    
+    private fun setupBottomNavigation() {
+        try {
+            // Debug properties in binding
+            for (field in binding.javaClass.declaredFields) {
+                Log.d(TAG, "Binding field: ${field.name} - ${field.type}")
+            }
+            
+            // Set default tab
+            showTab(R.id.tab_posts)
+            
+            // Handle tab changes using findViewById instead of binding
+            val bottomNav = view?.findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.instagram_bottom_navigation)
+            bottomNav?.setOnItemSelectedListener { item ->
+                showTab(item.itemId)
+                true
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting up bottom navigation: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+    
+    private fun showTab(tabId: Int) {
+        try {
+            // Access containers using findViewById
+            val postsContainer = view?.findViewById<View>(R.id.posts_container)
+            val insightContainer = view?.findViewById<View>(R.id.insight_container)
+            val askAiContainer = view?.findViewById<View>(R.id.ask_ai_container)
+            
+            // Hide all content containers
+            postsContainer?.visibility = View.GONE
+            insightContainer?.visibility = View.GONE
+            askAiContainer?.visibility = View.GONE
+            
+            // Show the selected container
+            when (tabId) {
+                R.id.tab_posts -> postsContainer?.visibility = View.VISIBLE
+                R.id.tab_insight -> insightContainer?.visibility = View.VISIBLE
+                R.id.tab_ask_ai -> askAiContainer?.visibility = View.VISIBLE
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error showing tab: ${e.message}")
+            e.printStackTrace()
+        }
+    }
     
     override fun onDestroyView() {
         super.onDestroyView()
