@@ -438,6 +438,14 @@ class InstagramBusinessFragment : BaseFragment() {
     private suspend fun saveToFirebase(posts: List<InstagramPost>) {
         withContext(Dispatchers.IO) {
             try {
+                // Debug log to check posts before saving
+                for (post in posts) {
+                    if (post.metrics.containsKey("ig_reels_avg_watch_time")) {
+                        val watchTime = post.metrics["ig_reels_avg_watch_time"]
+                        Log.d(TAG, "Preparing to save to Firebase - Post ${post.id} with watch time: $watchTime")
+                    }
+                }
+                
                 // Delete previous data
                 val batch = db.batch()
                 val existingDocs = instagramCollection.get().await()
@@ -449,9 +457,20 @@ class InstagramBusinessFragment : BaseFragment() {
                 // Execute the batch delete
                 batch.commit().await()
                 
-                // Add new data
+                // Add new data - ensure all metrics are serialized properly
                 for (post in posts) {
-                    instagramCollection.document(post.id).set(post).await()
+                    // Convert post to a map to ensure all fields are properly serialized
+                    val postMap = hashMapOf(
+                        "id" to post.id,
+                        "caption" to post.caption,
+                        "mediaType" to post.mediaType,
+                        "timestamp" to post.timestamp,
+                        "formattedDate" to post.formattedDate,
+                        "permalink" to post.permalink,
+                        "metrics" to post.metrics
+                    )
+                    
+                    instagramCollection.document(post.id).set(postMap).await()
                 }
                 
                 Log.d(TAG, "Saved ${posts.size} posts to Firebase")
@@ -619,10 +638,23 @@ class InstagramBusinessFragment : BaseFragment() {
                     
                     if (values != null && values.length() > 0) {
                         val valueObj = values.getJSONObject(0)
-                        val value = if (valueObj.has("value")) valueObj.optInt("value", 0) else 0
+                        val value = if (valueObj.has("value")) {
+                            // Store the value as the appropriate type, especially for average watch time
+                            when (name) {
+                                "ig_reels_avg_watch_time" -> valueObj.opt("value") ?: 0
+                                else -> valueObj.optInt("value", 0)
+                            }
+                        } else {
+                            0
+                        }
                         
-                        // Add to metrics map
+                        // Ensure value is properly saved to metrics map
                         post.metrics[name] = value
+                        
+                        // Debug log to verify values
+                        if (name == "ig_reels_avg_watch_time") {
+                            Log.d(TAG, "Saving avg watch time: $value for post: ${post.id}")
+                        }
                     }
                 }
             }
