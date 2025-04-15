@@ -2,7 +2,7 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/tab_posts"
-        android:icon="@drawable/ic_home"
+        android:icon="@drawable/ic_instagram_posts"
         android:title="Posts" />
     <item
         android:id="@+id/tab_insight"
