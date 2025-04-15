@@ -61,6 +61,17 @@ AllInOne is an Android application designed to centralize various aspects of per
 - **Progress Reports**: Generate detailed progress reports for students
 - **Certification Management**: Track and issue rank certificates
 
+### Instagram Business
+- **Posts Management**: View and analyze Instagram business posts with detailed metrics
+- **Post Insights**: Track engagement metrics including likes, comments, shares, and reach
+- **Reels Analytics**: Monitor performance of Reels content including average watch time
+- **Content Organization**: Posts are displayed in a clean, organized feed format
+- **Metrics Visualization**: Clear presentation of key performance indicators with appropriate icons
+- **API Integration**: Direct connection with Instagram Graph API for real-time data
+- **Offline Access**: View previously fetched Instagram data without internet connection
+- **Data Synchronization**: Automatic syncing with Firebase for cross-device access
+- **Coming Soon Features**: Dedicated Insights dashboard and AI-powered content recommendations
+
 ### Firebase Integration
 - **Real-time Synchronization**: Instant data updates across all devices
 - **User Authentication**: Secure access with Firebase Authentication

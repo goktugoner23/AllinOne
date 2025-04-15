@@ -7,7 +7,7 @@
     <item
         android:id="@+id/tab_insight"
         android:icon="@drawable/ic_reports"
-        android:title="Insight" />
+        android:title="Insights" />
     <item
         android:id="@+id/tab_ask_ai"
         android:icon="@drawable/ic_notes"
