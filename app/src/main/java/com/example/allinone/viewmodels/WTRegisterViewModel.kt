@@ -19,32 +19,32 @@ import kotlinx.coroutines.Dispatchers
 
 class WTRegisterViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FirebaseRepository(application)
-    
+
     private val _students = MutableLiveData<List<WTStudent>>(emptyList())
     val students: LiveData<List<WTStudent>> = _students
-    
+
     private val _registrations = MutableLiveData<List<WTRegistration>>(emptyList())
     val registrations: LiveData<List<WTRegistration>> = _registrations
-    
+
     val isNetworkAvailable: LiveData<Boolean> = repository.isNetworkAvailable
-    
+
     private val _selectedStudent = MutableLiveData<WTStudent?>(null)
     val selectedStudent: LiveData<WTStudent?> = _selectedStudent
-    
+
     private val _selectedRegistration = MutableLiveData<WTRegistration?>(null)
     val selectedRegistration: LiveData<WTRegistration?> = _selectedRegistration
-    
+
     private val _isLoading = MutableLiveData<Boolean>(false)
     val isLoading: LiveData<Boolean> = _isLoading
-    
+
     private val _error = MutableLiveData<String?>(null)
     val error: LiveData<String?> = _error
-    
+
     enum class TransactionType {
-        INCOME, 
+        INCOME,
         EXPENSE
     }
-    
+
     companion object {
         private const val TAG = "WTRegisterViewModel"
     }
@@ -55,7 +55,7 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                 _students.value = students
             }
         }
-        
+
         viewModelScope.launch {
             repository.registrations.collect { registrations ->
                 _registrations.value = registrations
@@ -78,7 +78,7 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
             }
         }
     }
-    
+
     /**
      * Add a new student to the database
      * Includes duplicate checking to prevent identical students
@@ -95,16 +95,16 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 _isLoading.postValue(true)
-                
+
                 // Check for duplicates by name or phone number
-                val existingByName = students.value?.find { 
-                    it.name.equals(name, ignoreCase = true) 
+                val existingByName = students.value?.find {
+                    it.name.equals(name, ignoreCase = true)
                 }
-                
-                val existingByPhone = students.value?.find { 
-                    it.phoneNumber.equals(phoneNumber, ignoreCase = true) 
+
+                val existingByPhone = students.value?.find {
+                    it.phoneNumber.equals(phoneNumber, ignoreCase = true)
                 }
-                
+
                 if (existingByName != null) {
                     // A student with this name already exists, update it instead
                     Log.w(TAG, "Duplicate student name detected. Updating existing student instead.")
@@ -141,10 +141,10 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                         photoUri = photoUri,
                         notes = notes
                     )
-                    
+
                     repository.insertStudent(student)
                 }
-                
+
                 _isLoading.postValue(false)
             } catch (e: Exception) {
                 Log.e(TAG, "Error adding student: ${e.message}", e)
@@ -153,7 +153,7 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
             }
         }
     }
-    
+
     /**
      * Update an existing student
      */
@@ -170,7 +170,7 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
             }
         }
     }
-    
+
     fun addRegistration(
         studentId: Long,
         amount: Double,
@@ -183,11 +183,11 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                
+
                 // Generate sequential ID for the registration
                 val registrationId = repository.getNextId("registrations")
                 Log.d(TAG, "Creating registration with ID: $registrationId for student: $studentId")
-                
+
                 // Handle file upload if there's an attachment
                 var cloudAttachmentUrl: String? = null
                 if (attachmentUri != null) {
@@ -197,13 +197,13 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                         folderName = "registrations",
                         id = registrationId.toString()
                     )
-                    
+
                     if (cloudAttachmentUrl == null) {
                         // If upload failed, show error but continue with saving the registration
                         _error.value = "Failed to upload attachment, but registration will be saved"
                     }
                 }
-                
+
                 val registration = WTRegistration(
                     id = registrationId,  // Use the pre-generated ID
                     studentId = studentId,
@@ -215,43 +215,43 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                     notes = notes,
                     isPaid = isPaid
                 )
-                
+
                 // Log for debugging
                 Log.d("WTRegisterViewModel", "Adding registration: $registration")
-                
+
                 // Save the registration
                 repository.insertRegistration(registration)
-                
+
                 // If it's marked as paid, also add a transaction
                 if (isPaid && amount > 0) {
-                    val studentName = repository.students.value.find { it.id == studentId }?.name ?: "Unknown Student"
-                    val description = "Course Registration: $studentName"
-                    val formattedDate = startDate?.let { 
+                    // Student name no longer needed since we use a generic description
+                    val description = "Course Registration"
+                    val formattedDate = startDate?.let {
                         java.text.SimpleDateFormat("MMM dd", java.util.Locale.getDefault()).format(it)
                     } ?: ""
-                    
-                    val category = "Course Registration"
-                    
+
+                    val category = "Wing Tzun"
+
                     // Create transaction with reference to registration
                     repository.insertTransaction(
                         amount = amount,
-                        type = if (formattedDate.isNotEmpty()) "Registration ($formattedDate)" else "Registration", 
+                        type = if (formattedDate.isNotEmpty()) "Registration ($formattedDate)" else "Registration",
                         description = description,
                         isIncome = true,  // Registration payments are income
                         category = category,
                         relatedRegistrationId = registration.id  // Link transaction to registration
                     )
-                    
+
                     // Refresh transactions to update UI
                     repository.refreshTransactions()
                 }
-                
+
                 // Add end date to calendar if available
                 endDate?.let { date ->
                     val studentName = repository.students.value.find { it.id == studentId }?.name ?: "Unknown Student"
                     val title = "Registration End: $studentName"
                     val description = "Registration period ending for $studentName. Amount: $amount"
-                    
+
                     // Use direct call to calendar repository instead of ViewModel
                     val event = Event(
                         id = registration.id,  // Reuse registration ID for the event
@@ -263,13 +263,13 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                     repository.insertEvent(event)
                     repository.refreshEvents()
                 }
-                
+
                 // Explicitly refresh registrations to ensure UI updates
                 repository.refreshRegistrations()
-                
+
                 // Log updated registrations for debugging
                 Log.d("WTRegisterViewModel", "Current registrations: ${_registrations.value?.size ?: 0}")
-                
+
                 _isLoading.value = false
             } catch (e: Exception) {
                 _isLoading.value = false
@@ -278,13 +278,13 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
             }
         }
     }
-    
+
     fun updateRegistration(registration: WTRegistration) {
         Log.d(TAG, "Updating registration: $registration")
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                
+
                 // Get original registration to check if payment status changed
                 val originalRegistration = _registrations.value?.find { it.id == registration.id }
                 if (originalRegistration == null) {
@@ -293,21 +293,21 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                     _isLoading.value = false
                     return@launch
                 }
-                
+
                 // Handle file upload if attachment has changed
                 var cloudAttachmentUrl = registration.attachmentUri
                 val isNewAttachment = originalRegistration.attachmentUri != registration.attachmentUri
-                
-                if (isNewAttachment && registration.attachmentUri != null && 
+
+                if (isNewAttachment && registration.attachmentUri != null &&
                     !registration.attachmentUri.startsWith("https://")) {
-                    
+
                     // Upload the new file with registration ID for subfolder
                     cloudAttachmentUrl = repository.uploadFile(
                         fileUri = Uri.parse(registration.attachmentUri),
                         folderName = "registrations",
                         id = registration.id.toString()
                     )
-                    
+
                     if (cloudAttachmentUrl == null) {
                         // If upload failed, show error but continue with updating the registration
                         Log.e(TAG, "Failed to upload new attachment, continuing with registration update")
@@ -316,7 +316,7 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                         cloudAttachmentUrl = registration.attachmentUri
                     } else {
                         Log.d(TAG, "New attachment uploaded successfully: $cloudAttachmentUrl")
-                        
+
                         // Delete the old file if it was a cloud URL
                         originalRegistration.attachmentUri?.let { oldUrl ->
                             if (oldUrl.startsWith("https://")) {
@@ -330,33 +330,33 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                         }
                     }
                 }
-                
+
                 // Create updated registration with possibly new attachment URL
                 val updatedRegistration = registration.copy(
                     attachmentUri = cloudAttachmentUrl
                 )
-                
+
                 // Check for payment status changes
                 // Payment status changed from unpaid to paid
                 if (!originalRegistration.isPaid && registration.isPaid && registration.amount > 0) {
                     Log.d(TAG, "Registration marked as PAID, creating transaction")
-                    val studentName = repository.students.value.find { it.id == registration.studentId }?.name ?: "Unknown Student"
-                    
+                    // Student name no longer needed since we use a generic description
+
                     repository.insertTransaction(
                         amount = registration.amount,
                         type = "Registration",
-                        description = "Registration payment: $studentName",
+                        description = "Course Registration",
                         isIncome = true,
-                        category = "Course Registration",
+                        category = "Wing Tzun",
                         relatedRegistrationId = registration.id
                     )
-                } 
+                }
                 // Payment status changed from paid to unpaid
                 else if (originalRegistration.isPaid && !registration.isPaid) {
                     Log.d(TAG, "Registration marked as UNPAID, deleting related transactions")
                     repository.deleteTransactionsByRegistrationId(registration.id)
                 }
-                
+
                 // If end date changed, update the calendar event
                 if (originalRegistration.endDate != registration.endDate) {
                     // First try to remove any existing event
@@ -368,13 +368,13 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                         type = "Registration End"
                     )
                     repository.deleteEvent(event)
-                    
+
                     // Add new event for the updated end date
                     registration.endDate?.let { newDate ->
                         val studentName = repository.students.value.find { it.id == registration.studentId }?.name ?: "Unknown Student"
                         val title = "Registration End: $studentName"
                         val description = "Registration period ending for $studentName. Amount: ${registration.amount}"
-                        
+
                         val newEvent = Event(
                             id = registration.id,  // Reuse registration ID for the event
                             title = title,
@@ -386,13 +386,13 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                         repository.refreshEvents()
                     }
                 }
-                
+
                 // Update the registration
                 repository.updateRegistration(updatedRegistration)
-                
+
                 // Refresh data to ensure UI updates
                 refreshData()
-                
+
                 _isLoading.value = false
             } catch (e: Exception) {
                 _isLoading.value = false
@@ -406,7 +406,7 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             // Get the student object
             val student = repository.students.value.find { it.id == studentId } ?: return@launch
-            
+
             // If student has a photo URI, delete it from Firebase Storage
             student.photoUri?.let { photoUri ->
                 if (photoUri.startsWith("https://")) {
@@ -417,34 +417,34 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                     }
                 }
             }
-            
+
             // Delete the student's entire folder in Firebase Storage
             try {
                 repository.deleteStudentFolder(studentId)
             } catch (e: Exception) {
                 Log.e(TAG, "Error deleting student folder: ${e.message}", e)
             }
-            
+
             // Delete the student
             repository.deleteStudent(student)
-            
+
             // Also delete all registrations for this student
             val studentRegistrations = repository.getRegistrationsForStudent(studentId)
             studentRegistrations.forEach { registration ->
                 repository.deleteRegistration(registration)
             }
-            
+
             // Refresh data
             repository.refreshStudents()
             repository.refreshRegistrations()
         }
     }
-    
+
     fun deleteRegistration(registration: WTRegistration) = viewModelScope.launch {
         try {
             _isLoading.value = true
             Log.d(TAG, "Deleting registration: ${registration.id}")
-            
+
             // Delete attachment from Firebase Storage if it's a cloud URL
             registration.attachmentUri?.let { attachmentUrl ->
                 if (attachmentUrl.startsWith("https://")) {
@@ -455,12 +455,12 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                     }
                 }
             }
-            
+
             // First delete any related transactions
             if (registration.isPaid) {
                 repository.deleteTransactionsByRegistrationId(registration.id)
             }
-            
+
             // Delete any related calendar events
             val event = Event(
                 id = registration.id,  // Same ID used for both registration and event
@@ -470,13 +470,13 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                 type = "Registration End"
             )
             repository.deleteEvent(event)
-            
+
             // Now delete the registration itself
             repository.deleteRegistration(registration)
-            
+
             // Refresh data to ensure UI updates
             refreshData()
-            
+
             _isLoading.value = false
         } catch (e: Exception) {
             _isLoading.value = false
@@ -484,33 +484,33 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
             Log.e(TAG, "Error deleting registration: ${e.message}", e)
         }
     }
-    
+
     fun uploadAttachment(uri: Uri, onComplete: (String?) -> Unit) {
         viewModelScope.launch {
             val uploadedUri = repository.uploadAttachment(uri)
             onComplete(uploadedUri)
         }
     }
-    
+
     fun setSelectedStudent(student: WTStudent?) {
         _selectedStudent.value = student
     }
-    
+
     fun setSelectedRegistration(registration: WTRegistration?) {
         _selectedRegistration.value = registration
     }
-    
+
     fun getRegistrationsForStudent(studentId: Long): List<WTRegistration> {
         return registrations.value?.filter { it.studentId == studentId } ?: emptyList()
     }
-    
+
     fun isStudentCurrentlyRegistered(studentId: Long): Boolean {
-        return registrations.value?.any { 
-            it.studentId == studentId && 
-            it.endDate?.after(Date()) ?: false 
+        return registrations.value?.any {
+            it.studentId == studentId &&
+            it.endDate?.after(Date()) ?: false
         } ?: false
     }
-    
+
     fun getCurrentRegistrationForStudent(studentId: Long): WTRegistration? {
         return registrations.value
             ?.filter { it.studentId == studentId }
@@ -527,17 +527,17 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                
+
                 // Convert studentId to string for folder name
                 val studentFolder = studentId?.toString()
-                
+
                 // Upload the file to Firebase Storage
                 val cloudUri = repository.uploadFile(
                     fileUri = uri,
                     folderName = "profile_pictures",
                     id = studentFolder
                 )
-                
+
                 if (cloudUri == null) {
                     _error.value = "Failed to upload profile picture"
                     onComplete(null)
@@ -577,18 +577,18 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                 photoUri = null, // No photo yet
                 notes = notes
             )
-            
+
             // Insert and get the assigned ID
             val studentId = repository.insertStudentAndGetId(student)
             Log.d(TAG, "Created new student with ID: $studentId")
-            
+
             studentId
         } catch (e: Exception) {
             Log.e(TAG, "Error creating student: ${e.message}", e)
             null
         }
     }
-    
+
     /**
      * Update just the photo URI for a student
      */
@@ -596,14 +596,14 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
         try {
             // Get current student info
             val student = students.value?.find { it.id == studentId } ?: return
-            
+
             // Update with the new photo URI
             val updatedStudent = student.copy(photoUri = photoUri)
             repository.updateStudent(updatedStudent)
-            
+
             Log.d(TAG, "Updated photo for student $studentId: $photoUri")
         } catch (e: Exception) {
             Log.e(TAG, "Error updating student photo: ${e.message}", e)
         }
     }
-} 
+}

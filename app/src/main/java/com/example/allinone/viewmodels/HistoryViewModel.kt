@@ -217,7 +217,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
             description = "Course Registration",
             date = startDate ?: Date(),
             amount = amount,
-            type = "Registration",
+            type = "Wing Tzun",
             imageUri = attachmentUri,
             itemType = HistoryItem.ItemType.REGISTRATION
         )

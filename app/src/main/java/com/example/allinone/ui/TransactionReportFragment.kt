@@ -123,10 +123,7 @@ class TransactionReportFragment : BaseFragment() {
             description.isEnabled = false
             setUsePercentValues(true)
             setDrawEntryLabels(false)
-            legend.verticalAlignment = Legend.LegendVerticalAlignment.TOP
-            legend.horizontalAlignment = Legend.LegendHorizontalAlignment.RIGHT
-            legend.orientation = Legend.LegendOrientation.VERTICAL
-            legend.setDrawInside(false)
+            legend.isEnabled = false // Disable the legend
             setDrawCenterText(true)
             centerText = "Expenses"
             setExtraOffsets(20f, 0f, 20f, 0f)
@@ -259,7 +256,17 @@ class TransactionReportFragment : BaseFragment() {
         // Apply all filters
         filteredTransactions = allTransactions.filter { transaction ->
             val passesDateFilter = startDate == null || transaction.date.after(startDate) || transaction.date == startDate
-            val passesCategoryFilter = selectedCategory == "All Categories" || transaction.category == selectedCategory
+
+            // Enhanced category filter to include investment subcategories
+            val passesCategoryFilter = when {
+                selectedCategory == "All Categories" -> true
+                selectedCategory == "Investment" -> {
+                    // Include both "Investment" category and all investment subcategories (Crypto, Stock, etc.)
+                    transaction.category == "Investment" ||
+                    (transaction.type == "Investment" && transaction.category != "")
+                }
+                else -> transaction.category == selectedCategory
+            }
 
             passesDateFilter && passesCategoryFilter
         }.sortedByDescending { it.date }
