@@ -26,7 +26,7 @@ class FirebaseManager(private val context: Context? = null) {
     private val firestore: FirebaseFirestore = Firebase.firestore
     private val storage: FirebaseStorage = FirebaseStorage.getInstance()
     val idManager = FirebaseIdManager()
-    
+
     // Collection references
     private val transactionsCollection = firestore.collection("transactions")
     private val investmentsCollection = firestore.collection("investments")
@@ -35,18 +35,18 @@ class FirebaseManager(private val context: Context? = null) {
     private val eventsCollection = firestore.collection("events")
     private val wtLessonsCollection = firestore.collection("wtLessons")
     private val registrationsCollection = firestore.collection("registrations")
-    
+
     // Storage references
     private val imagesRef: StorageReference = storage.reference.child("images")
     private val attachmentsRef: StorageReference = storage.reference.child("attachments")
     private val storageRef: StorageReference = storage.reference
-    
+
     // Constants
     companion object {
         private const val TAG = "FirebaseManager"
         private const val REGISTRATIONS_COLLECTION = "registrations"
     }
-    
+
     // Device ID for anonymous data storage
     private val deviceId: String by lazy {
         if (context != null) {
@@ -63,12 +63,12 @@ class FirebaseManager(private val context: Context? = null) {
             "device_${System.currentTimeMillis()}"
         }
     }
-    
+
     // Transactions
     suspend fun saveTransaction(transaction: Transaction): Boolean {
         try {
             Log.d(TAG, "Starting to save transaction with ID: ${transaction.id}, deviceId: $deviceId")
-            
+
             val transactionMap = hashMapOf(
                 "id" to transaction.id,
                 "amount" to transaction.amount,
@@ -80,20 +80,20 @@ class FirebaseManager(private val context: Context? = null) {
                 "deviceId" to deviceId,
                 "relatedRegistrationId" to transaction.relatedRegistrationId
             )
-            
+
             Log.d(TAG, "Setting transaction document with ID: ${transaction.id}")
-            
+
             // Use a task with timeout
             val task = transactionsCollection.document(transaction.id.toString()).set(transactionMap)
             Tasks.await(task, 15, TimeUnit.SECONDS)
-            
+
             return true
         } catch (e: Exception) {
             Log.e(TAG, "Error saving transaction: ${e.message}", e)
             return false
         }
     }
-    
+
     suspend fun getTransactions(): List<Transaction> {
         return withContext(Dispatchers.IO) {
             try {
@@ -107,14 +107,14 @@ class FirebaseManager(private val context: Context? = null) {
                     val isIncome = doc.getBoolean("isIncome") ?: false
                     val date = doc.getDate("date") ?: Date()
                     val relatedRegistrationId = doc.getLong("relatedRegistrationId")
-                    
+
                     Transaction(
-                        id = id, 
-                        amount = amount, 
-                        type = type, 
-                        description = description, 
-                        isIncome = isIncome, 
-                        date = date, 
+                        id = id,
+                        amount = amount,
+                        type = type,
+                        description = description,
+                        isIncome = isIncome,
+                        date = date,
                         category = category,
                         relatedRegistrationId = relatedRegistrationId
                     )
@@ -124,13 +124,13 @@ class FirebaseManager(private val context: Context? = null) {
             }
         }
     }
-    
+
     // Investments
     suspend fun saveInvestment(investment: Investment) {
         // Upload images first if any
         val imageUri = investment.imageUri
         var uploadedImageUrl = ""
-        
+
         if (!imageUri.isNullOrEmpty()) {
             try {
                 // Only upload if it's a content URI
@@ -152,7 +152,7 @@ class FirebaseManager(private val context: Context? = null) {
                 Log.e(TAG, "Failed to upload investment image: ${e.message}", e)
             }
         }
-        
+
         val investmentMap = hashMapOf(
             "id" to investment.id,
             "name" to investment.name,
@@ -164,10 +164,10 @@ class FirebaseManager(private val context: Context? = null) {
             "isPast" to investment.isPast,
             "deviceId" to deviceId
         )
-        
+
         investmentsCollection.document(investment.id.toString()).set(investmentMap).await()
     }
-    
+
     suspend fun getInvestments(): List<Investment> {
         return withContext(Dispatchers.IO) {
             try {
@@ -181,7 +181,7 @@ class FirebaseManager(private val context: Context? = null) {
                     val date = doc.getDate("date") ?: Date()
                     val imageUri = doc.getString("imageUri")
                     val isPast = doc.getBoolean("isPast") ?: false
-                    
+
                     Investment(id, name, amount, type, description, imageUri, date, isPast)
                 }
             } catch (e: Exception) {
@@ -189,13 +189,13 @@ class FirebaseManager(private val context: Context? = null) {
             }
         }
     }
-    
+
     // Notes
     suspend fun saveNote(note: Note) {
         // Upload images first if any
         val imageUris = note.imageUris
         val uploadedImageUrls = mutableListOf<String>()
-        
+
         if (!imageUris.isNullOrEmpty()) {
             val uriList = imageUris.split(",").filter { it.isNotEmpty() }
             for (uriString in uriList) {
@@ -205,18 +205,18 @@ class FirebaseManager(private val context: Context? = null) {
                         uploadedImageUrls.add(uriString)
                         continue
                     }
-                    
+
                     // Only process valid content URIs
                     if (uriString.startsWith("content://")) {
                         val uri = Uri.parse(uriString)
-                        
+
                         // Use the note-attachments folder and note ID subfolder
                         val noteAttachmentsRef = storageRef.child("note-attachments/${note.id}")
-                        
+
                         // Generate a unique filename for the image
                         val imageFileName = "img_${System.currentTimeMillis()}_${idManager.getNextId("note_images")}"
                         val imageRef = noteAttachmentsRef.child(imageFileName)
-                        
+
                         imageRef.putFile(uri).await()
                         val downloadUrl = imageRef.downloadUrl.await().toString()
                         uploadedImageUrls.add(downloadUrl)
@@ -230,7 +230,9 @@ class FirebaseManager(private val context: Context? = null) {
                 }
             }
         }
-        
+
+        // Prepare to save note to Firestore
+
         val noteMap = hashMapOf(
             "id" to note.id,
             "title" to note.title,
@@ -242,10 +244,11 @@ class FirebaseManager(private val context: Context? = null) {
             "isRichText" to note.isRichText,
             "deviceId" to deviceId
         )
-        
+
+        // Save the note to Firestore
         notesCollection.document(note.id.toString()).set(noteMap).await()
     }
-    
+
     suspend fun getNotes(): List<Note> {
         return withContext(Dispatchers.IO) {
             try {
@@ -259,15 +262,15 @@ class FirebaseManager(private val context: Context? = null) {
                     val voiceNoteUris = doc.getString("voiceNoteUris")
                     val lastEdited = doc.getDate("lastEdited") ?: Date()
                     val isRichText = doc.getBoolean("isRichText") ?: true
-                    
+
                     Note(
-                        id = id, 
-                        title = title, 
-                        content = content, 
-                        date = date, 
+                        id = id,
+                        title = title,
+                        content = content,
+                        date = date,
                         imageUris = imageUris,
                         voiceNoteUris = voiceNoteUris,
-                        lastEdited = lastEdited, 
+                        lastEdited = lastEdited,
                         isRichText = isRichText
                     )
                 }
@@ -276,12 +279,12 @@ class FirebaseManager(private val context: Context? = null) {
             }
         }
     }
-    
+
     // WT Students
     suspend fun saveStudent(student: WTStudent): Boolean {
         try {
             Log.d(TAG, "Starting to save student with ID: ${student.id}, name: ${student.name}, deviceId: $deviceId")
-            
+
             val studentWithId = if (student.id <= 0) {
                 // Generate sequential ID
                 val nextId = idManager.getNextId("students")
@@ -289,7 +292,7 @@ class FirebaseManager(private val context: Context? = null) {
             } else {
                 student
             }
-            
+
             // Convert to map for Firestore
             val studentMap = mapOf(
                 "id" to studentWithId.id,
@@ -301,21 +304,21 @@ class FirebaseManager(private val context: Context? = null) {
                 "notes" to (studentWithId.notes ?: ""),
                 "photoUri" to (studentWithId.photoUri ?: "")
             )
-            
+
             Log.d(TAG, "Setting student document with ID: ${studentWithId.id}")
-            
+
             // Always use the student ID directly as a string for the document ID
             // This ensures consistency between saving and loading
             val task = studentsCollection.document(studentWithId.id.toString()).set(studentMap)
             Tasks.await(task, 15, TimeUnit.SECONDS)
-            
+
             return true
         } catch (e: Exception) {
             Log.e(TAG, "Error saving student: ${e.message}", e)
             return false
         }
     }
-    
+
     suspend fun getStudents(): List<WTStudent> {
         return withContext(Dispatchers.IO) {
             try {
@@ -329,20 +332,20 @@ class FirebaseManager(private val context: Context? = null) {
                         Log.w(TAG, "Failed to parse student ID as Long: ${doc.id}, using hashCode instead")
                         doc.id.hashCode().toLong()
                     }
-                    
+
                     val name = doc.getString("name") ?: ""
-                    val phoneNumber = doc.getString("phoneNumber") 
+                    val phoneNumber = doc.getString("phoneNumber")
                     val email = doc.getString("email")
                     val instagram = doc.getString("instagram")
                     val isActive = doc.getBoolean("isActive") ?: true
                     val deviceId = doc.getString("deviceId") // Keep for backward compatibility
                     val notes = doc.getString("notes")
                     val photoUri = doc.getString("photoUri")
-                    
+
                     Log.d(TAG, "Loaded student: ID=$id, Name=$name")
-                    
+
                     WTStudent(
-                        id = id, 
+                        id = id,
                         name = name,
                         phoneNumber = phoneNumber,
                         email = email,
@@ -359,7 +362,7 @@ class FirebaseManager(private val context: Context? = null) {
             }
         }
     }
-    
+
     // Storage
     suspend fun uploadImage(uri: Uri): String? {
         return try {
@@ -368,7 +371,7 @@ class FirebaseManager(private val context: Context? = null) {
                 Log.w(TAG, "Invalid image URI format: ${uri.toString().take(10)}...")
                 return null
             }
-            
+
             val imageRef = imagesRef.child("${UUID.randomUUID()}")
             imageRef.putFile(uri).await()
             imageRef.downloadUrl.await().toString()
@@ -377,7 +380,7 @@ class FirebaseManager(private val context: Context? = null) {
             null
         }
     }
-    
+
     suspend fun uploadAttachment(uri: Uri): String? {
         return try {
             // Verify the URI is a content URI
@@ -385,7 +388,7 @@ class FirebaseManager(private val context: Context? = null) {
                 Log.w(TAG, "Invalid attachment URI format: ${uri.toString().take(10)}...")
                 return null
             }
-            
+
             val attachmentRef = attachmentsRef.child("${UUID.randomUUID()}")
             attachmentRef.putFile(uri).await()
             attachmentRef.downloadUrl.await().toString()
@@ -394,7 +397,7 @@ class FirebaseManager(private val context: Context? = null) {
             null
         }
     }
-    
+
     // Delete methods
     suspend fun deleteTransaction(transaction: Transaction) {
         try {
@@ -403,19 +406,19 @@ class FirebaseManager(private val context: Context? = null) {
             // Handle error
         }
     }
-    
+
     suspend fun deleteInvestment(investment: Investment) {
         try {
             Log.d(TAG, "Starting investment deletion in FirebaseManager. ID: ${investment.id}, Name: ${investment.name}")
-            
+
             // Be explicit about which document to delete by using the exact ID
             val docId = investment.id.toString()
             Log.d(TAG, "Deleting investment document with ID: $docId")
-            
+
             // Use await with timeout to ensure operation completes
             val task = investmentsCollection.document(docId).delete()
             Tasks.await(task, 10, TimeUnit.SECONDS)
-            
+
             Log.d(TAG, "Successfully deleted investment with ID: ${investment.id}")
             return
         } catch (e: Exception) {
@@ -423,7 +426,7 @@ class FirebaseManager(private val context: Context? = null) {
             throw e
         }
     }
-    
+
     suspend fun deleteNote(note: Note) {
         try {
             notesCollection.document(note.id.toString()).delete().await()
@@ -431,24 +434,24 @@ class FirebaseManager(private val context: Context? = null) {
             // Handle error
         }
     }
-    
+
     suspend fun deleteStudent(student: WTStudent) {
         try {
             Log.d(TAG, "Deleting student with ID: ${student.id}, name: ${student.name}")
-            
+
             // Use string ID for document reference
             val documentId = student.id.toString()
-            
+
             // Delete from Firestore with proper await
             studentsCollection.document(documentId).delete().await()
-            
+
             Log.d(TAG, "Successfully deleted student with ID: ${student.id}")
         } catch (e: Exception) {
             Log.e(TAG, "Error deleting student: ${e.message}", e)
             throw e
         }
     }
-    
+
     // WT Events
     suspend fun saveEvent(event: Event) = withContext(Dispatchers.IO) {
         try {
@@ -461,17 +464,17 @@ class FirebaseManager(private val context: Context? = null) {
                 "type" to event.type,
                 "deviceId" to deviceId
             )
-            
+
             return@withContext eventsCollection.document(event.id.toString()).set(eventMap)
         } catch (e: Exception) {
             throw e
         }
     }
-    
+
     suspend fun getEvents(): List<Event> = withContext(Dispatchers.IO) {
         try {
             val snapshot = eventsCollection.whereEqualTo("deviceId", deviceId).get().await()
-            
+
             return@withContext snapshot.documents.map { doc ->
                 val id = doc.getLong("id") ?: 0L
                 val title = doc.getString("title") ?: ""
@@ -479,7 +482,7 @@ class FirebaseManager(private val context: Context? = null) {
                 val date = doc.getDate("date") ?: Date()
                 val endDate = doc.getDate("endDate")
                 val type = doc.getString("type") ?: "Event"
-                
+
                 Event(id, title, description, date, endDate, type)
             }
         } catch (e: Exception) {
@@ -487,11 +490,11 @@ class FirebaseManager(private val context: Context? = null) {
             return@withContext emptyList<Event>()
         }
     }
-    
+
     suspend fun deleteEvent(eventId: Long) = withContext(Dispatchers.IO) {
         return@withContext eventsCollection.document(eventId.toString()).delete()
     }
-    
+
     // WT Lessons
     suspend fun saveWTLesson(lesson: WTLesson) = withContext(Dispatchers.IO) {
         val lessonMap = mapOf(
@@ -503,22 +506,22 @@ class FirebaseManager(private val context: Context? = null) {
             "endMinute" to lesson.endMinute,
             "deviceId" to deviceId
         )
-        
+
         wtLessonsCollection.document(lesson.id.toString())
             .set(lessonMap)
     }
-    
+
     suspend fun deleteWTLesson(lessonId: Long) = withContext(Dispatchers.IO) {
         wtLessonsCollection.document(lessonId.toString())
             .delete()
     }
-    
+
     suspend fun getAllWTLessons() = withContext(Dispatchers.IO) {
         val snapshot = wtLessonsCollection
             .whereEqualTo("deviceId", deviceId)
             .get()
             .await()
-        
+
         snapshot.documents.mapNotNull { doc ->
             try {
                 val id = doc.getLong("id") ?: return@mapNotNull null
@@ -527,7 +530,7 @@ class FirebaseManager(private val context: Context? = null) {
                 val startMinute = doc.getLong("startMinute")?.toInt() ?: return@mapNotNull null
                 val endHour = doc.getLong("endHour")?.toInt() ?: return@mapNotNull null
                 val endMinute = doc.getLong("endMinute")?.toInt() ?: return@mapNotNull null
-                
+
                 WTLesson(
                     id = id,
                     dayOfWeek = dayOfWeek,
@@ -541,35 +544,35 @@ class FirebaseManager(private val context: Context? = null) {
             }
         }
     }
-    
+
     /**
      * Delete all data in Firestore for this device
      */
     suspend fun clearAllFirestoreData() = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Starting to delete all Firestore data for device: $deviceId")
-            
+
             // Delete all transactions (including those without deviceId)
             deleteAllDocumentsInCollection(transactionsCollection)
-            
+
             // Delete all investments (including those without deviceId)
             deleteAllDocumentsInCollection(investmentsCollection)
-            
+
             // Delete all notes (including those without deviceId)
             deleteAllDocumentsInCollection(notesCollection)
-            
+
             // Delete all students (including those without deviceId)
             deleteAllDocumentsInCollection(studentsCollection)
-            
+
             // Delete all events (including those without deviceId)
             deleteAllDocumentsInCollection(eventsCollection)
-            
+
             // Delete all WT lessons (including those without deviceId)
             deleteAllDocumentsInCollection(wtLessonsCollection)
-            
+
             // Also clear test_connection collection
             deleteAllDocumentsInCollection(firestore.collection("test_connection"))
-            
+
             Log.d(TAG, "Successfully deleted all Firestore data")
             return@withContext true
         } catch (e: Exception) {
@@ -577,7 +580,7 @@ class FirebaseManager(private val context: Context? = null) {
             throw e
         }
     }
-    
+
     /**
      * Helper method to delete all documents in a collection
      */
@@ -586,7 +589,7 @@ class FirebaseManager(private val context: Context? = null) {
             // Get all documents (not just those with matching deviceId)
             val allDocs = collection.get().await()
             Log.d(TAG, "Deleting ${allDocs.size()} documents from ${collection.path}")
-            
+
             for (doc in allDocs) {
                 doc.reference.delete().await()
             }
@@ -595,7 +598,7 @@ class FirebaseManager(private val context: Context? = null) {
             // Continue with other collections rather than failing completely
         }
     }
-    
+
     /**
      * Test Firebase connection and project setup
      */
@@ -610,13 +613,13 @@ class FirebaseManager(private val context: Context? = null) {
                 "created" to Date(timestamp),
                 "deviceId" to deviceId
             )
-            
+
             // Use a unique document ID to avoid conflicts
             val docRef = firestore.collection("test_connection")
                 .document("test_${timestamp}_${deviceId.take(8)}")
-            
+
             Log.d(TAG, "Creating test document...")
-            
+
             // Add the test document with a timeout
             try {
                 val task = docRef.set(testData)
@@ -626,13 +629,13 @@ class FirebaseManager(private val context: Context? = null) {
                 Log.e(TAG, "Failed to create test document: ${e.message}", e)
                 throw e
             }
-            
+
             // Try to read it back
             try {
                 Log.d(TAG, "Verifying test document was created...")
                 val snapshot = docRef.get().await()
                 val exists = snapshot.exists()
-                
+
                 if (exists) {
                     Log.d(TAG, "Firebase connection test successful")
                     return true
@@ -649,7 +652,7 @@ class FirebaseManager(private val context: Context? = null) {
             return false
         }
     }
-    
+
     /**
      * Check if we have proper Firestore security rules set up
      */
@@ -660,7 +663,7 @@ class FirebaseManager(private val context: Context? = null) {
                 .limit(1)
                 .get()
                 .await()
-            
+
             // If we reach here, we have proper access to the collection
             true
         } catch (e: Exception) {
@@ -672,7 +675,7 @@ class FirebaseManager(private val context: Context? = null) {
             throw e
         }
     }
-    
+
     /**
      * Check if we're using the correct Firebase project
      */
@@ -683,11 +686,11 @@ class FirebaseManager(private val context: Context? = null) {
                 .document("connectivity_test")
                 .get()
                 .await()
-            
+
             // If we get here, we have a valid project connection
             true
         } catch (e: Exception) {
-            if (e.message?.contains("project") == true && 
+            if (e.message?.contains("project") == true &&
                 e.message?.contains("placeholder") == true) {
                 // We're using a placeholder project
                 return false
@@ -696,19 +699,19 @@ class FirebaseManager(private val context: Context? = null) {
             throw e
         }
     }
-    
+
     // Get all registrations
     suspend fun getRegistrations(): List<WTRegistration> {
         Log.d(TAG, "Getting registrations for device $deviceId")
-        
+
         return try {
             val snapshot = firestore.collection(REGISTRATIONS_COLLECTION)
                 .whereEqualTo("deviceId", deviceId)
                 .get()
                 .await()
-            
+
             Log.d(TAG, "Received ${snapshot.documents.size} registration documents from Firestore")
-            
+
             val registrations = snapshot.documents.mapNotNull { doc ->
                 try {
                     val id = doc.getLong("id") ?: doc.id.hashCode().toLong()
@@ -720,7 +723,7 @@ class FirebaseManager(private val context: Context? = null) {
                     val paymentDate = doc.getDate("paymentDate") ?: Date()
                     val notes = doc.getString("notes")
                     val isPaid = doc.getBoolean("isPaid") ?: true // Default to true if field is missing
-                    
+
                     WTRegistration(
                         id = id,
                         studentId = studentId,
@@ -737,7 +740,7 @@ class FirebaseManager(private val context: Context? = null) {
                     null
                 }
             }
-            
+
             Log.d(TAG, "Successfully parsed ${registrations.size} registrations")
             registrations
         } catch (e: Exception) {
@@ -745,11 +748,11 @@ class FirebaseManager(private val context: Context? = null) {
             throw e
         }
     }
-    
+
     // Save registration
     suspend fun saveRegistration(registration: WTRegistration): Task<Void> {
         Log.d(TAG, "Saving registration with ID: ${registration.id}, studentId: ${registration.studentId}")
-        
+
         val registrationMap = hashMapOf(
             "id" to registration.id,
             "studentId" to registration.studentId,
@@ -762,32 +765,32 @@ class FirebaseManager(private val context: Context? = null) {
             "isPaid" to registration.isPaid,
             "deviceId" to deviceId
         )
-        
+
         return firestore.collection(REGISTRATIONS_COLLECTION)
             .document(registration.id.toString())
             .set(registrationMap)
     }
-    
+
     // Delete registration
     suspend fun deleteRegistration(registrationId: Long): Task<Void> {
         Log.d(TAG, "Deleting registration with ID: $registrationId")
-        
+
         return firestore.collection(REGISTRATIONS_COLLECTION)
             .document(registrationId.toString())
             .delete()
     }
-    
+
     // Get registrations for a specific student
     suspend fun getRegistrationsForStudent(studentId: Long): List<WTRegistration> {
         Log.d(TAG, "Getting registrations for student ID: $studentId")
-        
+
         return try {
             val snapshot = firestore.collection(REGISTRATIONS_COLLECTION)
                 .whereEqualTo("deviceId", deviceId)
                 .whereEqualTo("studentId", studentId)
                 .get()
                 .await()
-            
+
             snapshot.documents.mapNotNull { doc ->
                 try {
                     val id = doc.getLong("id") ?: doc.id.hashCode().toLong()
@@ -798,7 +801,7 @@ class FirebaseManager(private val context: Context? = null) {
                     val paymentDate = doc.getDate("paymentDate") ?: Date()
                     val notes = doc.getString("notes")
                     val isPaid = doc.getBoolean("isPaid") ?: true // Default to true if field is missing
-                    
+
                     WTRegistration(
                         id = id,
                         studentId = studentId,
@@ -820,24 +823,24 @@ class FirebaseManager(private val context: Context? = null) {
             emptyList()
         }
     }
-    
+
     /**
      * Save a student to Firestore and return its generated ID
      */
     suspend fun saveStudentAndGetId(student: WTStudent): Long = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Saving student to get ID: ${student.name}")
-            
+
             // Generate a new ID if not provided
             val studentId = if (student.id <= 0) {
                 idManager.getNextId("students")
             } else {
                 student.id
             }
-            
+
             // Use the generated ID
             val studentWithId = student.copy(id = studentId)
-            
+
             // Convert to map for Firestore
             val studentMap = mapOf(
                 "id" to studentWithId.id,
@@ -849,13 +852,13 @@ class FirebaseManager(private val context: Context? = null) {
                 "notes" to (studentWithId.notes ?: ""),
                 "photoUri" to (studentWithId.photoUri ?: "")
             )
-            
+
             // Save to Firestore
             firestore.collection("students")
                 .document(studentId.toString())
                 .set(studentMap)
                 .await()
-            
+
             Log.d(TAG, "Student saved with ID: $studentId")
             studentId
         } catch (e: Exception) {
@@ -863,24 +866,24 @@ class FirebaseManager(private val context: Context? = null) {
             throw e
         }
     }
-    
+
     /**
      * Save an investment to Firestore and return its generated ID
      */
     suspend fun saveInvestmentAndGetId(investment: Investment): Long = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Saving investment to get ID: ${investment.name}")
-            
+
             // Generate a new ID if not provided
             val investmentId = if (investment.id <= 0) {
                 idManager.getNextId("investments")
             } else {
                 investment.id
             }
-            
+
             // Use the generated ID
             val investmentWithId = investment.copy(id = investmentId)
-            
+
             // Convert to map for Firestore
             val investmentMap = mapOf(
                 "id" to investmentWithId.id,
@@ -892,13 +895,13 @@ class FirebaseManager(private val context: Context? = null) {
                 "date" to investmentWithId.date,
                 "isPast" to investmentWithId.isPast
             )
-            
+
             // Save to Firestore
             firestore.collection("investments")
                 .document(investmentId.toString())
                 .set(investmentMap)
                 .await()
-            
+
             Log.d(TAG, "Investment saved with ID: $investmentId")
             investmentId
         } catch (e: Exception) {
@@ -919,4 +922,4 @@ class FirebaseManager(private val context: Context? = null) {
             return@withContext null
         }
     }
-} 
+}

@@ -57,15 +57,15 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 
 class EditNoteActivity : AppCompatActivity() {
-    
+
     private lateinit var binding: ActivityEditNoteBinding
     private lateinit var viewModel: NotesViewModel
     private lateinit var imageAdapter: NoteImageAdapter
     private lateinit var voiceNoteAdapter: VoiceNoteAdapter
-    
+
     private val selectedImages = mutableListOf<Uri>()
     private val voiceNotes = mutableListOf<VoiceNote>()
-    
+
     private var mediaRecorder: MediaRecorder? = null
     private var recordingFile: File? = null
     private var isRecording = false
@@ -78,13 +78,13 @@ class EditNoteActivity : AppCompatActivity() {
             recordingTimeHandler.postDelayed(this, 1000)
         }
     }
-    
+
     private val storageUtil by lazy { FirebaseStorageUtil(this) }
     private val idManager by lazy { FirebaseIdManager() }
-    
+
     private var isNewNote = true
     private var noteId: Long? = null
-    
+
     // Image picker launcher
     private val getContent = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
@@ -100,7 +100,7 @@ class EditNoteActivity : AppCompatActivity() {
             }
         }
     }
-    
+
     // Drawing activity result
     private val drawingLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
@@ -118,53 +118,53 @@ class EditNoteActivity : AppCompatActivity() {
             }
         }
     }
-    
+
     companion object {
         private const val EXTRA_NOTE_ID = "com.example.allinone.EXTRA_NOTE_ID"
         private const val REQUEST_RECORD_AUDIO_PERMISSION = 200
         private const val TAG = "EditNoteActivity"
-        
+
         fun newIntent(context: Context, noteId: Long? = null): Intent {
             return Intent(context, EditNoteActivity::class.java).apply {
                 noteId?.let { putExtra(EXTRA_NOTE_ID, it) }
             }
         }
     }
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityEditNoteBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        
+
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.setDisplayShowHomeEnabled(true)
-        
+
         viewModel = ViewModelProvider(this)[NotesViewModel::class.java]
-        
+
         noteId = intent.getLongExtra(EXTRA_NOTE_ID, -1L)
         if (noteId == -1L) noteId = null
         isNewNote = noteId == null
-        
+
         setupToolbar()
         setupImageRecyclerView()
         setupRichTextEditor()
         setupButtons()
         setupVoiceRecordingUI()
-        
+
         // If editing existing note, load its data
         if (!isNewNote) {
             loadNoteData()
         }
     }
-    
+
     private fun setupToolbar() {
         supportActionBar?.title = if (isNewNote) getString(R.string.create_note) else getString(R.string.edit_note)
     }
-    
+
     private fun setupImageRecyclerView() {
         imageAdapter = NoteImageAdapter(
-            onDeleteClick = { uri -> 
+            onDeleteClick = { uri ->
                 // Show confirmation dialog before deleting
                 MaterialAlertDialogBuilder(this)
                     .setTitle(R.string.delete_image)
@@ -181,7 +181,7 @@ class EditNoteActivity : AppCompatActivity() {
                                 }
                             }
                         }
-                        
+
                         // Remove from UI list
                         selectedImages.remove(uri)
                         updateImageAttachmentSection()
@@ -199,7 +199,7 @@ class EditNoteActivity : AppCompatActivity() {
         }
         binding.imagesRecyclerView.visibility = View.GONE
     }
-    
+
     private fun updateImageAttachmentSection() {
         // Filter out any invalid URIs
         val validImages = selectedImages.filter { uri ->
@@ -216,89 +216,89 @@ class EditNoteActivity : AppCompatActivity() {
             }
             isValid
         }.toMutableList()
-        
+
         // Update the list if needed
         if (validImages.size != selectedImages.size) {
             Log.d(TAG, "Filtered out ${selectedImages.size - validImages.size} invalid image URIs")
             selectedImages.clear()
             selectedImages.addAll(validImages)
         }
-        
+
         // Update adapter and visibility
         imageAdapter.submitList(selectedImages.toList())
         binding.imagesRecyclerView.visibility = if (selectedImages.isEmpty()) View.GONE else View.VISIBLE
         Log.d(TAG, "Image section updated with ${selectedImages.size} images")
     }
-    
+
     private fun setupRichTextEditor() {
         // Setup formatting buttons
         binding.boldButton.setOnClickListener {
             binding.editNoteContent.bold(!binding.editNoteContent.contains(KnifeText.FORMAT_BOLD))
         }
-        
+
         binding.italicButton.setOnClickListener {
             binding.editNoteContent.italic(!binding.editNoteContent.contains(KnifeText.FORMAT_ITALIC))
         }
-        
+
         binding.underlineButton.setOnClickListener {
             binding.editNoteContent.underline(!binding.editNoteContent.contains(KnifeText.FORMAT_UNDERLINED))
         }
-        
+
         binding.bulletListButton.setOnClickListener {
             // Apply custom bullet list formatting
             insertBulletList()
         }
-        
+
         binding.numberedListButton.setOnClickListener {
             // For numbered lists, we'll insert actual numbers
             insertNumberedList()
         }
-        
+
         // Setup drawing button
         binding.drawingButton?.setOnClickListener {
             openDrawingActivity()
         }
     }
-    
+
     private fun insertBulletList() {
         try {
             val editor = binding.editNoteContent
             val start = editor.selectionStart
             val end = editor.selectionEnd
-            
+
             // If text is selected, apply to each line
             if (start != end) {
                 val selectedText = editor.text.toString().substring(start, end)
                 val lines = selectedText.split("\n")
                 val builder = StringBuilder()
-                
+
                 for (line in lines) {
                     builder.append("• $line\n")
                 }
-                
+
                 // Replace the selected text with bulleted lines
                 editor.text.replace(start, end, builder.toString())
                 editor.setSelection(start + builder.length)
             } else {
                 // If no selection, apply to current line
                 val text = editor.text.toString()
-                
+
                 // Find the beginning of the current line
                 var lineStart = start
                 while (lineStart > 0 && text[lineStart - 1] != '\n') {
                     lineStart--
                 }
-                
+
                 // Find the end of the current line
                 var lineEnd = start
                 while (lineEnd < text.length && text[lineEnd] != '\n') {
                     lineEnd++
                 }
-                
+
                 // Check if the line already has a bullet
                 val line = text.substring(lineStart, lineEnd)
                 val bulletPattern = "^•\\s*".toRegex()
-                
+
                 if (bulletPattern.containsMatchIn(line)) {
                     // If already bulleted, remove the bullet
                     val unbulleted = line.replace(bulletPattern, "")
@@ -316,46 +316,46 @@ class EditNoteActivity : AppCompatActivity() {
             Toast.makeText(this, "Error formatting text", Toast.LENGTH_SHORT).show()
         }
     }
-    
+
     private fun insertNumberedList() {
         try {
             val editor = binding.editNoteContent
             val start = editor.selectionStart
             val end = editor.selectionEnd
-            
+
             // If text is selected, apply to each line
             if (start != end) {
                 val selectedText = editor.text.toString().substring(start, end)
                 val lines = selectedText.split("\n")
                 val builder = StringBuilder()
-                
+
                 for (i in lines.indices) {
                     builder.append("${i+1}. ${lines[i]}\n")
                 }
-                
+
                 // Replace the selected text with numbered lines
                 editor.text.replace(start, end, builder.toString())
                 editor.setSelection(start + builder.length)
             } else {
                 // If no selection, apply to current line
                 val text = editor.text.toString()
-                
+
                 // Find the beginning of the current line
                 var lineStart = start
                 while (lineStart > 0 && text[lineStart - 1] != '\n') {
                     lineStart--
                 }
-                
+
                 // Find the end of the current line
                 var lineEnd = start
                 while (lineEnd < text.length && text[lineEnd] != '\n') {
                     lineEnd++
                 }
-                
+
                 // Check if the line already has a number
                 val line = text.substring(lineStart, lineEnd)
                 val numberPattern = "^\\d+\\.\\s*".toRegex()
-                
+
                 if (numberPattern.containsMatchIn(line)) {
                     // If already numbered, remove the numbering
                     val unnumbered = line.replace(numberPattern, "")
@@ -373,15 +373,15 @@ class EditNoteActivity : AppCompatActivity() {
             Toast.makeText(this, "Error formatting text", Toast.LENGTH_SHORT).show()
         }
     }
-    
+
     private fun openDrawingActivity() {
         // Show drawing options dialog directly
         showDrawingOptions()
     }
-    
+
     private fun showDrawingOptions() {
         val options = arrayOf(getString(R.string.save_to_note), getString(R.string.save_to_note_and_gallery))
-        
+
         MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.drawing_options))
             .setItems(options) { _, which ->
@@ -393,23 +393,23 @@ class EditNoteActivity : AppCompatActivity() {
             }
             .show()
     }
-    
+
     private fun setupButtons() {
         // Setup image attachment
         binding.addAttachmentButton.setOnClickListener {
             getContent.launch("image/*")
         }
-        
+
         // Setup save FAB
         binding.saveFab.setOnClickListener {
             saveNote()
         }
-        
+
         // Check if device is in dark mode
-        val isNightMode = resources.configuration.uiMode and 
-            android.content.res.Configuration.UI_MODE_NIGHT_MASK == 
+        val isNightMode = resources.configuration.uiMode and
+            android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
             android.content.res.Configuration.UI_MODE_NIGHT_YES
-        
+
         if (isNightMode) {
             // In dark mode, use a blue color
             // Using a nice shade of blue that works well in dark mode
@@ -422,7 +422,7 @@ class EditNoteActivity : AppCompatActivity() {
             binding.saveFab.imageTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE)
         }
     }
-    
+
     private fun setupVoiceRecordingUI() {
         // Setup voice notes recycler view
         voiceNoteAdapter = VoiceNoteAdapter(
@@ -434,7 +434,7 @@ class EditNoteActivity : AppCompatActivity() {
             layoutManager = LinearLayoutManager(this@EditNoteActivity)
             adapter = voiceNoteAdapter
         }
-        
+
         // Setup recording button
         binding.recordButton?.setOnClickListener {
             if (checkAudioPermission()) {
@@ -447,11 +447,11 @@ class EditNoteActivity : AppCompatActivity() {
                 requestAudioPermissions()
             }
         }
-        
+
         // Initially hide recording time
         binding.recordingTimeText?.visibility = View.GONE
         binding.stopRecordingButton?.visibility = View.GONE
-        
+
         // Setup stop button
         binding.stopRecordingButton?.setOnClickListener {
             if (isRecording) {
@@ -459,14 +459,14 @@ class EditNoteActivity : AppCompatActivity() {
             }
         }
     }
-    
+
     private fun checkAudioPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
             this,
             android.Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
     }
-    
+
     private fun requestAudioPermissions() {
         ActivityCompat.requestPermissions(
             this,
@@ -474,7 +474,7 @@ class EditNoteActivity : AppCompatActivity() {
             REQUEST_RECORD_AUDIO_PERMISSION
         )
     }
-    
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -493,7 +493,7 @@ class EditNoteActivity : AppCompatActivity() {
             }
         }
     }
-    
+
     private fun startRecording() {
         try {
             // Create file to store recording
@@ -503,7 +503,7 @@ class EditNoteActivity : AppCompatActivity() {
                 dir.mkdirs()
             }
             recordingFile = File(dir, fileName)
-            
+
             // Initialize MediaRecorder
             mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 MediaRecorder(this)
@@ -511,7 +511,7 @@ class EditNoteActivity : AppCompatActivity() {
                 @Suppress("DEPRECATION")
                 MediaRecorder()
             }
-            
+
             mediaRecorder?.apply {
                 setAudioSource(MediaRecorder.AudioSource.MIC)
                 setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
@@ -520,7 +520,7 @@ class EditNoteActivity : AppCompatActivity() {
                 prepare()
                 start()
             }
-            
+
             // Update UI to show recording state
             isRecording = true
             binding.recordButton?.setText(R.string.recording)
@@ -529,14 +529,14 @@ class EditNoteActivity : AppCompatActivity() {
             binding.recordingTimeText?.visibility = View.VISIBLE
             recordingStartTime = System.currentTimeMillis()
             recordingTimeHandler.post(recordingTimeRunnable)
-            
+
             Toast.makeText(this, getString(R.string.recording_started), Toast.LENGTH_SHORT).show()
         } catch (e: IOException) {
             Log.e(TAG, "Error starting recording: ${e.message}")
             Toast.makeText(this, getString(R.string.recording_failed), Toast.LENGTH_SHORT).show()
         }
     }
-    
+
     private fun stopRecording() {
         try {
             mediaRecorder?.apply {
@@ -544,7 +544,7 @@ class EditNoteActivity : AppCompatActivity() {
                 release()
             }
             mediaRecorder = null
-            
+
             // Update UI
             isRecording = false
             binding.recordButton?.setText(R.string.record)
@@ -552,13 +552,13 @@ class EditNoteActivity : AppCompatActivity() {
             binding.stopRecordingButton?.visibility = View.GONE
             binding.recordingTimeText?.visibility = View.GONE
             recordingTimeHandler.removeCallbacks(recordingTimeRunnable)
-            
+
             // Save the recording
             recordingFile?.let { file ->
                 // Create voice note object with sequential ID
                 CoroutineScope(Dispatchers.Main).launch {
                     val voiceNoteId = idManager.getNextId("voice_notes").toString()
-                    
+
                     val voiceNote = VoiceNote(
                         id = voiceNoteId,
                         fileName = file.name,
@@ -567,22 +567,22 @@ class EditNoteActivity : AppCompatActivity() {
                         timestamp = System.currentTimeMillis(),
                         firebaseUrl = ""  // Will be updated after upload
                     )
-                    
+
                     voiceNotes.add(voiceNote)
                     voiceNoteAdapter.notifyItemInserted(voiceNotes.size - 1)
-                    
+
                     // Upload to Firebase
                     uploadVoiceNoteToFirebase(voiceNote, file)
                 }
             }
-            
+
             Toast.makeText(this, getString(R.string.recording_saved), Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping recording: ${e.message}")
             Toast.makeText(this, getString(R.string.error_saving_recording), Toast.LENGTH_SHORT).show()
         }
     }
-    
+
     private fun getDuration(file: File): Long {
         val retriever = MediaMetadataRetriever()
         try {
@@ -596,19 +596,19 @@ class EditNoteActivity : AppCompatActivity() {
             retriever.release()
         }
     }
-    
+
     private fun uploadVoiceNoteToFirebase(voiceNote: VoiceNote, file: File) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 // Upload file to Firebase Storage
                 val downloadUrl = storageUtil.uploadFile(
-                    fileUri = Uri.fromFile(file), 
-                    folderName = "note-attachments", 
+                    fileUri = Uri.fromFile(file),
+                    folderName = "note-attachments",
                     id = noteId?.toString() ?: "temp" // Use note ID as the subfolder or "temp" for new notes
                 )
-                
+
                 if (downloadUrl != null) {
-                    Log.d(TAG, "Voice note uploaded successfully to Firebase: $downloadUrl")
+                    Log.d(TAG, "Voice note uploaded successfully")
                     withContext(Dispatchers.Main) {
                         // Update voice note with Firebase URL
                         val index = voiceNotes.indexOf(voiceNote)
@@ -616,6 +616,90 @@ class EditNoteActivity : AppCompatActivity() {
                             voiceNotes[index] = voiceNote.copy(firebaseUrl = downloadUrl)
                             voiceNoteAdapter.notifyItemChanged(index)
                             Log.d(TAG, "Voice note at index $index updated with Firebase URL")
+
+                            // If this is an existing note, update the note's voiceNoteUris field
+                            noteId?.let { id ->
+                                viewModel.allNotes.value?.find { it.id == id }?.let { existingNote ->
+                                    // Get current voice note URIs
+                                    val currentUris = existingNote.voiceNoteUris?.split(",")?.filter { it.isNotEmpty() } ?: emptyList()
+                                    val updatedUris = currentUris.toMutableList()
+
+                                    // Add the new URL if it's not already in the list
+                                    if (!updatedUris.contains(downloadUrl)) {
+                                        updatedUris.add(downloadUrl)
+                                    }
+
+                                    // Create updated note with the new voice note URIs
+                                    val updatedVoiceNoteUris = updatedUris.joinToString(",")
+                                    val updatedNote = existingNote.copy(
+                                        voiceNoteUris = updatedVoiceNoteUris,
+                                        lastEdited = Date()
+                                    )
+
+                                    // Update the note in the database
+                                    viewModel.updateNote(updatedNote)
+                                    Log.d(TAG, "Updated note with new voice note URL")
+
+                                    // Force refresh notes to ensure UI consistency
+                                    // No need to refresh here as updateNote already triggers a refresh
+                                }
+                            }
+
+                            // If this is a new note, we need to save the URL for later use when the note is created
+                            if (noteId == null) {
+                                // Save the URL to be used when the note is created
+                                Log.d(TAG, "Preparing to save new note with voice note")
+                                // We'll use the voiceNotes list when saving the note
+
+                                // For new notes, we need to immediately save the note to Firestore
+                                // to ensure the voice note URL is properly stored
+                                val title = binding.editNoteTitle.text.toString().trim()
+                                val content = binding.editNoteContent.toHtml()
+
+                                if (title.isNotEmpty()) {
+                                    // Get all voice note URLs
+                                    val voiceNoteUrls = voiceNotes.mapNotNull { vn ->
+                                        if (vn.firebaseUrl.isNotEmpty() && vn.firebaseUrl.startsWith("http")) {
+                                            vn.firebaseUrl
+                                        } else {
+                                            null
+                                        }
+                                    }
+
+                                    // Create voice note URIs string
+                                    val voiceNoteUris = if (voiceNoteUrls.isNotEmpty()) {
+                                        voiceNoteUrls.joinToString(",")
+                                    } else {
+                                        null
+                                    }
+
+                                    Log.d(TAG, "Creating new note with voice note")
+
+                                    // Save the note with the current voice note URLs
+                                    viewModel.addNote(
+                                        title = title,
+                                        content = content,
+                                        voiceNoteUris = voiceNoteUris
+                                    )
+
+                                    // Update the noteId to the newly created note's ID
+                                    noteId = viewModel.getLastCreatedNoteId()
+                                    isNewNote = false
+
+                                    Log.d(TAG, "Created new note with ID: $noteId")
+
+                                    // Show toast to inform user
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(
+                                            this@EditNoteActivity,
+                                            "Note saved with voice recording",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                } else {
+                                    Log.d(TAG, "Cannot save note yet - title is empty")
+                                }
+                            }
                         }
                     }
                 } else {
@@ -633,12 +717,12 @@ class EditNoteActivity : AppCompatActivity() {
             }
         }
     }
-    
+
     private fun playVoiceNote(voiceNote: VoiceNote) {
         try {
             // Stop any currently playing voice note
             voiceNoteAdapter.stopPlayback()
-            
+
             // Create and configure MediaPlayer
             MediaPlayer().apply {
                 setDataSource(voiceNote.filePath)
@@ -663,7 +747,7 @@ class EditNoteActivity : AppCompatActivity() {
             Toast.makeText(this, getString(R.string.error_playing_audio), Toast.LENGTH_SHORT).show()
         }
     }
-    
+
     override fun onPause() {
         super.onPause()
         if (isRecording) {
@@ -671,11 +755,11 @@ class EditNoteActivity : AppCompatActivity() {
         }
         voiceNoteAdapter.releaseMediaPlayer()
     }
-    
+
     private fun deleteVoiceNote(position: Int) {
         if (position >= 0 && position < voiceNotes.size) {
             val voiceNote = voiceNotes[position]
-            
+
             // Show confirmation dialog
             MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.delete_voice_note)
@@ -686,7 +770,7 @@ class EditNoteActivity : AppCompatActivity() {
                         CoroutineScope(Dispatchers.IO).launch {
                             try {
                                 val success = storageUtil.deleteFile(voiceNote.firebaseUrl)
-                                
+
                                 if (success && !isNewNote && noteId != null) {
                                     // Update the note's voiceNoteUris field to remove this URL
                                     updateNoteAfterVoiceNoteDeletion(voiceNote.firebaseUrl)
@@ -696,7 +780,7 @@ class EditNoteActivity : AppCompatActivity() {
                             }
                         }
                     }
-                    
+
                     // Delete local file if it exists and is not a Firebase URL
                     try {
                         if (!voiceNote.filePath.startsWith("http")) {
@@ -706,53 +790,53 @@ class EditNoteActivity : AppCompatActivity() {
                     } catch (e: Exception) {
                         Log.e(TAG, "Error deleting local voice note file: ${e.message}")
                     }
-                    
+
                     // Remove from list and update adapter
                     voiceNotes.removeAt(position)
                     voiceNoteAdapter.notifyItemRemoved(position)
-                    
+
                     Toast.makeText(this, getString(R.string.voice_note_deleted), Toast.LENGTH_SHORT).show()
                 }
                 .setNegativeButton(R.string.cancel, null)
                 .show()
         }
     }
-    
+
     private fun updateNoteAfterVoiceNoteDeletion(deletedUrl: String) {
         noteId?.let { id ->
             viewModel.allNotes.value?.find { it.id == id }?.let { existingNote ->
                 // Filter out the deleted URL from voiceNoteUris
-                val currentUris = existingNote.voiceNoteUris?.split(",")?.filter { 
-                    it.isNotEmpty() && it != deletedUrl 
+                val currentUris = existingNote.voiceNoteUris?.split(",")?.filter {
+                    it.isNotEmpty() && it != deletedUrl
                 } ?: emptyList()
-                
+
                 // Create updated voice note URIs string
                 val updatedVoiceNoteUris = if (currentUris.isEmpty()) null else currentUris.joinToString(",")
-                
+
                 // Create updated note with the new voice note URIs
                 val updatedNote = existingNote.copy(
                     voiceNoteUris = updatedVoiceNoteUris,
                     lastEdited = Date()
                 )
-                
+
                 // Update the note in the database
                 viewModel.updateNote(updatedNote)
             }
         }
     }
-    
+
     private fun loadNoteData() {
         noteId?.let { id ->
             // Get the note by ID from the view model
             viewModel.allNotes.observe(this) { notes ->
                 // Find the specific note with this ID
                 val note = notes.find { it.id == id }
-                
+
                 note?.let { foundNote ->
                     // Pre-fill the form
                     binding.editNoteTitle.setText(foundNote.title)
                     binding.editNoteContent.fromHtml(foundNote.content)
-                    
+
                     // Load images
                     selectedImages.clear()
                     foundNote.imageUris?.split(",")?.forEach { uriString ->
@@ -766,10 +850,10 @@ class EditNoteActivity : AppCompatActivity() {
                         }
                     }
                     updateImageAttachmentSection()
-                    
+
                     // Load voice notes if any exist
                     voiceNotes.clear()
-                    
+
                     if (!foundNote.voiceNoteUris.isNullOrEmpty()) {
                         loadVoiceNotesFromUris(foundNote.voiceNoteUris)
                     } else {
@@ -779,66 +863,72 @@ class EditNoteActivity : AppCompatActivity() {
             }
         }
     }
-    
+
     private fun loadVoiceNotesFromUris(voiceNoteUrisString: String) {
-        val voiceNoteUrls = voiceNoteUrisString.split(",").filter { it.isNotEmpty() }
-        
+        Log.d(TAG, "Loading voice notes from URIs: $voiceNoteUrisString")
+        val voiceNoteUrls = voiceNoteUrisString.split(",").filter { it.isNotEmpty() && it.startsWith("http") }
+
         if (voiceNoteUrls.isNotEmpty()) {
+            Log.d(TAG, "Found ${voiceNoteUrls.size} valid voice note URLs")
             // Create voice note objects for each URL
             CoroutineScope(Dispatchers.Main).launch {
                 for (url in voiceNoteUrls) {
                     try {
-                        if (url.isNotEmpty() && url.startsWith("http")) {
-                            val fileName = url.substring(url.lastIndexOf('/') + 1)
-                            val voiceNoteId = idManager.getNextId("voice_notes").toString()
-                            
-                            voiceNotes.add(
-                                VoiceNote(
-                                    id = voiceNoteId,
-                                    fileName = fileName,
-                                    filePath = url, // Use remote URL as filePath for playback
-                                    duration = 0, // Duration unknown until played
-                                    timestamp = Date().time,
-                                    firebaseUrl = url
-                                )
+                        val fileName = url.substring(url.lastIndexOf('/') + 1)
+                        val voiceNoteId = idManager.getNextId("voice_notes").toString()
+
+                        Log.d(TAG, "Creating voice note object for URL: $url")
+                        voiceNotes.add(
+                            VoiceNote(
+                                id = voiceNoteId,
+                                fileName = fileName,
+                                filePath = url, // Use remote URL as filePath for playback
+                                duration = 0, // Duration unknown until played
+                                timestamp = Date().time,
+                                firebaseUrl = url
                             )
-                        }
+                        )
                     } catch (e: Exception) {
                         Log.e(TAG, "Error parsing voice note URL: $url", e)
                     }
                 }
-                
+
                 updateVoiceNotesList()
             }
         } else {
+            Log.d(TAG, "No valid voice note URLs found in: $voiceNoteUrisString")
             binding.voiceNotesRecyclerView?.visibility = View.GONE
         }
     }
-    
+
     private fun updateVoiceNotesList() {
         if (voiceNotes.isNotEmpty()) {
+            Log.d(TAG, "Updating voice notes list with ${voiceNotes.size} items")
             voiceNoteAdapter.notifyDataSetChanged()
             binding.voiceNotesRecyclerView?.visibility = View.VISIBLE
         } else {
+            Log.d(TAG, "No voice notes to display")
             binding.voiceNotesRecyclerView?.visibility = View.GONE
         }
     }
-    
+
     private fun saveNote() {
         val title = binding.editNoteTitle.text.toString().trim()
         val content = binding.editNoteContent.toHtml()
-        
+
         if (title.isBlank()) {
             Toast.makeText(this, getString(R.string.please_enter_title), Toast.LENGTH_SHORT).show()
             return
         }
-        
+
         // First ensure we only have valid images
         updateImageAttachmentSection()
-        
+
         // Process and upload new images that need to be uploaded to Firebase
         val processedImageUris = mutableListOf<String>()
-        
+
+        // Process voice notes for saving
+
         if (selectedImages.isNotEmpty()) {
             CoroutineScope(Dispatchers.Main).launch {
                 val dialog = MaterialAlertDialogBuilder(this@EditNoteActivity)
@@ -847,7 +937,7 @@ class EditNoteActivity : AppCompatActivity() {
                     .setCancelable(false)
                     .create()
                 dialog.show()
-                
+
                 try {
                     val uploadJobs = selectedImages.map { uri ->
                         CoroutineScope(Dispatchers.IO).async {
@@ -867,30 +957,30 @@ class EditNoteActivity : AppCompatActivity() {
                             }
                         }
                     }
-                    
+
                     // Wait for all uploads to complete
                     uploadJobs.awaitAll()
-                    
+
                     dialog.dismiss()
-                    
+
                     // Convert processed URIs to comma-separated string
                     val imageUris = if (processedImageUris.isNotEmpty()) {
                         processedImageUris.joinToString(",")
                     } else {
                         null
                     }
-                    
+
                     // Convert voice note URIs to comma-separated string
                     val voiceNoteUris = if (voiceNotes.isNotEmpty()) {
                         // Only save Firebase URLs for permanent storage
-                        val filteredUrls = voiceNotes.mapNotNull { 
+                        val filteredUrls = voiceNotes.mapNotNull {
                             if (it.firebaseUrl.isNotEmpty() && it.firebaseUrl.startsWith("http")) {
-                                it.firebaseUrl 
+                                it.firebaseUrl
                             } else {
                                 null
                             }
                         }
-                        
+
                         if (filteredUrls.isEmpty()) {
                             null
                         } else {
@@ -899,7 +989,7 @@ class EditNoteActivity : AppCompatActivity() {
                     } else {
                         null
                     }
-                    
+
                     finalizeSaveNote(title, content, imageUris, voiceNoteUris)
                 } catch (e: Exception) {
                     dialog.dismiss()
@@ -909,25 +999,25 @@ class EditNoteActivity : AppCompatActivity() {
                         Toast.LENGTH_SHORT
                     ).show()
                     Log.e(TAG, "Error uploading images: ${e.message}", e)
-                    
+
                     // Fallback to original URIs if uploads fail
                     val imageUris = if (selectedImages.isNotEmpty()) {
                         selectedImages.joinToString(",") { it.toString() }
                     } else {
                         null
                     }
-                    
+
                     // Convert voice note URIs to comma-separated string
                     val voiceNoteUris = if (voiceNotes.isNotEmpty()) {
                         // Only save Firebase URLs for permanent storage
-                        val filteredUrls = voiceNotes.mapNotNull { 
+                        val filteredUrls = voiceNotes.mapNotNull {
                             if (it.firebaseUrl.isNotEmpty() && it.firebaseUrl.startsWith("http")) {
-                                it.firebaseUrl 
+                                it.firebaseUrl
                             } else {
                                 null
                             }
                         }
-                        
+
                         if (filteredUrls.isEmpty()) {
                             null
                         } else {
@@ -936,7 +1026,7 @@ class EditNoteActivity : AppCompatActivity() {
                     } else {
                         null
                     }
-                    
+
                     finalizeSaveNote(title, content, imageUris, voiceNoteUris)
                 }
             }
@@ -944,14 +1034,14 @@ class EditNoteActivity : AppCompatActivity() {
             // No images to upload
             val voiceNoteUris = if (voiceNotes.isNotEmpty()) {
                 // Only save Firebase URLs for permanent storage
-                val filteredUrls = voiceNotes.mapNotNull { 
+                val filteredUrls = voiceNotes.mapNotNull {
                     if (it.firebaseUrl.isNotEmpty() && it.firebaseUrl.startsWith("http")) {
-                        it.firebaseUrl 
+                        it.firebaseUrl
                     } else {
                         null
                     }
                 }
-                
+
                 if (filteredUrls.isEmpty()) {
                     null
                 } else {
@@ -960,19 +1050,21 @@ class EditNoteActivity : AppCompatActivity() {
             } else {
                 null
             }
-            
+
             finalizeSaveNote(title, content, null, voiceNoteUris)
         }
     }
-    
+
     private fun finalizeSaveNote(title: String, content: String, imageUris: String?, voiceNoteUris: String?) {
         if (isNewNote) {
+
             viewModel.addNote(
                 title = title,
                 content = content,
                 imageUris = imageUris,
                 voiceNoteUris = voiceNoteUris
             )
+            // Note saved successfully
             Toast.makeText(this, getString(R.string.note_saved), Toast.LENGTH_SHORT).show()
             setResult(RESULT_OK)
         } else {
@@ -982,10 +1074,10 @@ class EditNoteActivity : AppCompatActivity() {
                     // Check for deleted images
                     val existingImageUris = existingNote.imageUris?.split(",")?.filter { it.isNotEmpty() } ?: emptyList()
                     val currentImageUris = imageUris?.split(",")?.filter { it.isNotEmpty() } ?: emptyList()
-                    
+
                     // Find images that were deleted (in existing note but not in current list)
                     val deletedImages = existingImageUris.filter { uri -> !currentImageUris.contains(uri) }
-                    
+
                     // Delete removed images from Firebase Storage
                     if (deletedImages.isNotEmpty()) {
                         CoroutineScope(Dispatchers.IO).launch {
@@ -1000,34 +1092,44 @@ class EditNoteActivity : AppCompatActivity() {
                             }
                         }
                     }
+
+                    // Check existing note data
                 }
-                
+
+                // Get the existing note to preserve fields that might not be updated
+                val existingNote = viewModel.allNotes.value?.find { it.id == id }
+
+                // Create updated note, preserving voice note URIs if not explicitly set
                 val updatedNote = Note(
                     id = id,
                     title = title,
                     content = content,
+                    date = existingNote?.date ?: Date(),
                     imageUris = imageUris,
-                    voiceNoteUris = voiceNoteUris,
-                    lastEdited = Date()
+                    // If voiceNoteUris is null but existingNote has voice notes, preserve them
+                    voiceNoteUris = voiceNoteUris ?: existingNote?.voiceNoteUris,
+                    lastEdited = Date(),
+                    isRichText = existingNote?.isRichText ?: true
                 )
                 viewModel.updateNote(updatedNote)
+                // Note updated successfully
                 Toast.makeText(this, getString(R.string.note_updated), Toast.LENGTH_SHORT).show()
                 setResult(RESULT_OK)
             }
         }
-        
+
         finish()
     }
-    
+
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.menu_edit_note, menu)
-        
+
         // Hide delete option for new notes
         menu.findItem(R.id.action_delete).isVisible = !isNewNote
-        
+
         return true
     }
-    
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             android.R.id.home -> {
@@ -1041,13 +1143,13 @@ class EditNoteActivity : AppCompatActivity() {
             else -> super.onOptionsItemSelected(item)
         }
     }
-    
+
     private fun deleteNote() {
         noteId?.let { id ->
             viewModel.allNotes.observe(this) { notes ->
                 // Find the specific note with this ID
                 val note = notes.find { it.id == id }
-                
+
                 note?.let { foundNote ->
                     // Show confirmation dialog
                     MaterialAlertDialogBuilder(this)
@@ -1065,7 +1167,7 @@ class EditNoteActivity : AppCompatActivity() {
             }
         }
     }
-    
+
     private fun showFullscreenImage(uri: Uri) {
         try {
             val dialog = Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
@@ -1077,7 +1179,7 @@ class EditNoteActivity : AppCompatActivity() {
                         .placeholder(R.drawable.ic_image)
                         .error(android.R.drawable.ic_menu_close_clear_cancel)
                         .into(this)
-                    
+
                     // Set layout parameters
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -1088,7 +1190,7 @@ class EditNoteActivity : AppCompatActivity() {
                     Toast.makeText(this@EditNoteActivity, "Error loading image: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
-            
+
             // Set content view and show dialog
             dialog.setContentView(photoView)
             dialog.show()
@@ -1102,7 +1204,7 @@ class EditNoteActivity : AppCompatActivity() {
             Toast.makeText(this, "Error showing image: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
-    
+
     private fun uploadImageToFirebase(imageUri: Uri): String? = runBlocking {
         try {
             // Upload file to Firebase Storage using the new folder structure
@@ -1117,4 +1219,4 @@ class EditNoteActivity : AppCompatActivity() {
             return@runBlocking null
         }
     }
-} 
+}

@@ -58,7 +58,7 @@ class NotesFragment : Fragment() {
     private val selectedImages = mutableListOf<Uri>()
     private var searchMenuItem: MenuItem? = null
     private var allNotes: List<Note> = emptyList()
-    
+
     private val getContent = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         uris?.let { selectedUris ->
             selectedUris.forEach { uri ->
@@ -77,7 +77,7 @@ class NotesFragment : Fragment() {
                     ).show()
                 }
             }
-            
+
             // Update the recycler view in the dialog
             dialogBinding?.let { binding ->
                 val adapter = binding.imagesRecyclerView.adapter as NoteImageAdapter
@@ -86,9 +86,9 @@ class NotesFragment : Fragment() {
             }
         }
     }
-    
+
     private var dialogBinding: DialogEditNoteBinding? = null
-    
+
     // Register for activity result from EditNoteActivity
     private val editNoteLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -110,20 +110,20 @@ class NotesFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
+
         setupRecyclerView()
         setupFab()
         setupMenu()
         observeNotes()
         setupSwipeRefresh()
     }
-    
+
     private fun setupMenu() {
         requireActivity().addMenuProvider(object : MenuProvider {
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
                 menuInflater.inflate(R.menu.search_notes, menu)
                 searchMenuItem = menu.findItem(R.id.action_search)
-                
+
                 val searchView = searchMenuItem?.actionView as? SearchView
                 searchView?.let {
                     // Set search view expanded listener
@@ -133,33 +133,33 @@ class NotesFragment : Fragment() {
                         slide.duration = 200
                         TransitionManager.beginDelayedTransition((activity as AppCompatActivity).findViewById(R.id.toolbar), slide)
                     }
-                    
+
                     // Set search view collapse listener
-                    it.setOnCloseListener { 
+                    it.setOnCloseListener {
                         // Animate search view collapse
                         val slide = Slide(Gravity.END)
                         slide.duration = 200
                         TransitionManager.beginDelayedTransition((activity as AppCompatActivity).findViewById(R.id.toolbar), slide)
-                        
+
                         // Reset the notes list
                         resetNotesList()
                         true
                     }
-                    
+
                     // Set up query listener
                     it.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
                         override fun onQueryTextSubmit(query: String?): Boolean {
                             query?.let { searchQuery ->
                                 filterNotes(searchQuery)
                             }
-                            
+
                             // Hide keyboard
                             val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
                             imm.hideSoftInputFromWindow(it.windowToken, 0)
-                            
+
                             return true
                         }
-                        
+
                         override fun onQueryTextChange(newText: String?): Boolean {
                             newText?.let { searchQuery ->
                                 filterNotes(searchQuery)
@@ -167,7 +167,7 @@ class NotesFragment : Fragment() {
                             return true
                         }
                     })
-                    
+
                     // Customize search view appearance
                     val searchEditText = it.findViewById<EditText>(androidx.appcompat.R.id.search_src_text)
                     searchEditText?.apply {
@@ -175,7 +175,7 @@ class NotesFragment : Fragment() {
                         setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
                         hint = getString(R.string.search_hint)
                         imeOptions = EditorInfo.IME_ACTION_SEARCH
-                        
+
                         // Set X button to reset search
                         setOnEditorActionListener { _, actionId, _ ->
                             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
@@ -192,7 +192,7 @@ class NotesFragment : Fragment() {
                     val searchIcon = it.findViewById<ImageView>(androidx.appcompat.R.id.search_mag_icon)
                     searchIcon?.setColorFilter(ContextCompat.getColor(requireContext(), android.R.color.white),
                         android.graphics.PorterDuff.Mode.SRC_IN)
-                    
+
                     // Make sure search icon is visible and properly sized
                     searchIcon?.apply {
                         visibility = View.VISIBLE
@@ -209,7 +209,7 @@ class NotesFragment : Fragment() {
                         android.graphics.PorterDuff.Mode.SRC_IN)
                 }
             }
-            
+
             override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
                 return when (menuItem.itemId) {
                     R.id.action_search -> {
@@ -221,7 +221,7 @@ class NotesFragment : Fragment() {
             }
         }, viewLifecycleOwner, Lifecycle.State.RESUMED)
     }
-    
+
     private fun resetNotesList() {
         // Sort notes by last edited date (newest first)
         val sortedNotes = allNotes.sortedByDescending { it.lastEdited }
@@ -244,40 +244,41 @@ class NotesFragment : Fragment() {
                 }).contains(query, ignoreCase = true)
             }
         }
-        
+
         // Sort filtered notes by last edited date (newest first)
         val sortedFilteredNotes = filteredNotes.sortedByDescending { it.lastEdited }
         notesAdapter.submitList(sortedFilteredNotes)
         binding.emptyStateText.visibility = if (sortedFilteredNotes.isEmpty()) View.VISIBLE else View.GONE
     }
-    
+
     private fun setupRecyclerView() {
         notesAdapter = NotesAdapter(
-            onNoteClick = { note -> 
+            onNoteClick = { note ->
                 // Use the activity result launcher instead of direct startActivity
                 editNoteLauncher.launch(EditNoteActivity.newIntent(requireContext(), note.id))
             },
-            onImageClick = { uri -> showFullscreenImage(uri) }
+            onImageClick = { uri -> showFullscreenImage(uri) },
+            viewModel = viewModel // Pass the viewModel to the adapter
         )
-        
+
         binding.notesRecyclerView.apply {
             layoutManager = LinearLayoutManager(context)
             adapter = notesAdapter
         }
     }
-    
+
     private fun setupFab() {
         binding.addNoteFab.setOnClickListener {
             // Use the activity result launcher instead of direct startActivity
             editNoteLauncher.launch(EditNoteActivity.newIntent(requireContext()))
         }
     }
-    
+
     private fun observeNotes() {
         viewModel.allNotes.observe(viewLifecycleOwner) { notes ->
             // Store all notes for filtering
             allNotes = notes
-            
+
             // Apply search filter if search is active
             val searchView = searchMenuItem?.actionView as? SearchView
             if (searchView?.isIconified == false && !searchView.query.isNullOrEmpty()) {
@@ -290,18 +291,18 @@ class NotesFragment : Fragment() {
             }
         }
     }
-    
+
     private fun setupSwipeRefresh() {
         binding.swipeRefreshLayout.setOnRefreshListener {
             viewModel.refreshData()
         }
-        
+
         // Observe loading state to hide the refresh indicator when done
         viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
             binding.swipeRefreshLayout.isRefreshing = isLoading
         }
     }
-    
+
     @Suppress("UNUSED_PARAMETER")
     private fun shareNote(unused: Note, title: String, content: String) {
         val plainText = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
@@ -310,7 +311,7 @@ class NotesFragment : Fragment() {
             @Suppress("DEPRECATION")
             Html.fromHtml(content).toString()
         }
-        
+
         val shareIntent = Intent().apply {
             action = Intent.ACTION_SEND
             putExtra(Intent.EXTRA_TITLE, title)
@@ -318,45 +319,45 @@ class NotesFragment : Fragment() {
             putExtra(Intent.EXTRA_TEXT, plainText)
             type = "text/plain"
         }
-        
+
         startActivity(Intent.createChooser(shareIntent, "Share Note"))
     }
-    
+
     private fun setupRichTextEditor(dialogBinding: DialogEditNoteBinding) {
         // Setup formatting buttons
         dialogBinding.boldButton.setOnClickListener {
             dialogBinding.editNoteContent.bold(!dialogBinding.editNoteContent.contains(KnifeText.FORMAT_BOLD))
         }
-        
+
         dialogBinding.italicButton.setOnClickListener {
             dialogBinding.editNoteContent.italic(!dialogBinding.editNoteContent.contains(KnifeText.FORMAT_ITALIC))
         }
-        
+
         dialogBinding.underlineButton.setOnClickListener {
             dialogBinding.editNoteContent.underline(!dialogBinding.editNoteContent.contains(KnifeText.FORMAT_UNDERLINED))
         }
-        
+
         dialogBinding.bulletListButton.setOnClickListener {
             dialogBinding.editNoteContent.bullet(!dialogBinding.editNoteContent.contains(KnifeText.FORMAT_BULLET))
         }
-        
+
         dialogBinding.numberedListButton.setOnClickListener {
             // Apply ordered list formatting
             applyOrderedList(dialogBinding.editNoteContent)
         }
-        
+
         dialogBinding.addImageButton.setOnClickListener {
             // This inserts an image directly into the text content
             // Different from attachments which are shown separately
             getContent.launch("image/*")
         }
     }
-    
+
     private fun applyOrderedList(editor: KnifeText) {
         // Check if there's already an ordered list at the cursor position
         val currentText = editor.html
         val isOrderedList = currentText.contains("<ol>") && currentText.contains("</ol>")
-        
+
         if (isOrderedList) {
             // Remove ordered list formatting
             val processedText = currentText
@@ -364,20 +365,20 @@ class NotesFragment : Fragment() {
                 .replace("</ol>", "")
                 .replace("<li>", "")
                 .replace("</li>", "\n")
-            
+
             editor.fromHtml(processedText)
         } else {
             // Get cursor position to apply ordered list formatting
             val selectionStart = editor.selectionStart
             val selectionEnd = editor.selectionEnd
             val text = editor.text.toString()
-            
+
             // Check if there's text selected
             if (selectionStart != selectionEnd) {
                 // Get the selected text lines
                 val selectedText = text.substring(selectionStart, selectionEnd)
                 val lines = selectedText.split("\n")
-                
+
                 // Create ordered list HTML
                 val orderedListHtml = StringBuilder("<ol>")
                 for (line in lines) {
@@ -386,51 +387,51 @@ class NotesFragment : Fragment() {
                     }
                 }
                 orderedListHtml.append("</ol>")
-                
+
                 // Replace selected text with ordered list HTML
                 editor.fromHtml(
-                    text.substring(0, selectionStart) + 
-                    orderedListHtml.toString() + 
+                    text.substring(0, selectionStart) +
+                    orderedListHtml.toString() +
                     text.substring(selectionEnd)
                 )
             } else {
                 // If no text is selected, insert an empty ordered list at the current line
-                
+
                 // Find the beginning of the current line
                 var lineStart = selectionStart
                 while (lineStart > 0 && text[lineStart - 1] != '\n') {
                     lineStart--
                 }
-                
+
                 // Find the end of the current line
                 var lineEnd = selectionStart
                 while (lineEnd < text.length && text[lineEnd] != '\n') {
                     lineEnd++
                 }
-                
+
                 // Get the current line text
                 val currentLine = text.substring(lineStart, lineEnd).trim()
-                
+
                 // Create HTML for the ordered list
                 val htmlToInsert = if (currentLine.isEmpty()) {
                     "<ol><li></li></ol>"
                 } else {
                     "<ol><li>$currentLine</li></ol>"
                 }
-                
+
                 // Replace the current line with the ordered list HTML
                 editor.fromHtml(
-                    text.substring(0, lineStart) + 
-                    htmlToInsert + 
+                    text.substring(0, lineStart) +
+                    htmlToInsert +
                     text.substring(lineEnd)
                 )
-                
+
                 // Set cursor inside the list item
                 editor.setSelection(lineStart + htmlToInsert.length - 5)  // Position inside <li></li>
             }
         }
     }
-    
+
     private fun showDeleteConfirmation(note: Note) {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Delete Note")
@@ -442,7 +443,7 @@ class NotesFragment : Fragment() {
             .setNegativeButton("Cancel", null)
             .show()
     }
-    
+
     private fun showFullscreenImage(uri: Uri) {
         try {
             val dialog = Dialog(requireContext(), android.R.style.Theme_Black_NoTitleBar_Fullscreen)
@@ -454,7 +455,7 @@ class NotesFragment : Fragment() {
                         .placeholder(R.drawable.ic_image)
                         .error(android.R.drawable.ic_menu_close_clear_cancel)
                         .into(this)
-                    
+
                     // Set layout parameters
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -465,7 +466,7 @@ class NotesFragment : Fragment() {
                     Toast.makeText(requireContext(), "Error loading image: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
-            
+
             // Set content view and show dialog
             dialog.setContentView(photoView)
             dialog.show()
@@ -479,10 +480,10 @@ class NotesFragment : Fragment() {
             Toast.makeText(requireContext(), "Error showing image: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
-    
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
         dialogBinding = null
     }
-} 
+}

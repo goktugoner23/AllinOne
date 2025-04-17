@@ -15,14 +15,16 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.allinone.R
 import com.example.allinone.data.Note
+import com.example.allinone.viewmodels.NotesViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
 import com.bumptech.glide.Glide
 
 class NotesAdapter(
     private val onNoteClick: (Note) -> Unit,
-    private val onImageClick: (Uri) -> Unit = { }
-) : 
+    private val onImageClick: (Uri) -> Unit = { },
+    private val viewModel: NotesViewModel? = null
+) :
     ListAdapter<Note, NotesAdapter.NoteViewHolder>(NoteDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): NoteViewHolder {
@@ -37,8 +39,8 @@ class NotesAdapter(
         holder.itemView.setOnClickListener { onNoteClick(note) }
     }
 
-    class NoteViewHolder(
-        itemView: View, 
+    inner class NoteViewHolder(
+        itemView: View,
         private val onImageClick: (Uri) -> Unit
     ) : RecyclerView.ViewHolder(itemView) {
         private val titleTextView: TextView = itemView.findViewById(R.id.noteTitle)
@@ -52,12 +54,12 @@ class NotesAdapter(
         fun bind(note: Note) {
             titleTextView.text = note.title
             dateTextView.text = dateFormat.format(note.lastEdited)
-            
+
             // Set up share button
             shareButton.setOnClickListener {
                 shareNote(note)
             }
-            
+
             // Always render content as HTML to ensure proper display
             if (note.content.isNotEmpty()) {
                 try {
@@ -77,38 +79,84 @@ class NotesAdapter(
             }
 
             // Handle voice notes if present
-            if (!note.voiceNoteUris.isNullOrEmpty()) {
-                val voiceNoteUris = note.voiceNoteUris.split(",").filter { it.isNotEmpty() }
-                Log.d("NotesAdapter", "Note ${note.id} has voiceNoteUris: ${note.voiceNoteUris}")
-                
-                if (voiceNoteUris.isNotEmpty()) {
-                    Log.d("NotesAdapter", "Note ${note.id} has ${voiceNoteUris.size} voice notes: ${voiceNoteUris.joinToString()}")
-                    voiceNoteIndicator.visibility = View.VISIBLE
-                    val voiceNoteCount = voiceNoteUris.size
-                    voiceNoteCountText.text = if (voiceNoteCount == 1) {
-                        itemView.context.getString(R.string.voice_note_singular)
+            try {
+                if (!note.voiceNoteUris.isNullOrEmpty()) {
+                    val voiceNoteUris = note.voiceNoteUris.split(",").filter { it.isNotEmpty() }
+                    Log.d("NotesAdapter", "Note ${note.id} has voiceNoteUris: ${note.voiceNoteUris}")
+
+                    if (voiceNoteUris.isNotEmpty()) {
+                        Log.d("NotesAdapter", "Note ${note.id} has ${voiceNoteUris.size} voice notes: ${voiceNoteUris.joinToString()}")
+                        voiceNoteIndicator.visibility = View.VISIBLE
+                        val voiceNoteCount = voiceNoteUris.size
+                        voiceNoteCountText.text = if (voiceNoteCount == 1) {
+                            itemView.context.getString(R.string.voice_note_singular)
+                        } else {
+                            itemView.context.getString(R.string.voice_note_plural, voiceNoteCount)
+                        }
+
+                        // Make sure attachments section is visible
+                        val attachmentsSection = itemView.findViewById<ViewGroup>(R.id.attachmentsSection)
+                        attachmentsSection.visibility = View.VISIBLE
                     } else {
-                        itemView.context.getString(R.string.voice_note_plural, voiceNoteCount)
+                        // If no valid URIs in memory, check Firestore directly
+                        viewModel?.checkNoteVoiceNotes(note.id) { hasVoiceNotes ->
+                            if (hasVoiceNotes) {
+                                Log.d("NotesAdapter", "Note ${note.id} has voice notes in Firestore")
+                                voiceNoteIndicator.visibility = View.VISIBLE
+                                voiceNoteCountText.text = itemView.context.getString(R.string.voice_note_singular)
+                                voiceNoteIndicator.requestLayout()
+                                val attachmentsSection = itemView.findViewById<ViewGroup>(R.id.attachmentsSection)
+                                attachmentsSection.visibility = View.VISIBLE
+                            } else {
+                                Log.d("NotesAdapter", "Note ${note.id} has no voice notes in Firestore")
+                                voiceNoteIndicator.visibility = View.GONE
+                            }
+                        }
                     }
                 } else {
-                    Log.d("NotesAdapter", "Note ${note.id} has empty voice note list after filtering")
-                    voiceNoteIndicator.visibility = View.GONE
+                    // If no voice notes in memory, check Firestore directly
+                    viewModel?.checkNoteVoiceNotes(note.id) { hasVoiceNotes ->
+                        if (hasVoiceNotes) {
+                            Log.d("NotesAdapter", "Note ${note.id} has voice notes in Firestore")
+                            voiceNoteIndicator.visibility = View.VISIBLE
+                            voiceNoteCountText.text = itemView.context.getString(R.string.voice_note_singular)
+                            voiceNoteIndicator.requestLayout()
+                            val attachmentsSection = itemView.findViewById<ViewGroup>(R.id.attachmentsSection)
+                            attachmentsSection.visibility = View.VISIBLE
+                        } else {
+                            Log.d("NotesAdapter", "Note ${note.id} has no voice notes in Firestore")
+                            voiceNoteIndicator.visibility = View.GONE
+                        }
+                    }
                 }
-            } else {
-                Log.d("NotesAdapter", "Note ${note.id} has null or empty voiceNoteUris")
-                voiceNoteIndicator.visibility = View.GONE
+            } catch (e: Exception) {
+                Log.e("NotesAdapter", "Error handling voice notes for note ${note.id}: ${e.message}", e)
+                // If there's an error, check Firestore directly as a fallback
+                viewModel?.checkNoteVoiceNotes(note.id) { hasVoiceNotes ->
+                    if (hasVoiceNotes) {
+                        Log.d("NotesAdapter", "Note ${note.id} has voice notes in Firestore")
+                        voiceNoteIndicator.visibility = View.VISIBLE
+                        voiceNoteCountText.text = itemView.context.getString(R.string.voice_note_singular)
+                        voiceNoteIndicator.requestLayout()
+                        val attachmentsSection = itemView.findViewById<ViewGroup>(R.id.attachmentsSection)
+                        attachmentsSection.visibility = View.VISIBLE
+                    } else {
+                        Log.d("NotesAdapter", "Note ${note.id} has no voice notes in Firestore")
+                        voiceNoteIndicator.visibility = View.GONE
+                    }
+                }
             }
 
             // Handle images if present
             val imageContainer = itemView.findViewById<ViewGroup>(R.id.imageContainer)
             imageContainer.removeAllViews()
-            
+
             if (!note.imageUris.isNullOrEmpty()) {
                 imageContainer.visibility = View.VISIBLE
-                
+
                 // Split by comma and process each URI
                 val imageUris = note.imageUris.split(",").filter { it.isNotEmpty() }
-                
+
                 // For each image URI, create and add an ImageView
                 for (uriString in imageUris) {
                     try {
@@ -119,13 +167,13 @@ class NotesAdapter(
                             setPadding(4, 4, 4, 4)
                             setOnClickListener { onImageClick(uri) }
                         }
-                        
+
                         Glide.with(itemView.context)
                             .load(uri)
                             .placeholder(R.drawable.ic_image)
                             .error(android.R.drawable.ic_menu_close_clear_cancel)
                             .into(imageView)
-                        
+
                         imageContainer.addView(imageView)
                     } catch (e: Exception) {
                         Log.e("NotesAdapter", "Error adding image preview: ${e.message}", e)
@@ -173,7 +221,7 @@ class NotesAdapter(
                 @Suppress("DEPRECATION")
                 Html.fromHtml(note.content).toString()
             }
-            
+
             val shareIntent = Intent().apply {
                 action = Intent.ACTION_SEND
                 putExtra(Intent.EXTRA_TITLE, note.title)
@@ -181,7 +229,7 @@ class NotesAdapter(
                 putExtra(Intent.EXTRA_TEXT, plainText)
                 type = "text/plain"
             }
-            
+
             itemView.context.startActivity(Intent.createChooser(shareIntent, "Share Note"))
         }
     }
@@ -195,4 +243,4 @@ class NotesAdapter(
             return oldItem == newItem
         }
     }
-} 
+}
