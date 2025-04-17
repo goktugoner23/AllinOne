@@ -190,6 +190,7 @@ class WorkoutExerciseFragment : Fragment() {
                     WorkoutExercise(
                         exerciseId = programExercise.exerciseId,
                         exerciseName = programExercise.exerciseName,
+                        muscleGroup = programExercise.muscleGroup,
                         sets = List(programExercise.sets) { setIndex ->
                             WorkoutSet(
                                 setNumber = setIndex + 1,

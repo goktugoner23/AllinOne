@@ -944,6 +944,7 @@ class FirebaseManager(private val context: Context? = null) {
                     "sets" to exercise.sets,
                     "reps" to exercise.reps,
                     "weight" to exercise.weight,
+                    "muscleGroup" to exercise.muscleGroup,
                     "notes" to exercise.notes
                 )
             }
@@ -988,6 +989,7 @@ class FirebaseManager(private val context: Context? = null) {
                             sets = (exerciseMap["sets"] as? Number)?.toInt() ?: 0,
                             reps = (exerciseMap["reps"] as? Number)?.toInt() ?: 0,
                             weight = (exerciseMap["weight"] as? Number)?.toDouble() ?: 0.0,
+                            muscleGroup = exerciseMap["muscleGroup"] as? String,
                             notes = exerciseMap["notes"] as? String
                         )
                     }
@@ -1039,6 +1041,7 @@ class FirebaseManager(private val context: Context? = null) {
                 mapOf(
                     "exerciseId" to exercise.exerciseId,
                     "exerciseName" to exercise.exerciseName,
+                    "muscleGroup" to exercise.muscleGroup,
                     "sets" to setMaps
                 )
             }
@@ -1095,6 +1098,7 @@ class FirebaseManager(private val context: Context? = null) {
                         WorkoutExercise(
                             exerciseId = (exerciseMap["exerciseId"] as? Number)?.toLong() ?: 0L,
                             exerciseName = exerciseMap["exerciseName"] as? String ?: "",
+                            muscleGroup = exerciseMap["muscleGroup"] as? String,
                             sets = sets
                         )
                     }

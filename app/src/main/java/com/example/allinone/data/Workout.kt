@@ -26,6 +26,7 @@ data class Workout(
 data class WorkoutExercise(
     val exerciseId: Long,
     val exerciseName: String,
+    val muscleGroup: String? = null,
     val sets: List<WorkoutSet> = emptyList()
 ) : Parcelable
 

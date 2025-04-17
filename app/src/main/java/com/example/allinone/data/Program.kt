@@ -27,5 +27,6 @@ data class ProgramExercise(
     val sets: Int,
     val reps: Int,
     val weight: Double,
+    val muscleGroup: String? = null,
     val notes: String? = null
 ) : Parcelable

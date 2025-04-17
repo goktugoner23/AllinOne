@@ -5,6 +5,8 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
+import android.widget.AutoCompleteTextView
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Toast
@@ -12,6 +14,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.allinone.R
+import com.example.allinone.config.MuscleGroups
 import com.example.allinone.data.Program
 import com.example.allinone.data.ProgramExercise
 import com.example.allinone.databinding.FragmentWorkoutProgramBinding
@@ -168,11 +171,13 @@ class WorkoutProgramFragment : Fragment() {
                 val repsInput = exerciseLayout.findViewById<EditText>(R.id.exercise_reps_input)
                 val weightInput = exerciseLayout.findViewById<EditText>(R.id.exercise_weight_input)
                 val notesInput = exerciseLayout.findViewById<EditText>(R.id.exercise_notes_input)
+                val muscleGroupDropdown = exerciseLayout.findViewById<AutoCompleteTextView>(R.id.muscle_group_dropdown)
 
                 val name = nameInput.text.toString().trim()
                 val sets = setsInput.text.toString().toIntOrNull()
                 val reps = repsInput.text.toString().toIntOrNull()
                 val weight = weightInput.text.toString().toDoubleOrNull()
+                val muscleGroup = muscleGroupDropdown.text.toString()
                 val notes = notesInput.text.toString().trim()
 
                 if (name.isEmpty()) {
@@ -206,6 +211,7 @@ class WorkoutProgramFragment : Fragment() {
                         sets = sets,
                         reps = reps,
                         weight = weight,
+                        muscleGroup = muscleGroup,
                         notes = if (notes.isNotEmpty()) notes else null
                     )
                 )
@@ -238,6 +244,20 @@ class WorkoutProgramFragment : Fragment() {
     private fun addExerciseField(container: LinearLayout) {
         val exerciseView = LayoutInflater.from(requireContext())
             .inflate(R.layout.item_add_exercise, container, false)
+
+        // Set up muscle group dropdown
+        val muscleGroupDropdown = exerciseView.findViewById<AutoCompleteTextView>(R.id.muscle_group_dropdown)
+        val muscleGroupAdapter = ArrayAdapter(
+            requireContext(),
+            android.R.layout.simple_dropdown_item_1line,
+            MuscleGroups.MUSCLE_GROUPS
+        )
+        muscleGroupDropdown.setAdapter(muscleGroupAdapter)
+        
+        // Default to first muscle group
+        if (MuscleGroups.MUSCLE_GROUPS.isNotEmpty()) {
+            muscleGroupDropdown.setText(MuscleGroups.MUSCLE_GROUPS[0], false)
+        }
 
         // Add remove button functionality
         exerciseView.findViewById<View>(R.id.remove_exercise_button).setOnClickListener {

@@ -57,7 +57,7 @@ class WorkoutExerciseAdapter(
         }
         
         // Get notes from the first set that has notes
-        val notes = getNotes(exercise)
+        val notes = getNotes()
         if (notes.isNotEmpty()) {
             holder.exerciseNotes.text = notes
             holder.exerciseNotes.visibility = View.VISIBLE
@@ -66,7 +66,7 @@ class WorkoutExerciseAdapter(
         }
     }
     
-    private fun getNotes(_unused: WorkoutExercise): String {
+    private fun getNotes(): String {
         // For now, we'll just return an empty string since our model doesn't have notes at the exercise level
         return ""
     }
@@ -78,7 +78,8 @@ class WorkoutExerciseAdapter(
         notifyDataSetChanged()
     }
     
-    fun updateExerciseCompletion(exerciseId: Long, _unused: Boolean) {
+    fun updateExerciseCompletion(exerciseId: Long, isCompleted: Boolean) {
+        // Parameter isn't used right now, but keeping it for future implementations
         val position = exercises.indexOfFirst { it.exerciseId == exerciseId }
         if (position != -1) {
             notifyItemChanged(position)

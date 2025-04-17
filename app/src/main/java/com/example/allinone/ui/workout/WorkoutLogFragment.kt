@@ -5,6 +5,8 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
+import android.widget.AutoCompleteTextView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
@@ -12,6 +14,7 @@ import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.allinone.R
+import com.example.allinone.config.MuscleGroups
 import com.example.allinone.data.Workout
 import com.example.allinone.databinding.FragmentWorkoutLogBinding
 import com.example.allinone.ui.workout.adapters.WorkoutExerciseAdapter
@@ -24,6 +27,18 @@ class WorkoutLogFragment : Fragment() {
     private var _binding: FragmentWorkoutLogBinding? = null
     private val binding get() = _binding!!
     private val viewModel: WorkoutViewModel by viewModels()
+
+    private var allWorkouts: List<Workout> = emptyList()
+    private var filteredWorkouts: List<Workout> = emptyList()
+    private var selectedMuscleGroup: String? = null
+    private var selectedSortOption: String? = null
+    
+    private val sortOptions = arrayOf(
+        "Date (Newest First)", 
+        "Date (Oldest First)", 
+        "Duration (Longest First)", 
+        "Duration (Shortest First)"
+    )
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -40,6 +55,9 @@ class WorkoutLogFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // Set up filter UI
+        setupFilters()
+
         // Set up RecyclerView
         binding.workoutLogRecyclerView.layoutManager = LinearLayoutManager(requireContext())
 
@@ -50,16 +68,86 @@ class WorkoutLogFragment : Fragment() {
         }
         binding.workoutLogRecyclerView.adapter = workoutLogAdapter
 
+        // Apply filter button
+        binding.applyFiltersButton.setOnClickListener {
+            applyFilters()
+        }
+
         // Observe workouts data
         viewModel.allWorkouts.observe(viewLifecycleOwner) { workouts ->
-            if (workouts.isEmpty()) {
-                binding.emptyLogText.visibility = View.VISIBLE
-                binding.workoutLogRecyclerView.visibility = View.GONE
-            } else {
-                binding.emptyLogText.visibility = View.GONE
-                binding.workoutLogRecyclerView.visibility = View.VISIBLE
-                workoutLogAdapter.updateWorkouts(workouts)
+            allWorkouts = workouts
+            applyFilters()
+        }
+    }
+    
+    private fun setupFilters() {
+        // Set up muscle group filter
+        val muscleGroupItems = listOf("All Muscle Groups") + MuscleGroups.MUSCLE_GROUPS.toList()
+        val muscleGroupAdapter = ArrayAdapter(
+            requireContext(),
+            android.R.layout.simple_dropdown_item_1line,
+            muscleGroupItems
+        )
+        
+        val muscleGroupDropdown = binding.filterMuscleGroup
+        muscleGroupDropdown.setAdapter(muscleGroupAdapter)
+        muscleGroupDropdown.setText(muscleGroupItems[0], false)
+        
+        // Set up sort options
+        val sortAdapter = ArrayAdapter(
+            requireContext(),
+            android.R.layout.simple_dropdown_item_1line,
+            sortOptions
+        )
+        
+        val sortDropdown = binding.sortOption
+        sortDropdown.setAdapter(sortAdapter)
+        sortDropdown.setText(sortOptions[0], false)
+    }
+    
+    private fun applyFilters() {
+        if (allWorkouts.isEmpty()) {
+            updateEmptyState(true)
+            return
+        }
+        
+        // Get selected filter values
+        selectedMuscleGroup = binding.filterMuscleGroup.text.toString()
+        selectedSortOption = binding.sortOption.text.toString()
+        
+        // Apply muscle group filter
+        filteredWorkouts = if (selectedMuscleGroup == "All Muscle Groups" || selectedMuscleGroup.isNullOrEmpty()) {
+            allWorkouts
+        } else {
+            allWorkouts.filter { workout ->
+                workout.exercises.any { exercise ->
+                    // Try to find the muscle group in an exercise's property
+                    // This assumes you have a way to get the muscle group from an exercise
+                    exercise.exerciseName.contains(selectedMuscleGroup!!, ignoreCase = true)
+                }
             }
+        }
+        
+        // Apply sorting
+        filteredWorkouts = when (selectedSortOption) {
+            "Date (Oldest First)" -> filteredWorkouts.sortedBy { it.startTime }
+            "Duration (Longest First)" -> filteredWorkouts.sortedByDescending { it.duration }
+            "Duration (Shortest First)" -> filteredWorkouts.sortedBy { it.duration }
+            else -> filteredWorkouts.sortedByDescending { it.startTime } // Default is newest first
+        }
+        
+        // Update RecyclerView
+        workoutLogAdapter.updateWorkouts(filteredWorkouts)
+        updateEmptyState(filteredWorkouts.isEmpty())
+    }
+    
+    private fun updateEmptyState(isEmpty: Boolean) {
+        if (isEmpty) {
+            binding.emptyLogText.visibility = View.VISIBLE
+            binding.workoutLogRecyclerView.visibility = View.GONE
+        } else {
+            binding.emptyLogText.visibility = View.GONE
+            binding.workoutLogRecyclerView.visibility = View.VISIBLE
         }
     }
 
