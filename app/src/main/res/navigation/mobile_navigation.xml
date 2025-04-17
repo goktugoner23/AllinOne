@@ -43,25 +43,25 @@
         android:name="com.example.allinone.ui.HistoryFragment"
         android:label="History"
         tools:layout="@layout/fragment_history" />
-        
+
     <fragment
         android:id="@+id/nav_calendar"
         android:name="com.example.allinone.ui.CalendarFragment"
         android:label="Calendar"
         tools:layout="@layout/fragment_calendar" />
-        
+
     <fragment
         android:id="@+id/nav_error_logs"
         android:name="com.example.allinone.ui.LogErrorsFragment"
         android:label="Error Logs"
         tools:layout="@layout/fragment_log_errors" />
-        
+
     <fragment
         android:id="@+id/nav_source_code"
         android:name="com.example.allinone.ui.SourceCodeViewerFragment"
         android:label="Source Code"
         tools:layout="@layout/fragment_source_code_viewer">
-        
+
         <action
             android:id="@+id/action_nav_source_code_to_codeViewer"
             app:destination="@id/codeViewerFragment"
@@ -76,7 +76,7 @@
         android:name="com.example.allinone.ui.CodeViewerFragment"
         android:label="Code Viewer"
         tools:layout="@layout/fragment_code_viewer">
-        
+
         <argument
             android:name="filePath"
             app:argType="string" />
@@ -91,4 +91,10 @@
         android:label="Instagram Business"
         tools:layout="@layout/fragment_instagram_business" />
 
-</navigation> 
+    <fragment
+        android:id="@+id/nav_workout"
+        android:name="com.example.allinone.ui.workout.WorkoutFragment"
+        android:label="Workout"
+        tools:layout="@layout/fragment_workout" />
+
+</navigation>

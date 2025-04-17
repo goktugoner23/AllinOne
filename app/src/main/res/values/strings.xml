@@ -13,7 +13,7 @@
     <string name="delete_image">Delete Image</string>
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
-    
+
     <!-- Drawing tool -->
     <string name="create_drawing">Create Drawing</string>
     <string name="drawing_options">Drawing Options</string>
@@ -30,7 +30,7 @@
     <string name="selected_color">Selected:</string>
     <string name="select">Select</string>
     <string name="color">Color:</string>
-    
+
     <!-- Drawing color names -->
     <string name="color_black">Black Color</string>
     <string name="color_red">Red Color</string>
@@ -42,16 +42,16 @@
     <string name="color_brown">Brown Color</string>
     <string name="color_teal">Teal Color</string>
     <string name="color_pink">Pink Color</string>
-    
+
     <!-- Google Play Services -->
     <string name="app_id">954911141967</string>
-    
+
     <!-- Offline status -->
     <string name="offline_mode">Offline Mode</string>
     <string name="offline_message">You are currently offline. Changes will be synchronized when you reconnect.</string>
     <string name="pending_operations">Pending operations: %1$d</string>
     <string name="offline_status">Offline status</string>
-    
+
     <!-- History page -->
     <string name="history">History</string>
     <string name="empty_history">Empty history</string>
@@ -59,7 +59,7 @@
     <string name="pull_to_refresh">Pull down to refresh</string>
     <string name="item_type_icon">Item type icon</string>
     <string name="delete_item">Delete item</string>
-    
+
     <!-- Navigation Titles -->
     <string name="title_investments">Investments</string>
     <string name="title_notes">Notes</string>
@@ -81,7 +81,7 @@
     <string name="required_fields_missing">Name and Phone are required fields</string>
     <string name="no_students">No Students</string>
     <string name="add_student_prompt">Add students to start registering them for courses</string>
-    
+
     <!-- Course Registration -->
     <string name="add_registration">Add New Registration</string>
     <string name="edit_registration">Edit Registration</string>
@@ -102,7 +102,7 @@
     <string name="attachments_only_for_paid_registrations">Attachments can only be added for paid registrations</string>
     <string name="no_registrations">No Course Registrations</string>
     <string name="no_registrations_prompt">Add students to courses by clicking the + button</string>
-    
+
     <!-- Photo Selection -->
     <string name="select_profile_photo">Select Profile Photo</string>
     <string name="take_photo">Take Photo</string>
@@ -116,10 +116,10 @@
     <string name="error_camera">Error preparing camera: %1$s</string>
     <string name="status_paid_desc">Paid. Click to mark as unpaid</string>
     <string name="status_unpaid_desc">Unpaid. Click to mark as paid</string>
-    
+
     <!-- Form validation -->
     <string name="field_required">This field is required</string>
-    
+
     <!-- New strings from the code block -->
     <string name="edit">Edit</string>
     <string name="delete">Delete</string>
@@ -146,13 +146,13 @@
     <string name="status_active_desc">Active student without current registration</string>
     <string name="network_unavailable">Network unavailable. Using cached data.</string>
     <string name="notes">Notes</string>
-    
+
     <!-- Error Messages -->
     <string name="error_network">Network error occurred. Please check your connection and try again.</string>
     <string name="error_network_unavailable">Network is unavailable. Please check your internet connection.</string>
     <string name="error_unknown">An unexpected error occurred. Please try again later.</string>
     <string name="error_firebase_network">Unable to connect to the server. Please check your connection.</string>
-    
+
     <!-- Firebase Auth Errors -->
     <string name="error_authentication">Authentication failed. Please try again.</string>
     <string name="error_user_not_found">User account not found. Please check your credentials.</string>
@@ -160,7 +160,7 @@
     <string name="error_user_disabled">This user account has been disabled.</string>
     <string name="error_too_many_requests">Too many attempts. Please try again later.</string>
     <string name="error_requires_recent_login">This operation requires recent authentication. Please log in again.</string>
-    
+
     <!-- Firestore Errors -->
     <string name="error_database">Database error. Please try again later.</string>
     <string name="error_permission_denied">You don\'t have permission to perform this action.</string>
@@ -168,14 +168,14 @@
     <string name="error_document_already_exists">This record already exists.</string>
     <string name="error_document_not_found">The requested record was not found.</string>
     <string name="error_quota_exceeded">Service limit exceeded. Please try again later.</string>
-    
+
     <!-- Storage Errors -->
     <string name="error_storage">Storage error. Please try again later.</string>
     <string name="error_file_not_found">The file you requested was not found.</string>
     <string name="error_storage_quota_exceeded">Storage quota exceeded.</string>
     <string name="error_not_authenticated">Authentication required. Please log in.</string>
     <string name="error_not_authorized">You are not authorized to perform this action.</string>
-    
+
     <!-- Student Deletion -->
     <string name="delete_student">Delete Student</string>
     <string name="delete_student_confirmation">Are you sure you want to delete %1$s from your student list?</string>
@@ -183,11 +183,11 @@
     <string name="cannot_delete">Cannot Delete</string>
     <string name="student_has_active_registrations">This student has active registrations and cannot be deleted.</string>
     <string name="ok">OK</string>
-    
+
     <!-- Note Deletion -->
     <string name="delete_note">Delete Note</string>
     <string name="delete_note_confirmation">Are you sure you want to delete this note?</string>
-    
+
     <!-- Voice Notes -->
     <string name="voice_notes">Voice Notes</string>
     <string name="voice_note_singular">1 voice note</string>
@@ -204,15 +204,68 @@
     <string name="error_saving_recording">Failed to save recording</string>
     <string name="voice_note_deleted">Voice note deleted</string>
     <string name="error_playing_audio">Error playing audio</string>
-    
+
     <!-- Upload and Saving -->
     <string name="saving">Saving</string>
     <string name="uploading_attachments">Uploading attachments...</string>
-    
+
     <!-- Search -->
     <string name="search" translatable="false">Search</string>
     <string name="search_hint" translatable="false">Search...</string>
-    
+
     <!-- New string from the code block -->
     <string name="brightness">Brightness:</string>
+
+    <!-- Workout Feature -->
+    <string name="workout">Workout</string>
+    <string name="workout_dashboard">Dashboard</string>
+    <string name="workout_exercise">Exercise</string>
+    <string name="workout_program">Program</string>
+    <string name="workout_log">Log</string>
+    <string name="start_workout">Start Workout</string>
+    <string name="pause_workout">Pause</string>
+    <string name="stop_workout">Stop</string>
+    <string name="save_workout">Save Workout</string>
+    <string name="create_workout">Create Workout</string>
+    <string name="add_program">Add Program</string>
+    <string name="program_name">Program Name</string>
+    <string name="exercise_name">Exercise Name</string>
+    <string name="sets">Sets</string>
+    <string name="reps">Reps</string>
+    <string name="weight">Weight (kg)</string>
+    <string name="notes_optional">Notes (Optional)</string>
+    <string name="add_exercise">Add Exercise</string>
+    <string name="remove_exercise">Remove Exercise</string>
+    <string name="workout_timer">Workout Timer</string>
+    <string name="select_program">Select Program</string>
+    <string name="custom_workout">Custom Workout</string>
+    <string name="weekly_summary">Weekly Summary</string>
+    <string name="weekly_workout_count">Workouts this week: %d</string>
+    <string name="weekly_workout_duration">Total duration: %s</string>
+    <string name="most_recent_workout">Most Recent Workout</string>
+    <string name="no_recent_workouts">No recent workouts</string>
+    <string name="all_time_stats">All-Time Stats</string>
+    <string name="total_workout_count">Total workouts: %d</string>
+    <string name="total_workout_duration">Total duration: %s</string>
+    <string name="no_programs">No programs yet. Create one by tapping the + button.</string>
+    <string name="no_workout_history">No workout history yet. Complete a workout to see it here.</string>
+    <string name="stop_workout_confirmation">Are you sure you want to stop this workout?</string>
+    <string name="workout_saved">Workout saved</string>
+    <string name="program_created">Program created</string>
+    <string name="program_details">Program Details</string>
+    <string name="workout_details">Workout Details</string>
+    <string name="delete_workout">Delete Workout</string>
+    <string name="delete_workout_confirmation">Are you sure you want to delete this workout from %1$s? This action cannot be undone.</string>
+    <string name="workout_deleted">Workout deleted</string>
+    <string name="delete_program">Delete Program</string>
+    <string name="delete_program_confirmation">Are you sure you want to delete program %1$s? This action cannot be undone.</string>
+    <string name="program_deleted">Program deleted successfully</string>
+    <string name="edit_coming_soon">Edit functionality coming soon</string>
+    <string name="close">Close</string>
+
+    <!-- Plurals -->
+    <plurals name="exercise_count">
+        <item quantity="one">1 exercise</item>
+        <item quantity="other">%d exercises</item>
+    </plurals>
 </resources>

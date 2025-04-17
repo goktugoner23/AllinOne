@@ -35,6 +35,9 @@ class FirebaseManager(private val context: Context? = null) {
     private val eventsCollection = firestore.collection("events")
     private val wtLessonsCollection = firestore.collection("wtLessons")
     private val registrationsCollection = firestore.collection("registrations")
+    private val programsCollection = firestore.collection("programs")
+    private val workoutsCollection = firestore.collection("workouts")
+    private val exercisesCollection = firestore.collection("exercises")
 
     // Storage references
     private val imagesRef: StorageReference = storage.reference.child("images")
@@ -921,5 +924,203 @@ class FirebaseManager(private val context: Context? = null) {
             Log.e(TAG, "Error uploading event attachment: ${e.message}", e)
             return@withContext null
         }
+    }
+
+    // Workout Programs
+    suspend fun saveProgram(program: Program) = withContext(Dispatchers.IO) {
+        try {
+            // Generate ID if not present
+            val programWithId = if (program.id <= 0) {
+                program.copy(id = idManager.getNextId("programs"))
+            } else {
+                program
+            }
+
+            // Convert program exercises to maps
+            val exerciseMaps = programWithId.exercises.map { exercise ->
+                mapOf(
+                    "exerciseId" to exercise.exerciseId,
+                    "exerciseName" to exercise.exerciseName,
+                    "sets" to exercise.sets,
+                    "reps" to exercise.reps,
+                    "weight" to exercise.weight,
+                    "notes" to exercise.notes
+                )
+            }
+
+            val programMap = hashMapOf(
+                "id" to programWithId.id,
+                "name" to programWithId.name,
+                "description" to programWithId.description,
+                "exercises" to exerciseMaps,
+                "createdDate" to programWithId.createdDate,
+                "lastModifiedDate" to programWithId.lastModifiedDate,
+                "deviceId" to deviceId
+            )
+
+            programsCollection.document(programWithId.id.toString()).set(programMap).await()
+            return@withContext programWithId.id
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving program: ${e.message}", e)
+            throw e
+        }
+    }
+
+    suspend fun getPrograms(): List<Program> = withContext(Dispatchers.IO) {
+        try {
+            val snapshot = programsCollection.whereEqualTo("deviceId", deviceId).get().await()
+
+            return@withContext snapshot.documents.mapNotNull { doc ->
+                try {
+                    val id = doc.getLong("id") ?: return@mapNotNull null
+                    val name = doc.getString("name") ?: ""
+                    val description = doc.getString("description")
+                    val createdDate = doc.getDate("createdDate") ?: Date()
+                    val lastModifiedDate = doc.getDate("lastModifiedDate") ?: Date()
+
+                    // Parse exercises
+                    @Suppress("UNCHECKED_CAST")
+                    val exercisesList = doc.get("exercises") as? List<Map<String, Any>> ?: emptyList()
+                    val exercises = exercisesList.map { exerciseMap ->
+                        ProgramExercise(
+                            exerciseId = (exerciseMap["exerciseId"] as? Number)?.toLong() ?: 0L,
+                            exerciseName = exerciseMap["exerciseName"] as? String ?: "",
+                            sets = (exerciseMap["sets"] as? Number)?.toInt() ?: 0,
+                            reps = (exerciseMap["reps"] as? Number)?.toInt() ?: 0,
+                            weight = (exerciseMap["weight"] as? Number)?.toDouble() ?: 0.0,
+                            notes = exerciseMap["notes"] as? String
+                        )
+                    }
+
+                    Program(
+                        id = id,
+                        name = name,
+                        description = description,
+                        exercises = exercises,
+                        createdDate = createdDate,
+                        lastModifiedDate = lastModifiedDate
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing program: ${e.message}", e)
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting programs: ${e.message}", e)
+            return@withContext emptyList<Program>()
+        }
+    }
+
+    suspend fun deleteProgram(programId: Long) = withContext(Dispatchers.IO) {
+        return@withContext programsCollection.document(programId.toString()).delete()
+    }
+
+    // Workouts
+    suspend fun saveWorkout(workout: Workout) = withContext(Dispatchers.IO) {
+        try {
+            // Generate ID if not present
+            val workoutWithId = if (workout.id <= 0) {
+                workout.copy(id = idManager.getNextId("workouts"))
+            } else {
+                workout
+            }
+
+            // Convert workout exercises to maps
+            val exerciseMaps = workoutWithId.exercises.map { exercise ->
+                val setMaps = exercise.sets.map { set ->
+                    mapOf(
+                        "setNumber" to set.setNumber,
+                        "reps" to set.reps,
+                        "weight" to set.weight,
+                        "completed" to set.completed
+                    )
+                }
+
+                mapOf(
+                    "exerciseId" to exercise.exerciseId,
+                    "exerciseName" to exercise.exerciseName,
+                    "sets" to setMaps
+                )
+            }
+
+            val workoutMap = hashMapOf(
+                "id" to workoutWithId.id,
+                "programId" to workoutWithId.programId,
+                "programName" to workoutWithId.programName,
+                "startTime" to workoutWithId.startTime,
+                "endTime" to workoutWithId.endTime,
+                "duration" to workoutWithId.duration,
+                "exercises" to exerciseMaps,
+                "notes" to workoutWithId.notes,
+                "deviceId" to deviceId
+            )
+
+            workoutsCollection.document(workoutWithId.id.toString()).set(workoutMap).await()
+            return@withContext workoutWithId.id
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving workout: ${e.message}", e)
+            throw e
+        }
+    }
+
+    suspend fun getWorkouts(): List<Workout> = withContext(Dispatchers.IO) {
+        try {
+            val snapshot = workoutsCollection.whereEqualTo("deviceId", deviceId).get().await()
+
+            return@withContext snapshot.documents.mapNotNull { doc ->
+                try {
+                    val id = doc.getLong("id") ?: return@mapNotNull null
+                    val programId = doc.getLong("programId")
+                    val programName = doc.getString("programName")
+                    val startTime = doc.getDate("startTime") ?: Date()
+                    val endTime = doc.getDate("endTime")
+                    val duration = doc.getLong("duration") ?: 0L
+                    val notes = doc.getString("notes")
+
+                    // Parse exercises
+                    @Suppress("UNCHECKED_CAST")
+                    val exercisesList = doc.get("exercises") as? List<Map<String, Any>> ?: emptyList()
+                    val exercises = exercisesList.map { exerciseMap ->
+                        @Suppress("UNCHECKED_CAST")
+                        val setsList = exerciseMap["sets"] as? List<Map<String, Any>> ?: emptyList()
+                        val sets = setsList.map { setMap ->
+                            WorkoutSet(
+                                setNumber = (setMap["setNumber"] as? Number)?.toInt() ?: 0,
+                                reps = (setMap["reps"] as? Number)?.toInt() ?: 0,
+                                weight = (setMap["weight"] as? Number)?.toDouble() ?: 0.0,
+                                completed = setMap["completed"] as? Boolean ?: false
+                            )
+                        }
+
+                        WorkoutExercise(
+                            exerciseId = (exerciseMap["exerciseId"] as? Number)?.toLong() ?: 0L,
+                            exerciseName = exerciseMap["exerciseName"] as? String ?: "",
+                            sets = sets
+                        )
+                    }
+
+                    Workout(
+                        id = id,
+                        programId = programId,
+                        programName = programName,
+                        startTime = startTime,
+                        endTime = endTime,
+                        duration = duration,
+                        exercises = exercises,
+                        notes = notes
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing workout: ${e.message}", e)
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting workouts: ${e.message}", e)
+            return@withContext emptyList<Workout>()
+        }
+    }
+
+    suspend fun deleteWorkout(workoutId: Long) = withContext(Dispatchers.IO) {
+        return@withContext workoutsCollection.document(workoutId.toString()).delete()
     }
 }

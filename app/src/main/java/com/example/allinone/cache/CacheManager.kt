@@ -14,11 +14,11 @@ import java.util.concurrent.TimeUnit
  * Manages local caching of data to improve performance and reduce Firebase calls
  */
 class CacheManager(private val context: Context) {
-    
+
     companion object {
         private const val TAG = "CacheManager"
         private const val PREFS_NAME = "allinone_cache"
-        
+
         // Cache keys
         private const val KEY_TRANSACTIONS = "cache_transactions"
         private const val KEY_INVESTMENTS = "cache_investments"
@@ -27,7 +27,9 @@ class CacheManager(private val context: Context) {
         private const val KEY_EVENTS = "cache_events"
         private const val KEY_LESSONS = "cache_lessons"
         private const val KEY_REGISTRATIONS = "cache_registrations"
-        
+        private const val KEY_PROGRAMS = "cache_programs"
+        private const val KEY_WORKOUTS = "cache_workouts"
+
         // Last update timestamps
         private const val KEY_TRANSACTIONS_UPDATED = "cache_transactions_updated"
         private const val KEY_INVESTMENTS_UPDATED = "cache_investments_updated"
@@ -35,14 +37,17 @@ class CacheManager(private val context: Context) {
         private const val KEY_STUDENTS_UPDATED = "cache_students_updated"
         private const val KEY_EVENTS_UPDATED = "cache_events_updated"
         private const val KEY_LESSONS_UPDATED = "cache_lessons_updated"
-        
+        private const val KEY_REGISTRATIONS_UPDATED = "cache_registrations_updated"
+        private const val KEY_PROGRAMS_UPDATED = "cache_programs_updated"
+        private const val KEY_WORKOUTS_UPDATED = "cache_workouts_updated"
+
         // Default cache expiration (10 minutes)
         private const val DEFAULT_CACHE_EXPIRATION_MS = 10 * 60 * 1000L
     }
-    
+
     private val sharedPreferences: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val gson = Gson()
-    
+
     // Cache expiration times (milliseconds)
     private var transactionCacheExpiration = DEFAULT_CACHE_EXPIRATION_MS
     private var investmentCacheExpiration = DEFAULT_CACHE_EXPIRATION_MS
@@ -50,7 +55,10 @@ class CacheManager(private val context: Context) {
     private var studentCacheExpiration = DEFAULT_CACHE_EXPIRATION_MS
     private var eventCacheExpiration = DEFAULT_CACHE_EXPIRATION_MS
     private var lessonCacheExpiration = DEFAULT_CACHE_EXPIRATION_MS
-    
+    private var registrationCacheExpiration = DEFAULT_CACHE_EXPIRATION_MS
+    private var programCacheExpiration = DEFAULT_CACHE_EXPIRATION_MS
+    private var workoutCacheExpiration = DEFAULT_CACHE_EXPIRATION_MS
+
     /**
      * Set custom cache expiration for a specific data type
      */
@@ -62,9 +70,12 @@ class CacheManager(private val context: Context) {
             "students" -> studentCacheExpiration = expirationMs
             "events" -> eventCacheExpiration = expirationMs
             "lessons" -> lessonCacheExpiration = expirationMs
+            "registrations" -> registrationCacheExpiration = expirationMs
+            "programs" -> programCacheExpiration = expirationMs
+            "workouts" -> workoutCacheExpiration = expirationMs
         }
     }
-    
+
     /**
      * Check if cache for given type is valid (not expired)
      */
@@ -73,10 +84,10 @@ class CacheManager(private val context: Context) {
         val lastUpdate = sharedPreferences.getLong(lastUpdateKey, 0)
         val now = System.currentTimeMillis()
         val expirationMs = getCacheExpirationForType(cacheType)
-        
+
         return (now - lastUpdate) < expirationMs
     }
-    
+
     private fun getCacheExpirationForType(cacheType: String): Long {
         return when (cacheType) {
             KEY_TRANSACTIONS -> transactionCacheExpiration
@@ -85,11 +96,13 @@ class CacheManager(private val context: Context) {
             KEY_STUDENTS -> studentCacheExpiration
             KEY_EVENTS -> eventCacheExpiration
             KEY_LESSONS -> lessonCacheExpiration
-            KEY_REGISTRATIONS -> DEFAULT_CACHE_EXPIRATION_MS
+            KEY_REGISTRATIONS -> registrationCacheExpiration
+            KEY_PROGRAMS -> programCacheExpiration
+            KEY_WORKOUTS -> workoutCacheExpiration
             else -> DEFAULT_CACHE_EXPIRATION_MS
         }
     }
-    
+
     private fun getLastUpdateKey(cacheType: String): String {
         return when (cacheType) {
             KEY_TRANSACTIONS -> KEY_TRANSACTIONS_UPDATED
@@ -98,88 +111,112 @@ class CacheManager(private val context: Context) {
             KEY_STUDENTS -> KEY_STUDENTS_UPDATED
             KEY_EVENTS -> KEY_EVENTS_UPDATED
             KEY_LESSONS -> KEY_LESSONS_UPDATED
-            KEY_REGISTRATIONS -> "${cacheType}_updated"
+            KEY_REGISTRATIONS -> KEY_REGISTRATIONS_UPDATED
+            KEY_PROGRAMS -> KEY_PROGRAMS_UPDATED
+            KEY_WORKOUTS -> KEY_WORKOUTS_UPDATED
             else -> "${cacheType}_updated"
         }
     }
-    
+
     // Cache Transaction data
     fun cacheTransactions(transactions: List<Transaction>) {
         cacheData(KEY_TRANSACTIONS, transactions)
     }
-    
+
     fun getCachedTransactions(): List<Transaction> {
         // More explicit TypeToken creation that's safer for ProGuard
         val listType = object : TypeToken<ArrayList<Transaction>>() {}.type
         return getCachedData(KEY_TRANSACTIONS, listType) ?: emptyList()
     }
-    
+
     // Cache Investment data
     fun cacheInvestments(investments: List<Investment>) {
         cacheData(KEY_INVESTMENTS, investments)
     }
-    
+
     fun getCachedInvestments(): List<Investment> {
         // More explicit TypeToken creation that's safer for ProGuard
         val listType = object : TypeToken<ArrayList<Investment>>() {}.type
         return getCachedData(KEY_INVESTMENTS, listType) ?: emptyList()
     }
-    
+
     // Cache Note data
     fun cacheNotes(notes: List<Note>) {
         cacheData(KEY_NOTES, notes)
     }
-    
+
     fun getCachedNotes(): List<Note> {
         // More explicit TypeToken creation that's safer for ProGuard
         val listType = object : TypeToken<ArrayList<Note>>() {}.type
         return getCachedData(KEY_NOTES, listType) ?: emptyList()
     }
-    
+
     // Cache Student data
     fun cacheStudents(students: List<WTStudent>) {
         cacheData(KEY_STUDENTS, students)
     }
-    
+
     fun getCachedStudents(): List<WTStudent> {
         // More explicit TypeToken creation that's safer for ProGuard
         val listType = object : TypeToken<ArrayList<WTStudent>>() {}.type
         return getCachedData(KEY_STUDENTS, listType) ?: emptyList()
     }
-    
+
     // Cache Event data
     fun cacheEvents(events: List<Event>) {
         cacheData(KEY_EVENTS, events)
     }
-    
+
     fun getCachedEvents(): List<Event> {
         // More explicit TypeToken creation that's safer for ProGuard
         val listType = object : TypeToken<ArrayList<Event>>() {}.type
         return getCachedData(KEY_EVENTS, listType) ?: emptyList()
     }
-    
+
     // Cache Lesson data
     fun cacheLessons(lessons: List<WTLesson>) {
         cacheData(KEY_LESSONS, lessons)
     }
-    
+
     fun getCachedLessons(): List<WTLesson> {
         // More explicit TypeToken creation that's safer for ProGuard
         val listType = object : TypeToken<ArrayList<WTLesson>>() {}.type
         return getCachedData(KEY_LESSONS, listType) ?: emptyList()
     }
-    
+
     // Cache Registration data
     fun cacheRegistrations(registrations: List<WTRegistration>) {
         cacheData(KEY_REGISTRATIONS, registrations)
     }
-    
+
     fun getCachedRegistrations(): List<WTRegistration> {
         // More explicit TypeToken creation that's safer for ProGuard
         val listType = object : TypeToken<ArrayList<WTRegistration>>() {}.type
         return getCachedData(KEY_REGISTRATIONS, listType) ?: emptyList()
     }
-    
+
+    // Cache Program data
+    fun cachePrograms(programs: List<Program>) {
+        cacheData(KEY_PROGRAMS, programs)
+    }
+
+    fun getCachedPrograms(): List<Program> {
+        // More explicit TypeToken creation that's safer for ProGuard
+        val listType = object : TypeToken<ArrayList<Program>>() {}.type
+        return getCachedData(KEY_PROGRAMS, listType) ?: emptyList()
+    }
+
+    // Cache Workout data
+    fun cacheWorkouts(workouts: List<Workout>) {
+        cacheData(KEY_WORKOUTS, workouts)
+    }
+
+    fun getCachedWorkouts(): List<Workout> {
+        // More explicit TypeToken creation that's safer for ProGuard
+        val listType = object : TypeToken<ArrayList<Workout>>() {}.type
+        return getCachedData(KEY_WORKOUTS, listType) ?: emptyList()
+    }
+
     // Generic methods for caching and retrieving data
     private fun <T> cacheData(key: String, data: T) {
         try {
@@ -193,7 +230,7 @@ class CacheManager(private val context: Context) {
             Log.e(TAG, "Error caching data for $key: ${e.message}")
         }
     }
-    
+
     private fun <T> getCachedData(key: String, type: Type): T? {
         try {
             val json = sharedPreferences.getString(key, null) ?: return null
@@ -203,13 +240,13 @@ class CacheManager(private val context: Context) {
             return null
         }
     }
-    
+
     // Clear all cached data
     fun clearAllCache() {
         sharedPreferences.edit().clear().apply()
         Log.d(TAG, "All cache cleared")
     }
-    
+
     // Clear specific cache
     fun clearCache(cacheType: String) {
         sharedPreferences.edit()
@@ -218,4 +255,4 @@ class CacheManager(private val context: Context) {
             .apply()
         Log.d(TAG, "Cache cleared for $cacheType")
     }
-} 
+}

@@ -25,8 +25,12 @@
             android:id="@+id/nav_history"
             android:icon="@drawable/ic_history"
             android:title="@string/history" />
+        <item
+            android:id="@+id/nav_workout"
+            android:icon="@drawable/ic_fitness"
+            android:title="Workout" />
     </group>
-    
+
     <group android:id="@+id/group_settings">
         <item
             android:id="@+id/nav_database_management"
@@ -53,4 +57,4 @@
             android:icon="@drawable/ic_clear_data"
             android:title="Clear DB" />
     </group>
-</menu> 
+</menu>

@@ -76,7 +76,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             scheduleExpirationNotifications()
         }
     }
-    
+
     // Multiple permissions launcher
     private val requestMultiplePermissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -85,7 +85,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         permissions.entries.forEach {
             Log.d("MainActivity", "Permission: ${it.key}, granted: ${it.value}")
         }
-        
+
         // Handle notification permission separately as it's critical for app function
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (permissions[Manifest.permission.POST_NOTIFICATIONS] == true) {
@@ -97,7 +97,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
     // ViewModels
     private lateinit var calendarViewModel: CalendarViewModel
     private lateinit var wtLessonsViewModel: WTLessonsViewModel
-    
+
     companion object {
         private const val PREFS_NAME = "app_preferences"
         private const val KEY_DARK_MODE = "dark_mode_enabled"
@@ -107,61 +107,61 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         // Load the saved theme preference
         val prefs = newBase.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val isDarkMode = prefs.getBoolean(KEY_DARK_MODE, false)
-        
+
         // Apply the appropriate theme mode
         if (isDarkMode) {
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
         } else {
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
         }
-        
+
         super.attachBaseContext(newBase)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Install splash screen before super.onCreate()
         val splashScreen = installSplashScreen()
-        
+
         // Keep splash screen visible only while initializing
         var keepSplashScreen = true
         splashScreen.setKeepOnScreenCondition { keepSplashScreen }
-        
+
         super.onCreate(savedInstanceState)
-        
+
         // Set the main activity content view
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        
+
         // Initialize the app
         initializeApp()
-        
+
         // Setup theme toggle switch
         setupThemeToggle()
-        
+
         // Ensure bottom navigation and toolbar are always visible
         binding.bottomNavigation.visibility = View.VISIBLE
         binding.appBarLayout.visibility = View.VISIBLE
-        
+
         // Allow the splash screen to dismiss
         keepSplashScreen = false
     }
-    
+
     private fun setupThemeToggle() {
         // Find the theme switch in the navigation drawer
         themeSwitch = findViewById(R.id.themeSwitch)
-        
+
         // Load current theme state
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val isDarkMode = prefs.getBoolean(KEY_DARK_MODE, false)
-        
+
         // Set the switch state to match the current theme
         themeSwitch.isChecked = isDarkMode
-        
+
         // Set up the theme switch listener
         themeSwitch.setOnCheckedChangeListener { _, isChecked ->
             // Save the theme preference
             prefs.edit().putBoolean(KEY_DARK_MODE, isChecked).apply()
-            
+
             // Apply the theme change
             if (isChecked) {
                 AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
@@ -170,31 +170,31 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             }
         }
     }
-    
+
     private fun initializeApp() {
         // Initialize offline status helper
         offlineStatusHelper.initialize()
-        
+
         // Setup navigation
         setupNavigation()
-        
+
         // Ask for necessary permissions right at the start
         requestAppPermissions()
-        
+
         // Schedule workers
         scheduleBackup()
         scheduleExpirationNotifications()
-        
+
         // Test Firebase connection
         testFirebaseConnection()
-        
+
         // Initialize ViewModels
         calendarViewModel = ViewModelProvider(this)[CalendarViewModel::class.java]
         wtLessonsViewModel = ViewModelProvider(this)[WTLessonsViewModel::class.java]
-        
+
         // Connect WTLessonsViewModel to CalendarViewModel
         setupViewModelConnections()
-        
+
         // Observe repository error messages
         firebaseRepository.errorMessage.observe(this) { message ->
             if (!message.isNullOrEmpty()) {
@@ -202,21 +202,21 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                 firebaseRepository.clearErrorMessage()
             }
         }
-        
+
         // Observe Google Play Services availability
         firebaseRepository.isGooglePlayServicesAvailable.observe(this) { isAvailable ->
             if (!isAvailable) {
                 showGooglePlayServicesError()
             }
         }
-        
+
         // Observe Firebase project validity
         firebaseRepository.isFirebaseProjectValid.observe(this) { isValid ->
             if (!isValid) {
                 showFirebaseProjectError()
             }
         }
-        
+
         // Observe Firestore security rules validity
         firebaseRepository.areFirestoreRulesValid.observe(this) { areValid ->
             if (!areValid) {
@@ -224,10 +224,10 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             }
         }
     }
-    
+
     private fun requestAppPermissions() {
         val permissionsToRequest = mutableListOf<String>()
-        
+
         // Storage permissions based on Android version
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // Android 13+ uses more specific permissions
@@ -240,69 +240,69 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                 permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)
             }
         }
-        
+
         // Camera permission
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             permissionsToRequest.add(Manifest.permission.CAMERA)
         }
-        
+
         // Notification permission for Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
-        
+
         // Request permissions if needed
         if (permissionsToRequest.isNotEmpty()) {
             requestMultiplePermissionsLauncher.launch(permissionsToRequest.toTypedArray())
         }
     }
-    
+
     private fun checkGooglePlayServices() {
         firebaseRepository.checkGooglePlayServicesAvailability()
     }
-    
+
     private fun scheduleBackup() {
         // Schedule weekly backups
         val backupWorkRequest = PeriodicWorkRequestBuilder<BackupWorker>(
             7, TimeUnit.DAYS
         ).build()
-        
+
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             BackupWorker.WORK_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
             backupWorkRequest
         )
     }
-    
+
     private fun scheduleExpirationNotifications() {
         val expirationWorkRequest = PeriodicWorkRequestBuilder<ExpirationNotificationWorker>(
             1, TimeUnit.DAYS
         ).build()
-        
+
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             ExpirationNotificationWorker.WORK_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
             expirationWorkRequest
         )
-        
+
         // Schedule logcat capture worker to run every 30 minutes
         val logcatWorkRequest = PeriodicWorkRequestBuilder<LogcatCaptureWorker>(
             30, TimeUnit.MINUTES
         ).build()
-        
+
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "logcat_capture_work",
             ExistingPeriodicWorkPolicy.KEEP,
             logcatWorkRequest
         )
     }
-    
+
     private fun testFirebaseConnection() {
         firebaseRepository.checkGooglePlayServicesAvailability()
     }
-    
+
     private fun showGooglePlayServicesError() {
         AlertDialog.Builder(this)
             .setTitle("Google Play Services Error")
@@ -320,7 +320,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             .setCancelable(true)
             .show()
     }
-    
+
     private fun showErrorMessage(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
@@ -334,7 +334,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                 // Clear shared preferences
                 val sharedPreferences = getSharedPreferences("app_preferences", MODE_PRIVATE)
                 sharedPreferences.edit().clear().apply()
-                
+
                 // Restart the app to refresh data
                 val packageManager = packageManager
                 val intent = packageManager.getLaunchIntentForPackage(packageName)
@@ -346,7 +346,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             .setNegativeButton("Cancel", null)
             .show()
     }
-    
+
     private fun clearFirestoreDatabase() {
         // Show confirmation dialog before clearing Firestore data
         AlertDialog.Builder(this)
@@ -359,12 +359,12 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             .setNegativeButton("Cancel", null)
             .show()
     }
-    
+
     private fun showPinDialog() {
         // Create a PIN input dialog
         val dialogView = layoutInflater.inflate(R.layout.dialog_pin_input, null)
         val pinEditText = dialogView.findViewById<EditText>(R.id.pinEditText)
-        
+
         AlertDialog.Builder(this)
             .setTitle("Enter PIN Code")
             .setView(dialogView)
@@ -375,10 +375,10 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             .setNegativeButton("Cancel", null)
             .show()
     }
-    
+
     private fun validatePin(enteredPin: String) {
         val correctPin = "1111"
-        
+
         if (enteredPin == correctPin) {
             // PIN is correct - proceed with clearing Firestore data
             performFirestoreClear()
@@ -387,7 +387,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             Toast.makeText(this, "Incorrect PIN. Database was not cleared.", Toast.LENGTH_SHORT).show()
         }
     }
-    
+
     private fun performFirestoreClear() {
         // Show loading indicator with progress information
         val loadingDialog = AlertDialog.Builder(this)
@@ -395,9 +395,9 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             .setMessage("Please wait while we delete all data from Firestore...\n\nThis may take some time depending on the amount of data.")
             .setCancelable(false)
             .create()
-        
+
         loadingDialog.show()
-        
+
         // Use coroutine to perform the clearing operation
         lifecycleScope.launch {
             try {
@@ -406,7 +406,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                     // Check if Google Play Services is available
                     val availability = GoogleApiAvailability.getInstance()
                     val resultCode = availability.isGooglePlayServicesAvailable(this@MainActivity)
-                    
+
                     if (resultCode != ConnectionResult.SUCCESS) {
                         loadingDialog.dismiss()
                         if (availability.isUserResolvableError(resultCode)) {
@@ -420,18 +420,18 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                     Log.e("MainActivity", "Error checking Play Services: ${e.message}", e)
                     // Continue anyway
                 }
-                
+
                 // Add a small delay to ensure the dialog is shown
                 delay(500)
-                
+
                 val result = firebaseRepository.clearAllFirestoreData()
-                
+
                 // Add a small delay to make the operation feel more substantial
                 delay(1000)
-                
+
                 // Dismiss the loading dialog
                 loadingDialog.dismiss()
-                
+
                 if (result) {
                     // Success - show confirmation with details
                     AlertDialog.Builder(this@MainActivity)
@@ -450,7 +450,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             } catch (e: Exception) {
                 // Handle exception with detailed error
                 loadingDialog.dismiss()
-                
+
                 AlertDialog.Builder(this@MainActivity)
                     .setTitle("Error")
                     .setMessage("An error occurred while clearing the database: ${e.message}\n\nSome data may have been partially deleted.")
@@ -468,7 +468,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             .setCancelable(true)
             .show()
     }
-    
+
     private fun showFirestoreRulesError() {
         AlertDialog.Builder(this)
             .setTitle("Firestore Rules Error")
@@ -499,6 +499,9 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             R.id.nav_instagram_business -> {
                 binding.bottomNavigation.visibility = View.VISIBLE
             }
+            R.id.nav_workout -> {
+                binding.bottomNavigation.visibility = View.VISIBLE
+            }
             R.id.nav_history -> {
                 binding.bottomNavigation.visibility = View.GONE
             }
@@ -522,7 +525,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                 binding.bottomNavigation.visibility = View.GONE
             }
         }
-        
+
         // Hide bottom navigation for certain screens
         when (destination.id) {
             R.id.homeFragment, R.id.nav_investments, R.id.nav_transaction_report -> {
@@ -532,7 +535,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                 binding.bottomNavigation.visibility = View.GONE
             }
         }
-        
+
         // Hide/show toolbar for certain screens
         when (destination.id) {
             R.id.nav_history -> {
@@ -546,7 +549,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                 binding.toolbar.visibility = View.VISIBLE
             }
         }
-        
+
         // Set the title based on destination label or use a specific title
         val title = when (destination.id) {
             R.id.homeFragment -> "Transactions"
@@ -555,12 +558,13 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             R.id.nav_notes -> "Notes"
             R.id.nav_wt_registry -> "Wing Tzun Registry"
             R.id.nav_instagram_business -> "Instagram Business"
+            R.id.nav_workout -> "Workout"
             R.id.nav_history -> "History"
             R.id.wtRegisterFragment -> "Wing Tzun Registry"
             R.id.nav_database_management -> "Database Management"
             else -> destination.label?.toString() ?: getString(R.string.app_name)
         }
-        
+
         // Set the title in the action bar
         supportActionBar?.title = title
     }
@@ -604,7 +608,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                     // When all lessons are updated, update the calendar
                     calendarViewModel.setLessonSchedule(wtLessonsViewModel.lessons.value ?: emptyList())
                 }
-                
+
                 is LessonChangeEvent.LessonAdded,
                 is LessonChangeEvent.LessonModified,
                 is LessonChangeEvent.LessonDeleted -> {
@@ -638,13 +642,13 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         val navHostFragment = supportFragmentManager
             .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         navController = navHostFragment.navController
-        
+
         // Add destination changed listener
         navController.addOnDestinationChangedListener(this)
 
         // Setup bottom navigation with NavController
         binding.bottomNavigation.setupWithNavController(navController)
-        
+
         // Add custom navigation for bottom navigation items
         binding.bottomNavigation.setOnItemSelectedListener { item ->
             when (item.itemId) {
@@ -689,6 +693,11 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                 }
                 R.id.nav_instagram_business -> {
                     navController.navigate(R.id.nav_instagram_business)
+                    drawerLayout.closeDrawers()
+                    true
+                }
+                R.id.nav_workout -> {
+                    navController.navigate(R.id.nav_workout)
                     drawerLayout.closeDrawers()
                     true
                 }

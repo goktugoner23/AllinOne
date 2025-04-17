@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="2dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/exercise_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="?attr/textAppearanceHeadline6"
+            tools:text="Bench Press" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sets: "
+                android:textAppearance="?attr/textAppearanceBody2"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/exercise_sets"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="16dp"
+                android:textAppearance="?attr/textAppearanceBody2"
+                tools:text="3" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Reps: "
+                android:textAppearance="?attr/textAppearanceBody2"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/exercise_reps"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="16dp"
+                android:textAppearance="?attr/textAppearanceBody2"
+                tools:text="10" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Weight: "
+                android:textAppearance="?attr/textAppearanceBody2"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/exercise_weight"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?attr/textAppearanceBody2"
+                tools:text="60 kg" />
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/exercise_notes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textAppearance="?attr/textAppearanceBody2"
+            android:visibility="gone"
+            tools:text="Keep elbows tucked"
+            tools:visibility="visible" />
+
+        <CheckBox
+            android:id="@+id/exercise_completed"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Completed" />
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

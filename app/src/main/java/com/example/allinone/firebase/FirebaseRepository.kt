@@ -16,6 +16,8 @@ import com.example.allinone.data.WTStudent
 import com.example.allinone.data.Event
 import com.example.allinone.data.WTLesson
 import com.example.allinone.data.WTRegistration
+import com.example.allinone.data.Program
+import com.example.allinone.data.Workout
 import com.example.allinone.utils.NetworkUtils
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
@@ -52,14 +54,14 @@ class FirebaseRepository(private val context: Context) {
     private val storageUtil = FirebaseStorageUtil(context)
     private val gson = Gson()
     private val idManager = FirebaseIdManager()
-    
+
     private val db = Firebase.firestore
     private val auth = Firebase.auth
     private val appContext = context.applicationContext
-    
+
     // Network status
     val isNetworkAvailable: LiveData<Boolean> = networkUtils.isNetworkAvailable
-    
+
     // Cache for data
     private val _transactions = MutableStateFlow<List<Transaction>>(emptyList())
     private val _investments = MutableStateFlow<List<Investment>>(emptyList())
@@ -68,7 +70,9 @@ class FirebaseRepository(private val context: Context) {
     private val _events = MutableStateFlow<List<Event>>(emptyList())
     private val _wtLessons = MutableStateFlow<List<WTLesson>>(emptyList())
     private val _registrations = MutableStateFlow<List<WTRegistration>>(emptyList())
-    
+    private val _programs = MutableStateFlow<List<Program>>(emptyList())
+    private val _workouts = MutableStateFlow<List<Workout>>(emptyList())
+
     // Public flows
     val transactions: StateFlow<List<Transaction>> = _transactions
     val investments: StateFlow<List<Investment>> = _investments
@@ -77,48 +81,50 @@ class FirebaseRepository(private val context: Context) {
     val events: StateFlow<List<Event>> = _events
     val wtLessons: StateFlow<List<WTLesson>> = _wtLessons
     val registrations: StateFlow<List<WTRegistration>> = _registrations
-    
+    val programs: StateFlow<List<Program>> = _programs
+    val workouts: StateFlow<List<Workout>> = _workouts
+
     // Error handling
     private val _errorMessage = MutableLiveData<String?>()
     val errorMessage: LiveData<String?> = _errorMessage
-    
+
     // Add this field to track if Google Play Services is available
     private val _isGooglePlayServicesAvailable = MutableLiveData<Boolean>(true)
     val isGooglePlayServicesAvailable: LiveData<Boolean> = _isGooglePlayServicesAvailable
-    
+
     // Queue status
     private val _pendingOperations = MutableLiveData<Int>(0)
     val pendingOperations: LiveData<Int> = _pendingOperations
-    
+
     // Add this field to track if Firebase project is properly configured
     private val _isFirebaseProjectValid = MutableLiveData<Boolean>(true)
     val isFirebaseProjectValid: LiveData<Boolean> = _isFirebaseProjectValid
-    
+
     // Add this field to track if Firestore security rules are properly configured
     private val _areFirestoreRulesValid = MutableLiveData<Boolean>(true)
     val areFirestoreRulesValid: LiveData<Boolean> = _areFirestoreRulesValid
-    
+
     // Network connectivity status
     private val _isOnline = MutableLiveData<Boolean>()
     val isOnline: LiveData<Boolean> = _isOnline
-    
+
     // Error handling
     private val _lastError = MutableLiveData<String>()
     val lastError: LiveData<String> = _lastError
-    
+
     // Loading state
     private val _isLoading = MutableLiveData<Boolean>(false)
     val isLoading: LiveData<Boolean> = _isLoading
-    
+
     init {
         // Initialize by loading data from Firebase or local cache
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 checkGooglePlayServicesAvailability()
-                
+
                 // Load initial data from local cache first for immediate display
                 loadFromLocalCache()
-                
+
                 // Then refresh from network if available
                 if (networkUtils.isActiveNetworkConnected()) {
                     refreshAllData()
@@ -127,7 +133,7 @@ class FirebaseRepository(private val context: Context) {
                 _errorMessage.postValue("Error loading data: ${e.message}")
             }
         }
-        
+
         // Listen for network changes
         networkUtils.isNetworkAvailable.observeForever { isAvailable ->
             if (isAvailable) {
@@ -137,14 +143,14 @@ class FirebaseRepository(private val context: Context) {
                     refreshAllData()
                 }
             }
-            
+
             // Update pending operations count
             updatePendingOperationsCount()
         }
-        
+
         // Initialize network monitor
         monitorNetworkConnectivity()
-        
+
         // Safely initialize Firestore settings for offline support
         try {
             val settings = FirebaseFirestoreSettings.Builder()
@@ -161,7 +167,7 @@ class FirebaseRepository(private val context: Context) {
             Log.w(TAG, "Firestore already initialized, skipping settings: ${e.message}")
         }
     }
-    
+
     /**
      * Load all data from local cache to provide immediate response
      */
@@ -173,70 +179,84 @@ class FirebaseRepository(private val context: Context) {
                 _transactions.value = cachedTransactions
                 Log.d(TAG, "Loaded ${cachedTransactions.size} transactions from cache")
             }
-            
+
             // Load investments
             val cachedInvestments = cacheManager.getCachedInvestments()
             if (cachedInvestments.isNotEmpty()) {
                 _investments.value = cachedInvestments
                 Log.d(TAG, "Loaded ${cachedInvestments.size} investments from cache")
             }
-            
+
             // Load notes
             val cachedNotes = cacheManager.getCachedNotes()
             if (cachedNotes.isNotEmpty()) {
                 _notes.value = cachedNotes
                 Log.d(TAG, "Loaded ${cachedNotes.size} notes from cache")
             }
-            
+
             // Load students
             val cachedStudents = cacheManager.getCachedStudents()
             if (cachedStudents.isNotEmpty()) {
                 _students.value = cachedStudents
                 Log.d(TAG, "Loaded ${cachedStudents.size} students from cache")
             }
-            
+
             // Load events
             val cachedEvents = cacheManager.getCachedEvents()
             if (cachedEvents.isNotEmpty()) {
                 _events.value = cachedEvents
                 Log.d(TAG, "Loaded ${cachedEvents.size} events from cache")
             }
-            
+
             // Load lessons
             val cachedLessons = cacheManager.getCachedLessons()
             if (cachedLessons.isNotEmpty()) {
                 _wtLessons.value = cachedLessons
                 Log.d(TAG, "Loaded ${cachedLessons.size} lessons from cache")
             }
-            
+
             // Load registrations
             val cachedRegistrations = cacheManager.getCachedRegistrations()
             if (cachedRegistrations.isNotEmpty()) {
                 _registrations.value = cachedRegistrations
                 Log.d(TAG, "Loaded ${cachedRegistrations.size} registrations from cache")
             }
+
+            // Load programs
+            val cachedPrograms = cacheManager.getCachedPrograms()
+            if (cachedPrograms.isNotEmpty()) {
+                _programs.value = cachedPrograms
+                Log.d(TAG, "Loaded ${cachedPrograms.size} programs from cache")
+            }
+
+            // Load workouts
+            val cachedWorkouts = cacheManager.getCachedWorkouts()
+            if (cachedWorkouts.isNotEmpty()) {
+                _workouts.value = cachedWorkouts
+                Log.d(TAG, "Loaded ${cachedWorkouts.size} workouts from cache")
+            }
         }
     }
-    
+
     /**
      * Monitors network connectivity and updates the isOnline LiveData
      */
     private fun monitorNetworkConnectivity() {
         val connectivityManager = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        
+
         // Keep track of last network status to prevent flapping
         var lastNetworkStatus = true // Start assuming we have network
         var networkStatusChangeTime = System.currentTimeMillis()
         val debounceTimeMs = 3000L // 3 seconds debounce (was 2 seconds)
-        
+
         connectivityManager.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 val currentTime = System.currentTimeMillis()
-                
+
                 // Add a short delay before confirming network is available
                 CoroutineScope(Dispatchers.IO).launch {
                     delay(500) // Wait half second to confirm network
-                    
+
                     // Double-check that network is still connected
                     if (networkUtils.isNetworkConnected()) {
                         // Switch to Main thread only for updating LiveData
@@ -251,17 +271,17 @@ class FirebaseRepository(private val context: Context) {
                     }
                 }
             }
-            
+
             override fun onLost(network: Network) {
                 // Add a larger delay before reporting network as lost
                 // to prevent brief network transitions from affecting the UI
                 CoroutineScope(Dispatchers.IO).launch {
                     delay(2000) // Wait 2 seconds (was 1 second)
-                    
+
                     // Check if network is still unavailable
                     if (!networkUtils.isNetworkConnected()) {
                         val currentTime = System.currentTimeMillis()
-                        
+
                         // Switch to Main thread only for updating LiveData
                         withContext(Dispatchers.Main) {
                             if (lastNetworkStatus || (currentTime - networkStatusChangeTime) > debounceTimeMs) {
@@ -274,16 +294,16 @@ class FirebaseRepository(private val context: Context) {
                     }
                 }
             }
-            
+
             override fun onUnavailable() {
                 // Also add a delay for onUnavailable
                 CoroutineScope(Dispatchers.IO).launch {
                     delay(1000) // Wait 1 second
-                    
+
                     // Double check network status
                     if (!networkUtils.isNetworkConnected()) {
                         val currentTime = System.currentTimeMillis()
-                        
+
                         // Switch to Main thread only for updating LiveData
                         withContext(Dispatchers.Main) {
                             if (lastNetworkStatus || (currentTime - networkStatusChangeTime) > debounceTimeMs) {
@@ -297,12 +317,12 @@ class FirebaseRepository(private val context: Context) {
                 }
             }
         })
-        
+
         // Initialize with current status using networkUtils but with a small delay
         CoroutineScope(Dispatchers.IO).launch {
             delay(1000) // Wait 1 second (was 500ms)
             val isConnected = networkUtils.isNetworkConnected()
-            
+
             // Switch to Main thread only for updating LiveData
             withContext(Dispatchers.Main) {
                 _isOnline.value = isConnected
@@ -311,7 +331,7 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     /**
      * Process the offline queue when network is available
      */
@@ -319,7 +339,7 @@ class FirebaseRepository(private val context: Context) {
         if (!networkUtils.isActiveNetworkConnected()) {
             return
         }
-        
+
         offlineQueue.processQueue { queueItem ->
             try {
                 when (queueItem.dataType) {
@@ -330,6 +350,8 @@ class FirebaseRepository(private val context: Context) {
                     OfflineQueue.DataType.EVENT -> processEventQueueItem(queueItem)
                     OfflineQueue.DataType.WT_LESSON -> processWTLessonQueueItem(queueItem)
                     OfflineQueue.DataType.REGISTRATION -> processRegistrationQueueItem(queueItem)
+                    OfflineQueue.DataType.PROGRAM -> processProgramQueueItem(queueItem)
+                    OfflineQueue.DataType.WORKOUT -> processWorkoutQueueItem(queueItem)
                 }
                 true // Operation succeeded
             } catch (e: Exception) {
@@ -337,11 +359,11 @@ class FirebaseRepository(private val context: Context) {
                 false // Operation failed, keep in queue
             }
         }
-        
+
         // Update pending operations count
         updatePendingOperationsCount()
     }
-    
+
     private suspend fun processTransactionQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
         return when (queueItem.operation) {
             OfflineQueue.Operation.INSERT, OfflineQueue.Operation.UPDATE -> {
@@ -356,7 +378,7 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     private suspend fun processInvestmentQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
         return when (queueItem.operation) {
             OfflineQueue.Operation.INSERT, OfflineQueue.Operation.UPDATE -> {
@@ -371,7 +393,7 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     private suspend fun processNoteQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
         return when (queueItem.operation) {
             OfflineQueue.Operation.INSERT, OfflineQueue.Operation.UPDATE -> {
@@ -386,7 +408,7 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     private suspend fun processStudentQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
         return when (queueItem.operation) {
             OfflineQueue.Operation.INSERT, OfflineQueue.Operation.UPDATE -> {
@@ -401,7 +423,7 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     private suspend fun processEventQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
         return when (queueItem.operation) {
             OfflineQueue.Operation.INSERT, OfflineQueue.Operation.UPDATE -> {
@@ -416,7 +438,7 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     private suspend fun processWTLessonQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
         return when (queueItem.operation) {
             OfflineQueue.Operation.INSERT, OfflineQueue.Operation.UPDATE -> {
@@ -431,7 +453,7 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     private suspend fun processRegistrationQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
         return when (queueItem.operation) {
             OfflineQueue.Operation.INSERT, OfflineQueue.Operation.UPDATE -> {
@@ -446,21 +468,55 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
+    private suspend fun processProgramQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
+        return when (queueItem.operation) {
+            OfflineQueue.Operation.INSERT, OfflineQueue.Operation.UPDATE -> {
+                val program = gson.fromJson(queueItem.jsonData, Program::class.java)
+                firebaseManager.saveProgram(program)
+                refreshPrograms() // Refresh to get the latest data
+                true
+            }
+            OfflineQueue.Operation.DELETE -> {
+                val program = gson.fromJson(queueItem.jsonData, Program::class.java)
+                firebaseManager.deleteProgram(program.id)
+                refreshPrograms() // Refresh to get the latest data
+                true
+            }
+        }
+    }
+
+    private suspend fun processWorkoutQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
+        return when (queueItem.operation) {
+            OfflineQueue.Operation.INSERT, OfflineQueue.Operation.UPDATE -> {
+                val workout = gson.fromJson(queueItem.jsonData, Workout::class.java)
+                firebaseManager.saveWorkout(workout)
+                refreshWorkouts() // Refresh to get the latest data
+                true
+            }
+            OfflineQueue.Operation.DELETE -> {
+                val workout = gson.fromJson(queueItem.jsonData, Workout::class.java)
+                firebaseManager.deleteWorkout(workout.id)
+                refreshWorkouts() // Refresh to get the latest data
+                true
+            }
+        }
+    }
+
     /**
      * Update the count of pending operations
      */
     private fun updatePendingOperationsCount() {
         _pendingOperations.postValue(offlineQueue.getQueue().size)
     }
-    
+
     /**
      * Refreshes all data from Firebase with robust error handling
      */
     suspend fun refreshAllData() {
         _isLoading.postValue(true)
         Log.d(TAG, "Starting refreshAllData()")
-        
+
         try {
             // First check if we should refresh from network
             if (!networkUtils.isActiveNetworkConnected()) {
@@ -468,9 +524,9 @@ class FirebaseRepository(private val context: Context) {
                 _isLoading.postValue(false)
                 return // Use cached data
             }
-            
+
             Log.d(TAG, "Network connected, refreshing all data from Firebase")
-            
+
             refreshTransactions()
             refreshInvestments()
             refreshNotes()
@@ -478,7 +534,9 @@ class FirebaseRepository(private val context: Context) {
             refreshEvents()
             refreshWTLessons()
             refreshRegistrations()
-            
+            refreshPrograms()
+            refreshWorkouts()
+
             // Log state after refresh
             Log.d(TAG, "All data refreshed. Current counts - " +
                 "Transactions: ${_transactions.value.size}, " +
@@ -486,7 +544,7 @@ class FirebaseRepository(private val context: Context) {
                 "Notes: ${_notes.value.size}, " +
                 "Students: ${_students.value.size}, " +
                 "Registrations: ${_registrations.value.size}")
-            
+
         } catch (e: Exception) {
             Log.e(TAG, "Error refreshing data: ${e.message}", e)
             _errorMessage.postValue("Error refreshing data: ${e.message}")
@@ -494,7 +552,7 @@ class FirebaseRepository(private val context: Context) {
             _isLoading.postValue(false)
         }
     }
-    
+
     /**
      * Force refresh all data regardless of cache state
      */
@@ -508,7 +566,7 @@ class FirebaseRepository(private val context: Context) {
             _errorMessage.postValue("Network unavailable. Cannot force refresh data.")
         }
     }
-    
+
     /**
      * Delete all data from Firestore database
      */
@@ -517,13 +575,13 @@ class FirebaseRepository(private val context: Context) {
             if (networkUtils.isActiveNetworkConnected()) {
                 // Clear all data in Firestore
                 firebaseManager.clearAllFirestoreData()
-                
+
                 // Clear local cache
                 cacheManager.clearAllCache()
-                
+
                 // Clear offline queue
                 offlineQueue.clearQueue()
-                
+
                 // Reset local data collections
                 _transactions.value = emptyList()
                 _investments.value = emptyList()
@@ -532,7 +590,7 @@ class FirebaseRepository(private val context: Context) {
                 _events.value = emptyList()
                 _wtLessons.value = emptyList()
                 _registrations.value = emptyList()
-                
+
                 true
             } else {
                 _errorMessage.postValue("Network unavailable. Cannot clear Firestore data.")
@@ -543,7 +601,7 @@ class FirebaseRepository(private val context: Context) {
             false
         }
     }
-    
+
     // Transaction methods
     suspend fun refreshTransactions() {
         withContext(Dispatchers.IO) {
@@ -553,7 +611,7 @@ class FirebaseRepository(private val context: Context) {
                 _transactions.value = transactions
                 cacheManager.cacheTransactions(transactions)
                 _isLoading.postValue(false)
-                
+
                 // Notify other components
                 DataChangeNotifier.notifyTransactionsChanged()
             } catch (e: Exception) {
@@ -562,7 +620,7 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     /**
      * Insert a new transaction into Firebase
      */
@@ -576,10 +634,10 @@ class FirebaseRepository(private val context: Context) {
         date: Long? = null
     ) {
         Log.d(TAG, "Inserting transaction: $type, $amount, $isIncome")
-        
+
         // Get next sequential ID for the transaction
         val transactionId = idManager.getNextId("transactions")
-        
+
         val transaction = Transaction(
             id = transactionId,
             amount = amount,
@@ -590,13 +648,13 @@ class FirebaseRepository(private val context: Context) {
             category = category,
             relatedRegistrationId = relatedRegistrationId
         )
-        
+
         try {
             // Update local cache immediately for responsiveness
             val currentTransactions = _transactions.value.toMutableList()
             currentTransactions.add(transaction)
             _transactions.value = currentTransactions
-            
+
             // Then update Firebase if network is available
             if (networkUtils.isActiveNetworkConnected()) {
                 firebaseManager.saveTransaction(transaction)
@@ -614,7 +672,7 @@ class FirebaseRepository(private val context: Context) {
             _errorMessage.postValue("Error saving transaction: ${e.message}")
         }
     }
-    
+
     /**
      * Update a transaction
      * @param transaction The transaction to update
@@ -623,15 +681,15 @@ class FirebaseRepository(private val context: Context) {
         // Update local cache
         val currentList = _transactions.value.toMutableList()
         val index = currentList.indexOfFirst { it.id == transaction.id }
-        
+
         if (index != -1) {
             currentList[index] = transaction
         } else {
             currentList.add(transaction)
         }
-        
+
         _transactions.value = currentList
-        
+
         // Save to Firebase if network is available
         if (networkUtils.isActiveNetworkConnected()) {
             CoroutineScope(Dispatchers.IO).launch {
@@ -644,10 +702,10 @@ class FirebaseRepository(private val context: Context) {
                         OfflineQueue.Operation.UPDATE,
                         gson.toJson(transaction)
                     )
-                    
+
                     // Update pending operations count
                     updatePendingOperationsCount()
-                    
+
                     // Show error message
                     _errorMessage.postValue("Failed to save transaction: ${e.message}")
                 }
@@ -660,20 +718,20 @@ class FirebaseRepository(private val context: Context) {
                     OfflineQueue.Operation.UPDATE,
                     gson.toJson(transaction)
                 )
-                
+
                 // Update pending operations count
                 updatePendingOperationsCount()
             }
         }
     }
-    
+
     suspend fun deleteTransaction(transaction: Transaction) {
         try {
             // Update local cache immediately
             val currentTransactions = _transactions.value.toMutableList()
             currentTransactions.removeIf { it.id == transaction.id }
             _transactions.value = currentTransactions
-            
+
             // Then delete from Firebase if network is available
             if (networkUtils.isActiveNetworkConnected()) {
                 firebaseManager.deleteTransaction(transaction)
@@ -691,7 +749,7 @@ class FirebaseRepository(private val context: Context) {
             _errorMessage.postValue("Error deleting transaction: ${e.message}")
         }
     }
-    
+
     // Investment methods
     suspend fun refreshInvestments() {
         withContext(Dispatchers.IO) {
@@ -701,7 +759,7 @@ class FirebaseRepository(private val context: Context) {
                 _investments.value = investments
                 cacheManager.cacheInvestments(investments)
                 _isLoading.postValue(false)
-                
+
                 // Notify other components
                 DataChangeNotifier.notifyInvestmentsChanged()
             } catch (e: Exception) {
@@ -710,14 +768,14 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     suspend fun insertInvestment(investment: Investment) {
         try {
             // Update local cache immediately
             val currentInvestments = _investments.value.toMutableList()
             currentInvestments.add(investment)
             _investments.value = currentInvestments
-            
+
             // Then update Firebase if network is available
             if (networkUtils.isActiveNetworkConnected()) {
                 firebaseManager.saveInvestment(investment)
@@ -735,7 +793,7 @@ class FirebaseRepository(private val context: Context) {
             _errorMessage.postValue("Error saving investment: ${e.message}")
         }
     }
-    
+
     /**
      * Update an investment
      * @param investment The investment to update
@@ -744,15 +802,15 @@ class FirebaseRepository(private val context: Context) {
         // Update local cache
         val currentList = _investments.value.toMutableList()
         val index = currentList.indexOfFirst { it.id == investment.id }
-        
+
         if (index != -1) {
             currentList[index] = investment
         } else {
             currentList.add(investment)
         }
-        
+
         _investments.value = currentList
-        
+
         // Save to Firebase if network is available
         if (networkUtils.isActiveNetworkConnected()) {
             CoroutineScope(Dispatchers.IO).launch {
@@ -765,10 +823,10 @@ class FirebaseRepository(private val context: Context) {
                         OfflineQueue.Operation.UPDATE,
                         gson.toJson(investment)
                     )
-                    
+
                     // Update pending operations count
                     updatePendingOperationsCount()
-                    
+
                     // Show error message
                     _errorMessage.postValue("Failed to save investment: ${e.message}")
                 }
@@ -781,23 +839,23 @@ class FirebaseRepository(private val context: Context) {
                     OfflineQueue.Operation.UPDATE,
                     gson.toJson(investment)
                 )
-                
+
                 // Update pending operations count
                 updatePendingOperationsCount()
             }
         }
     }
-    
+
     suspend fun deleteInvestment(investment: Investment) {
         try {
             // Update local cache immediately
             val currentInvestments = _investments.value.toMutableList()
             currentInvestments.removeIf { it.id == investment.id }
             _investments.value = currentInvestments
-            
+
             // Log the deletion for debugging
             Log.d(TAG, "Deleting investment with ID: ${investment.id}, Name: ${investment.name}, Amount: ${investment.amount}")
-            
+
             // Then delete from Firebase if network is available
             if (networkUtils.isActiveNetworkConnected()) {
                 firebaseManager.deleteInvestment(investment)
@@ -812,7 +870,7 @@ class FirebaseRepository(private val context: Context) {
                 _errorMessage.postValue("Investment deleted locally. Will sync when network is available.")
                 updatePendingOperationsCount()
             }
-            
+
             // Force refresh balance calculations using a proper coroutine scope
             CoroutineScope(Dispatchers.Main).launch {
                 delay(100) // Brief delay to ensure operations complete
@@ -823,13 +881,13 @@ class FirebaseRepository(private val context: Context) {
             _errorMessage.postValue("Error deleting investment: ${e.message}")
         }
     }
-    
+
     // Helper method to notify listeners of investment changes
     private fun notifyInvestmentChange() {
         val currentInvestments = _investments.value
         _investments.value = currentInvestments // Trigger updates by resetting the same value
     }
-    
+
     /**
      * Get an investment by its ID
      * @param id The ID of the investment to retrieve
@@ -838,7 +896,7 @@ class FirebaseRepository(private val context: Context) {
     fun getInvestmentById(id: Long): Investment? {
         return _investments.value.find { it.id == id }
     }
-    
+
     // Note methods
     suspend fun refreshNotes() {
         withContext(Dispatchers.IO) {
@@ -848,7 +906,7 @@ class FirebaseRepository(private val context: Context) {
                 _notes.value = notes
                 cacheManager.cacheNotes(notes)
                 _isLoading.postValue(false)
-                
+
                 // Notify other components
                 DataChangeNotifier.notifyNotesChanged()
             } catch (e: Exception) {
@@ -857,14 +915,14 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     suspend fun insertNote(note: Note) {
         try {
             // Update local cache immediately
             val currentNotes = _notes.value.toMutableList()
             currentNotes.add(note)
             _notes.value = currentNotes
-            
+
             // Then update Firebase if network is available
             if (networkUtils.isActiveNetworkConnected()) {
                 firebaseManager.saveNote(note)
@@ -882,7 +940,7 @@ class FirebaseRepository(private val context: Context) {
             _errorMessage.postValue("Error saving note: ${e.message}")
         }
     }
-    
+
     /**
      * Update a note
      * @param note The note to update
@@ -891,15 +949,15 @@ class FirebaseRepository(private val context: Context) {
         // Update local cache
         val currentList = _notes.value.toMutableList()
         val index = currentList.indexOfFirst { it.id == note.id }
-        
+
         if (index != -1) {
             currentList[index] = note
         } else {
             currentList.add(note)
         }
-        
+
         _notes.value = currentList
-        
+
         // Save to Firebase if network is available
         if (networkUtils.isActiveNetworkConnected()) {
             CoroutineScope(Dispatchers.IO).launch {
@@ -912,10 +970,10 @@ class FirebaseRepository(private val context: Context) {
                         OfflineQueue.Operation.UPDATE,
                         gson.toJson(note)
                     )
-                    
+
                     // Update pending operations count
                     updatePendingOperationsCount()
-                    
+
                     // Show error message
                     _errorMessage.postValue("Failed to save note: ${e.message}")
                 }
@@ -928,20 +986,20 @@ class FirebaseRepository(private val context: Context) {
                     OfflineQueue.Operation.UPDATE,
                     gson.toJson(note)
                 )
-                
+
                 // Update pending operations count
                 updatePendingOperationsCount()
             }
         }
     }
-    
+
     suspend fun deleteNote(note: Note) {
         try {
             // Update local cache immediately
             val currentNotes = _notes.value.toMutableList()
             currentNotes.removeIf { it.id == note.id }
             _notes.value = currentNotes
-            
+
             // Then delete from Firebase if network is available
             if (networkUtils.isActiveNetworkConnected()) {
                 firebaseManager.deleteNote(note)
@@ -959,7 +1017,7 @@ class FirebaseRepository(private val context: Context) {
             _errorMessage.postValue("Error deleting note: ${e.message}")
         }
     }
-    
+
     // WTStudent methods
     suspend fun refreshStudents() = withContext(Dispatchers.IO) {
         try {
@@ -968,7 +1026,7 @@ class FirebaseRepository(private val context: Context) {
             _students.value = students
             cacheManager.cacheStudents(students)
             _isLoading.postValue(false)
-            
+
             // Notify other components
             DataChangeNotifier.notifyStudentsChanged()
         } catch (e: Exception) {
@@ -976,14 +1034,14 @@ class FirebaseRepository(private val context: Context) {
             _isLoading.postValue(false)
         }
     }
-    
+
     suspend fun insertStudent(student: WTStudent) {
         try {
             // Update local cache immediately
             val currentStudents = _students.value.toMutableList()
             currentStudents.add(student)
             _students.value = currentStudents
-            
+
             // Then update Firebase if network is available
             if (networkUtils.isActiveNetworkConnected()) {
                 firebaseManager.saveStudent(student)
@@ -1001,7 +1059,7 @@ class FirebaseRepository(private val context: Context) {
             _errorMessage.postValue("Error saving student: ${e.message}")
         }
     }
-    
+
     /**
      * Update a student
      * @param student The student to update
@@ -1010,17 +1068,17 @@ class FirebaseRepository(private val context: Context) {
     suspend fun updateStudent(student: WTStudent): Boolean {
         try {
             // Check for existing students first by ID or name
-            val existingStudents = _students.value.filter { 
+            val existingStudents = _students.value.filter {
                 it.id == student.id || it.name.equals(student.name, ignoreCase = true)
             }
-            
+
             // Get latest local cache copy
             val currentList = _students.value.toMutableList()
-            
+
             // Flag to track if we found and updated an existing student
             var studentUpdated = false
             var studentToSave = student
-            
+
             if (existingStudents.isNotEmpty()) {
                 // Update all matching students to prevent duplicates
                 existingStudents.forEach { existingStudent ->
@@ -1029,22 +1087,22 @@ class FirebaseRepository(private val context: Context) {
                         // Keep the same ID but update all other fields
                         val updatedStudent = student.copy(id = existingStudent.id)
                         currentList[index] = updatedStudent
-                        
+
                         // Use the updated student for saving to Firebase
                         studentToSave = updatedStudent
                         studentUpdated = true
                     }
                 }
             }
-            
+
             // If no students were updated, add as new
             if (!studentUpdated) {
                 currentList.add(studentToSave)
             }
-            
+
             // Update local cache, ensuring no duplicates by ID
             _students.value = currentList.distinctBy { it.id }
-            
+
             // Then update Firebase if network is available
             if (networkUtils.isActiveNetworkConnected()) {
                 try {
@@ -1060,10 +1118,10 @@ class FirebaseRepository(private val context: Context) {
                         OfflineQueue.Operation.UPDATE,
                         gson.toJson(studentToSave)
                     )
-                    
+
                     // Update pending operations count
                     updatePendingOperationsCount()
-                    
+
                     // Show error message
                     _errorMessage.postValue("Failed to save student: ${e.message}")
                     return false
@@ -1075,7 +1133,7 @@ class FirebaseRepository(private val context: Context) {
                     OfflineQueue.Operation.UPDATE,
                     gson.toJson(studentToSave)
                 )
-                
+
                 // Update pending operations count
                 updatePendingOperationsCount()
                 return true // Consider it a success since it's queued for later
@@ -1085,16 +1143,16 @@ class FirebaseRepository(private val context: Context) {
             return false
         }
     }
-    
+
     suspend fun deleteStudent(student: WTStudent) {
         try {
             Log.d(TAG, "Starting deletion of student: ID=${student.id}, Name=${student.name}")
-            
+
             // Update local cache immediately
             val currentStudents = _students.value.toMutableList()
             currentStudents.removeIf { it.id == student.id }
             _students.value = currentStudents
-            
+
             // Then delete from Firebase if network is available
             if (networkUtils.isActiveNetworkConnected()) {
                 firebaseManager.deleteStudent(student)
@@ -1109,10 +1167,10 @@ class FirebaseRepository(private val context: Context) {
                 _errorMessage.postValue("Student deleted locally. Will sync when network is available.")
                 updatePendingOperationsCount()
             }
-            
+
             // Cache the updated list
             cacheManager.cacheStudents(_students.value)
-            
+
             // Notify other components
             DataChangeNotifier.notifyStudentsChanged()
         } catch (e: Exception) {
@@ -1121,25 +1179,25 @@ class FirebaseRepository(private val context: Context) {
             throw e
         }
     }
-    
+
     // Helper methods for filtering data
     fun getTransactionsByType(isIncome: Boolean): List<Transaction> {
         return _transactions.value.filter { it.isIncome == isIncome }
     }
-    
+
     fun getTotalByType(isIncome: Boolean): Double {
         return _transactions.value
             .filter { it.isIncome == isIncome }
             .sumOf { it.amount }
     }
-    
+
     // Image and attachment handling
     suspend fun uploadImage(uri: Uri): String? {
         if (!networkUtils.isActiveNetworkConnected()) {
             _errorMessage.postValue("Cannot upload image without network connection.")
             return null
         }
-        
+
         return try {
             firebaseManager.uploadImage(uri)
         } catch (e: Exception) {
@@ -1147,13 +1205,13 @@ class FirebaseRepository(private val context: Context) {
             null
         }
     }
-    
+
     suspend fun uploadAttachment(uri: Uri): String? {
         if (!networkUtils.isActiveNetworkConnected()) {
             _errorMessage.postValue("Cannot upload attachment without network connection.")
             return null
         }
-        
+
         return try {
             firebaseManager.uploadAttachment(uri)
         } catch (e: Exception) {
@@ -1161,14 +1219,14 @@ class FirebaseRepository(private val context: Context) {
             null
         }
     }
-    
+
     /**
      * Clear the error message
      */
     fun clearErrorMessage() {
         _errorMessage.value = null
     }
-    
+
     // WT Events
     suspend fun insertEvent(title: String, description: String?, date: Date) {
         val event = Event(
@@ -1179,7 +1237,7 @@ class FirebaseRepository(private val context: Context) {
         )
         insertEvent(event)
     }
-    
+
     suspend fun insertEvent(event: Event) {
         withContext(Dispatchers.IO) {
             try {
@@ -1192,10 +1250,10 @@ class FirebaseRepository(private val context: Context) {
                     } else {
                         event
                     }
-                    
+
                     // Save to Firebase
                     firebaseManager.saveEvent(eventWithId).await()
-                    
+
                     // Update local cache - switch to Main thread for LiveData updates
                     withContext(Dispatchers.Main) {
                         val currentEvents = _events.value.toMutableList()
@@ -1223,14 +1281,14 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     suspend fun deleteEvent(event: Event) {
         withContext(Dispatchers.IO) {
             try {
                 if (networkUtils.isActiveNetworkConnected()) {
                     // Delete from Firebase
                     firebaseManager.deleteEvent(event.id).await()
-                    
+
                     // Update local cache - switch to Main thread for LiveData updates
                     withContext(Dispatchers.Main) {
                         val currentEvents = _events.value.toMutableList()
@@ -1253,7 +1311,7 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     // WT Lessons
     suspend fun insertWTLesson(lesson: WTLesson) {
         withContext(Dispatchers.IO) {
@@ -1265,10 +1323,10 @@ class FirebaseRepository(private val context: Context) {
                     } else {
                         lesson
                     }
-                    
+
                     // Save to Firebase
                     firebaseManager.saveWTLesson(lessonWithId).await()
-                    
+
                     // Update cache
                     val currentLessons = _wtLessons.value.toMutableList()
                     val index = currentLessons.indexOfFirst { it.id == lessonWithId.id }
@@ -1296,14 +1354,14 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     suspend fun deleteWTLesson(lesson: WTLesson) {
         withContext(Dispatchers.IO) {
             try {
                 if (networkUtils.isActiveNetworkConnected()) {
                     // Delete from Firestore
                     firebaseManager.deleteWTLesson(lesson.id).await()
-                    
+
                     // Update cache
                     val currentLessons = _wtLessons.value.toMutableList()
                     currentLessons.removeIf { it.id == lesson.id }
@@ -1326,7 +1384,7 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     // WT Students
     suspend fun updateWTStudent(student: WTStudent) {
         withContext(Dispatchers.IO) {
@@ -1334,7 +1392,7 @@ class FirebaseRepository(private val context: Context) {
                 if (networkUtils.isActiveNetworkConnected()) {
                     // Save to Firebase
                     firebaseManager.saveStudent(student)
-                    
+
                     // Update local cache - switch to Main thread for LiveData updates
                     withContext(Dispatchers.Main) {
                         val currentStudents = _students.value.toMutableList()
@@ -1362,7 +1420,7 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     /**
      * Refreshes WT events from Firestore with robust error handling
      */
@@ -1370,24 +1428,24 @@ class FirebaseRepository(private val context: Context) {
         if (!networkUtils.isActiveNetworkConnected()) {
             return // Use cached data
         }
-        
+
         try {
             // Show loading state
             withContext(Dispatchers.Main) {
                 _isLoading.value = true
             }
-            
+
             val eventList = firebaseManager.getEvents()
-            
+
             // Update cache first
             cacheManager.cacheEvents(eventList)
-            
+
             // Then update LiveData on main thread
             withContext(Dispatchers.Main) {
                 _events.value = eventList
                 _isLoading.value = false
             }
-            
+
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
                 _errorMessage.value = "Error loading events: ${e.message}"
@@ -1395,7 +1453,7 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     /**
      * Refreshes WT lessons from Firestore with robust error handling
      * @param forceRefresh If true, will attempt to refresh from Firebase even if network is unavailable
@@ -1405,30 +1463,30 @@ class FirebaseRepository(private val context: Context) {
             Log.d(TAG, "Network unavailable, using cached lessons data")
             return // Use cached data
         }
-        
+
         try {
             // Show loading state
             withContext(Dispatchers.Main) {
                 _isLoading.value = true
             }
-            
+
             // Log the refresh attempt
             Log.d(TAG, "Refreshing WT lessons from Firebase")
-            
+
             val lessonList = firebaseManager.getAllWTLessons()
-            
+
             // Log the fetch result
             Log.d(TAG, "Retrieved ${lessonList.size} lessons from Firebase")
-            
+
             // Update cache first
             cacheManager.cacheLessons(lessonList)
-            
+
             // Then update LiveData on main thread
             withContext(Dispatchers.Main) {
                 _wtLessons.value = lessonList
                 _isLoading.value = false
             }
-            
+
         } catch (e: Exception) {
             Log.e(TAG, "Error loading lessons: ${e.message}", e)
             withContext(Dispatchers.Main) {
@@ -1456,14 +1514,14 @@ class FirebaseRepository(private val context: Context) {
                     _errorMessage.postValue("Google Play Services error: ${e.message}")
                     false
                 }
-                
+
                 withContext(Dispatchers.Main) {
                     _isGooglePlayServicesAvailable.value = isGpsAvailable
                 }
-                
+
                 // If GPS is not available, don't bother checking the rest
                 if (!isGpsAvailable) return@launch
-                
+
                 // Check Firebase project validity
                 val isProjectValid = try {
                     firebaseManager.validateFirebaseProject()
@@ -1471,18 +1529,18 @@ class FirebaseRepository(private val context: Context) {
                     _errorMessage.postValue("Firebase project validation error: ${e.message}")
                     false
                 }
-                
+
                 withContext(Dispatchers.Main) {
                     _isFirebaseProjectValid.value = isProjectValid
-                    
+
                     if (!isProjectValid) {
                         _errorMessage.value = "Firebase project configuration error. Please check google-services.json."
                     }
                 }
-                
+
                 // If project is not valid, don't bother checking rules
                 if (!isProjectValid) return@launch
-                
+
                 // Check security rules
                 val areRulesValid = try {
                     firebaseManager.checkSecurityRules()
@@ -1490,10 +1548,10 @@ class FirebaseRepository(private val context: Context) {
                     _errorMessage.postValue("Firestore rules validation error: ${e.message}")
                     false
                 }
-                
+
                 withContext(Dispatchers.Main) {
                     _areFirestoreRulesValid.value = areRulesValid
-                    
+
                     if (!areRulesValid) {
                         _errorMessage.value = "Firestore security rules are not properly configured."
                     }
@@ -1511,24 +1569,24 @@ class FirebaseRepository(private val context: Context) {
         if (!networkUtils.isActiveNetworkConnected()) {
             return // Use cached data
         }
-        
+
         try {
             // Show loading state
             withContext(Dispatchers.Main) {
                 _isLoading.value = true
             }
-            
+
             val registrationList = firebaseManager.getRegistrations()
-            
+
             // Update cache first
             cacheManager.cacheRegistrations(registrationList)
-            
+
             // Then update LiveData on main thread
             withContext(Dispatchers.Main) {
                 _registrations.value = registrationList
                 _isLoading.value = false
             }
-            
+
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
                 _errorMessage.value = "Error loading registrations: ${e.message}"
@@ -1536,7 +1594,7 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     suspend fun insertRegistration(registration: WTRegistration) {
         withContext(Dispatchers.IO) {
             try {
@@ -1549,10 +1607,10 @@ class FirebaseRepository(private val context: Context) {
                     } else {
                         registration
                     }
-                    
+
                     // Save to Firebase
                     firebaseManager.saveRegistration(registrationWithId).await()
-                    
+
                     // Update cache
                     val currentRegistrations = _registrations.value.toMutableList()
                     val index = currentRegistrations.indexOfFirst { it.id == registrationWithId.id }
@@ -1580,14 +1638,14 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     suspend fun updateRegistration(registration: WTRegistration) {
         withContext(Dispatchers.IO) {
             try {
                 if (networkUtils.isActiveNetworkConnected()) {
                     // Save to Firebase
                     firebaseManager.saveRegistration(registration).await()
-                    
+
                     // Update local cache
                     val currentRegistrations = _registrations.value.toMutableList()
                     val index = currentRegistrations.indexOfFirst { it.id == registration.id }
@@ -1599,7 +1657,7 @@ class FirebaseRepository(private val context: Context) {
                     withContext(Dispatchers.Main) {
                         _registrations.value = currentRegistrations
                     }
-                    
+
                     // Refresh to ensure data consistency
                     refreshRegistrations()
                 } else {
@@ -1618,42 +1676,42 @@ class FirebaseRepository(private val context: Context) {
             }
         }
     }
-    
+
     suspend fun deleteRegistration(registration: WTRegistration) {
         try {
             Log.d(TAG, "Starting to delete registration with ID: ${registration.id}")
-            
+
             // Delete from Firestore
             firebaseManager.deleteRegistration(registration.id).await()
-            
+
             // Remove from local cache
             val currentRegistrations = _registrations.value
             val updatedRegistrations = currentRegistrations.filter { it.id != registration.id }
             _registrations.emit(updatedRegistrations)
             cacheManager.cacheRegistrations(updatedRegistrations)
-            
+
             Log.d(TAG, "Successfully deleted registration with ID: ${registration.id}")
         } catch (e: Exception) {
             Log.e(TAG, "Error deleting registration: ${e.message}", e)
             throw e
         }
     }
-    
+
     // Get registrations for a specific student
     fun getRegistrationsForStudent(studentId: Long): List<WTRegistration> {
         return _registrations.value.filter { it.studentId == studentId }
     }
-    
+
     // Get current active registration for a student (if any)
     fun getCurrentRegistrationForStudent(studentId: Long): WTRegistration? {
         val now = Date()
-        return _registrations.value.find { 
-            it.studentId == studentId && 
-            (it.startDate?.before(now) ?: true) && 
+        return _registrations.value.find {
+            it.studentId == studentId &&
+            (it.startDate?.before(now) ?: true) &&
             (it.endDate?.after(now) ?: true)
         }
     }
-    
+
     // Check if a student has an active registration
     fun isStudentCurrentlyRegistered(studentId: Long): Boolean {
         return getCurrentRegistrationForStudent(studentId) != null
@@ -1669,19 +1727,19 @@ class FirebaseRepository(private val context: Context) {
      */
     suspend fun deleteTransactionsByRegistrationId(registrationId: Long) {
         Log.d(TAG, "Looking for transactions with registrationId: $registrationId")
-        
+
         // Find transactions related to this registration
-        val transactionsToDelete = _transactions.value.filter { 
-            it.relatedRegistrationId == registrationId 
+        val transactionsToDelete = _transactions.value.filter {
+            it.relatedRegistrationId == registrationId
         }
-        
+
         if (transactionsToDelete.isEmpty()) {
             Log.d(TAG, "No transactions found for registrationId: $registrationId")
             return
         }
-        
+
         Log.d(TAG, "Found ${transactionsToDelete.size} transactions to delete for registrationId: $registrationId")
-        
+
         // Delete each transaction
         transactionsToDelete.forEach { transaction ->
             try {
@@ -1704,33 +1762,33 @@ class FirebaseRepository(private val context: Context) {
     suspend fun uploadFile(fileUri: Uri, folderName: String, id: String? = null): String? {
         Log.d(TAG, "============ UPLOAD FILE ============")
         Log.d(TAG, "Starting uploadFile: fileUri=$fileUri, folderName=$folderName, id=$id")
-        
+
         try {
             if (!networkUtils.isActiveNetworkConnected()) {
                 Log.e(TAG, "Upload failed: No network connection")
                 return null
             }
-            
+
             // Verify the URI is valid
             if (fileUri.toString().isEmpty()) {
                 Log.e(TAG, "Upload failed: Empty URI")
                 return null
             }
-            
+
             if (!fileUri.toString().startsWith("content://")) {
                 Log.e(TAG, "Upload failed: URI doesn't start with content:// - ${fileUri.toString().take(20)}")
                 return null
             }
-            
+
             Log.d(TAG, "Calling storageUtil.uploadFile...")
             val result = storageUtil.uploadFile(fileUri, folderName, id)
-            
+
             if (result != null) {
                 Log.d(TAG, "Upload successful! Result URL: ${result.take(50)}...")
             } else {
                 Log.e(TAG, "Upload failed! storageUtil.uploadFile returned null")
             }
-            
+
             return result
         } catch (e: Exception) {
             Log.e(TAG, "Exception in uploadFile: ${e.javaClass.simpleName}: ${e.message}", e)
@@ -1739,7 +1797,7 @@ class FirebaseRepository(private val context: Context) {
             Log.d(TAG, "============ END UPLOAD FILE ============")
         }
     }
-    
+
     /**
      * Delete a file from Firebase Storage
      * @param fileUrl The download URL of the file to delete
@@ -1801,6 +1859,112 @@ class FirebaseRepository(private val context: Context) {
     }
 
     /**
+     * Refresh programs from Firebase
+     */
+    suspend fun refreshPrograms() {
+        try {
+            if (networkUtils.isActiveNetworkConnected()) {
+                val programs = firebaseManager.getPrograms()
+                _programs.value = programs
+                cacheManager.cachePrograms(programs)
+                Log.d(TAG, "Refreshed ${programs.size} programs from Firebase")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error refreshing programs: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Refresh workouts from Firebase
+     */
+    suspend fun refreshWorkouts() {
+        try {
+            if (networkUtils.isActiveNetworkConnected()) {
+                val workouts = firebaseManager.getWorkouts()
+                _workouts.value = workouts
+                cacheManager.cacheWorkouts(workouts)
+                Log.d(TAG, "Refreshed ${workouts.size} workouts from Firebase")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error refreshing workouts: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Save a program to Firebase
+     */
+    suspend fun saveProgram(program: Program): Long {
+        try {
+            // Update local cache immediately
+            val currentPrograms = _programs.value.toMutableList()
+            val index = currentPrograms.indexOfFirst { it.id == program.id }
+
+            if (index >= 0) {
+                currentPrograms[index] = program
+            } else {
+                currentPrograms.add(program)
+            }
+
+            _programs.value = currentPrograms
+
+            // Then update Firebase if network is available
+            if (networkUtils.isActiveNetworkConnected()) {
+                return firebaseManager.saveProgram(program)
+            } else {
+                // Add to offline queue
+                offlineQueue.enqueue(
+                    OfflineQueue.DataType.PROGRAM,
+                    OfflineQueue.Operation.INSERT,
+                    gson.toJson(program)
+                )
+                _errorMessage.postValue("Program saved locally. Will sync when network is available.")
+                updatePendingOperationsCount()
+                return program.id
+            }
+        } catch (e: Exception) {
+            _errorMessage.postValue("Error saving program: ${e.message}")
+            throw e
+        }
+    }
+
+    /**
+     * Save a workout to Firebase
+     */
+    suspend fun saveWorkout(workout: Workout): Long {
+        try {
+            // Update local cache immediately
+            val currentWorkouts = _workouts.value.toMutableList()
+            val index = currentWorkouts.indexOfFirst { it.id == workout.id }
+
+            if (index >= 0) {
+                currentWorkouts[index] = workout
+            } else {
+                currentWorkouts.add(workout)
+            }
+
+            _workouts.value = currentWorkouts
+
+            // Then update Firebase if network is available
+            if (networkUtils.isActiveNetworkConnected()) {
+                return firebaseManager.saveWorkout(workout)
+            } else {
+                // Add to offline queue
+                offlineQueue.enqueue(
+                    OfflineQueue.DataType.WORKOUT,
+                    OfflineQueue.Operation.INSERT,
+                    gson.toJson(workout)
+                )
+                _errorMessage.postValue("Workout saved locally. Will sync when network is available.")
+                updatePendingOperationsCount()
+                return workout.id
+            }
+        } catch (e: Exception) {
+            _errorMessage.postValue("Error saving workout: ${e.message}")
+            throw e
+        }
+    }
+
+    /**
      * Get the next sequential ID for a resource type
      * @param resourceType The type of resource (e.g., "transactions", "investments", "notes")
      * @return The next sequential ID
@@ -1808,4 +1972,4 @@ class FirebaseRepository(private val context: Context) {
     suspend fun getNextId(resourceType: String): Long {
         return firebaseManager.idManager.getNextId(resourceType)
     }
-} 
+}
