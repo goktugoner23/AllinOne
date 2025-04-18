@@ -1,11 +1,14 @@
 package com.example.allinone.viewmodels
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.*
 import com.example.allinone.data.*
 import com.example.allinone.firebase.FirebaseRepository
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import java.util.*
+import java.util.Calendar
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FirebaseRepository(application)
@@ -177,6 +180,44 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshData() {
         viewModelScope.launch {
             repository.refreshAllData()
+        }
+    }
+
+    fun addInvestmentAndTransaction(investment: Investment) {
+        viewModelScope.launch {
+            try {
+                // Add the investment first
+                repository.addInvestment(investment)
+                
+                // Only create a transaction if it's not a past investment
+                if (!investment.isPast) {
+                    // Create a transaction record for this investment (as an expense)
+                    val transaction = Transaction(
+                        id = UUID.randomUUID().toString(),
+                        amount = investment.amount,
+                        date = Calendar.getInstance().time,
+                        description = "Investment in ${investment.name}",
+                        category = investment.type,
+                        type = "Investment",
+                        isIncome = false,
+                        isRecurring = false,
+                        recurringPeriod = null,
+                        notes = "",
+                        imageUri = null
+                    )
+                    
+                    // Add the transaction
+                    repository.addTransaction(transaction)
+                    Log.d("HomeViewModel", "Created transaction for investment: ${transaction.description} with amount: ${transaction.amount}")
+                } else {
+                    Log.d("HomeViewModel", "No transaction created for past investment: ${investment.name}")
+                }
+                
+                // Refresh data after adding
+                refreshData()
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Unknown error occurred"
+            }
         }
     }
 } 

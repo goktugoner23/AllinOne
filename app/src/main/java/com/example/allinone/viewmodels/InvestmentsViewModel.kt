@@ -119,39 +119,60 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
             Log.d("InvestmentsViewModel", "Updating investment with images: ${newInvestment.imageUri}")
             repository.updateInvestment(newInvestment)
             
-            // Only handle the transaction if it's not a past investment
-            if (!newInvestment.isPast) {
-                // For backward compatibility: find and update any corresponding transaction
-                // This handles investments created before the code change
+            // Handle transactions differently based on past investment status
+            if (!oldInvestment.isPast && !newInvestment.isPast) {
+                // Case 1: Current investment remains current - update transaction
                 val transactions = repository.transactions.value
                 val matchingTransaction = transactions.find { 
                     it.description.contains(oldInvestment.name) && 
-                    it.type == "Investment" 
+                    it.type == "Investment" &&
+                    !it.isIncome // Only look for expense transactions (the original investment)
                 }
                 
                 if (matchingTransaction != null) {
+                    // Update the existing transaction with the new amount
+                    // This prevents double-counting
                     val updatedTransaction = matchingTransaction.copy(
                         amount = newInvestment.amount,
                         description = "Investment in ${newInvestment.name}",
                         category = newInvestment.type
                     )
                     repository.updateTransaction(updatedTransaction)
+                    Log.d("InvestmentsViewModel", "Updated transaction: ${updatedTransaction.description} with ID: ${updatedTransaction.id}")
                 }
-            } else {
-                // For past investments, we need to find and delete any matching transaction
-                // to avoid affecting the current balance
+            } else if (oldInvestment.isPast && !newInvestment.isPast) {
+                // Case 2: Past investment changed to current - we need to create a transaction
+                // Create a new transaction for this investment
+                val transaction = Transaction(
+                    id = UUID.randomUUID().toString(),
+                    amount = newInvestment.amount,
+                    date = Date(), // Current date
+                    description = "Investment in ${newInvestment.name}",
+                    category = newInvestment.type,
+                    type = "Investment",
+                    isIncome = false
+                )
+                
+                repository.addTransaction(transaction)
+                Log.d("InvestmentsViewModel", "Created new transaction for converted past investment: ${transaction.description}")
+            } else if (!oldInvestment.isPast && newInvestment.isPast) {
+                // Case 3: Current investment changed to past - find and delete any matching transaction
                 val transactions = repository.transactions.value
                 val matchingTransaction = transactions.find { transaction ->
                     transaction.type == "Investment" && 
-                    (transaction.description == "Investment in ${oldInvestment.name}" || 
-                     transaction.description == "Investment: ${oldInvestment.name}")
+                    !transaction.isIncome && // Only look for expense transactions
+                    (transaction.description.contains(oldInvestment.name))
                 }
                 
                 if (matchingTransaction != null) {
                     repository.deleteTransaction(matchingTransaction)
-                    Log.d("InvestmentsViewModel", "Deleted transaction for past investment: ${matchingTransaction.description} with ID: ${matchingTransaction.id}")
+                    Log.d("InvestmentsViewModel", "Deleted transaction for investment converted to past: ${matchingTransaction.description}")
                 }
             }
+            // Case 4: Past investment remains past - nothing to do with transactions
+            
+            // Refresh data after all operations
+            refreshData()
         }
     }
     
