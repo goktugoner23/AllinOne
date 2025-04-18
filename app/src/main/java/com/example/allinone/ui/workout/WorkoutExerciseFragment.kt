@@ -55,6 +55,9 @@ class WorkoutExerciseFragment : Fragment() {
         "Duration (Shortest First)"
     )
 
+    // Add a flag to track if the no programs message has been shown
+    private var hasShownNoProgramsMessage = false
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -98,6 +101,18 @@ class WorkoutExerciseFragment : Fragment() {
         }
         binding.workoutLogRecyclerView.adapter = workoutLogAdapter
 
+        // Set up SwipeRefreshLayout for pull-to-refresh
+        binding.swipeRefreshLayout.setOnRefreshListener {
+            refreshWorkouts()
+        }
+        
+        // Set refresh indicator colors
+        binding.swipeRefreshLayout.setColorSchemeResources(
+            R.color.colorPrimary,
+            R.color.colorAccent,
+            R.color.colorPrimaryDark
+        )
+
         // Apply filter button
         binding.applyFiltersButton.setOnClickListener {
             applyFilters()
@@ -105,6 +120,9 @@ class WorkoutExerciseFragment : Fragment() {
 
         // Observe workouts data with logging
         viewModel.allWorkouts.observe(viewLifecycleOwner) { workouts ->
+            // Hide refresh indicator if it's showing
+            binding.swipeRefreshLayout.isRefreshing = false
+            
             android.util.Log.d("WorkoutExerciseFragment", "Received ${workouts.size} workouts from ViewModel")
             
             // Log each workout for debugging
@@ -273,6 +291,26 @@ class WorkoutExerciseFragment : Fragment() {
     private fun setupProgramSpinner(programs: List<Program>) {
         android.util.Log.d("WorkoutExerciseFragment", "Setting up program spinner with ${programs.size} programs: ${programs.map { it.name }}")
         
+        if (programs.isEmpty()) {
+            // Handle the case where there are no programs
+            binding.programSpinner.isEnabled = false
+            binding.createWorkoutButton.isEnabled = false
+            
+            // Show a message to create programs first, but only once
+            if (!hasShownNoProgramsMessage) {
+                Toast.makeText(requireContext(), "Create programs first in the Programs tab", Toast.LENGTH_SHORT).show()
+                hasShownNoProgramsMessage = true
+            }
+            return
+        }
+        
+        // Reset the flag when programs are available
+        hasShownNoProgramsMessage = false
+        
+        // Re-enable controls if they were disabled
+        binding.programSpinner.isEnabled = true
+        binding.createWorkoutButton.isEnabled = true
+        
         // Log details about each program and its exercises
         programs.forEach { program ->
             android.util.Log.d("WorkoutExerciseFragment", "Program: ${program.name} (ID: ${program.id}) has ${program.exercises.size} exercises")
@@ -292,12 +330,29 @@ class WorkoutExerciseFragment : Fragment() {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         binding.programSpinner.adapter = adapter
 
+        // Check if the previously selected program still exists
+        if (selectedProgram != null && !viewModel.programExists(selectedProgram!!.id)) {
+            android.util.Log.d("WorkoutExerciseFragment", "Previously selected program has been deleted")
+            selectedProgram = null
+        }
+        
         binding.programSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                // Check if the position is valid
+                if (position < 0 || position >= programs.size) {
+                    android.util.Log.e("WorkoutExerciseFragment", "Invalid spinner position: $position, programs size: ${programs.size}")
+                    selectedProgram = null
+                    return
+                }
+                
                 // Directly map position to programs list
                 selectedProgram = programs[position]
                 android.util.Log.d("WorkoutExerciseFragment", "Selected program: ${selectedProgram?.name}")
-                android.util.Log.d("WorkoutExerciseFragment", "Selected program has ${selectedProgram!!.exercises.size} exercises")
+                
+                // Null-safe log to prevent crashes if the program is corrupt
+                selectedProgram?.let {
+                    android.util.Log.d("WorkoutExerciseFragment", "Selected program has ${it.exercises.size} exercises")
+                }
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -305,11 +360,35 @@ class WorkoutExerciseFragment : Fragment() {
                 selectedProgram = if (programs.isNotEmpty()) programs[0] else null
             }
         }
+        
+        // Attempt to restore previous selection if possible
+        if (selectedProgram != null) {
+            val index = programs.indexOfFirst { it.id == selectedProgram!!.id }
+            if (index >= 0) {
+                binding.programSpinner.setSelection(index)
+            } else {
+                // Select first program if previous selection is gone
+                binding.programSpinner.setSelection(0)
+            }
+        }
     }
 
     private fun createWorkout() {
         // Extra check if we have a selected program
         if (selectedProgram != null) {
+            // Verify that the program still exists (could have been deleted in another fragment)
+            if (!viewModel.programExists(selectedProgram!!.id)) {
+                Toast.makeText(
+                    requireContext(),
+                    "The selected program has been deleted. Please select another program.",
+                    Toast.LENGTH_LONG
+                ).show()
+                
+                // Refresh programs to update the spinner
+                viewModel.refreshPrograms()
+                return
+            }
+            
             android.util.Log.d("WorkoutExerciseFragment", "Creating workout from program: ${selectedProgram!!.name}")
             android.util.Log.d("WorkoutExerciseFragment", "Program has ${selectedProgram!!.exercises.size} exercises")
             android.util.Log.d("WorkoutExerciseFragment", "Exercise list: ${selectedProgram!!.exercises.map { it.exerciseName }}")
@@ -324,9 +403,15 @@ class WorkoutExerciseFragment : Fragment() {
                     // Now create the workout with the refreshed program
                     createWorkoutWithProgram(refreshedProgram)
                 } else {
-                    // Fallback to the original selectedProgram
-                    android.util.Log.d("WorkoutExerciseFragment", "Failed to refresh program, using existing data")
-                    createWorkoutWithProgram(selectedProgram!!)
+                    // Program may have been deleted during refresh attempt
+                    Toast.makeText(
+                        requireContext(),
+                        "Error loading program. It may have been deleted.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    
+                    // Refresh programs to update the spinner
+                    viewModel.refreshPrograms()
                 }
             }
         } else {
@@ -431,6 +516,14 @@ class WorkoutExerciseFragment : Fragment() {
         bottomNavigationView?.visibility = View.VISIBLE
         
         // Refresh workouts list when returning from active workout
+        refreshWorkouts()
+    }
+
+    /**
+     * Refresh workouts data from the server
+     */
+    private fun refreshWorkouts() {
+        android.util.Log.d("WorkoutExerciseFragment", "Manually refreshing workouts")
         viewModel.refreshWorkouts()
     }
 }

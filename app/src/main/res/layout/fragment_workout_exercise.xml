@@ -119,12 +119,19 @@
                     android:layout_gravity="center"
                     android:text="Apply" />
 
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/workout_log_recycler_view"
+                <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+                    android:id="@+id/swipe_refresh_layout"
                     android:layout_width="match_parent"
                     android:layout_height="300dp"
-                    android:layout_marginTop="8dp"
-                    tools:listitem="@layout/item_workout_log" />
+                    android:layout_marginTop="8dp">
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/workout_log_recycler_view"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        tools:listitem="@layout/item_workout_log" />
+
+                </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
                 <TextView
                     android:id="@+id/empty_log_text"

@@ -26,6 +26,7 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 class DatabaseManagementFragment : Fragment() {
     private var _binding: FragmentDatabaseManagementBinding? = null
@@ -43,7 +44,9 @@ class DatabaseManagementFragment : Fragment() {
         "events", 
         "wtLessons", 
         "registrations",
-        "counters"
+        "counters",
+        "programs",    // Workout programs collection
+        "workouts"     // Workouts collection
     )
     
     // Currently selected collection
@@ -147,6 +150,19 @@ class DatabaseManagementFragment : Fragment() {
                 loadCollectionData(currentCollection)
             }
         }
+        
+        // Add observers for workout collections
+        DataChangeNotifier.programsChanged.observe(viewLifecycleOwner) {
+            if (it == true && currentCollection == "programs") {
+                loadCollectionData(currentCollection)
+            }
+        }
+        
+        DataChangeNotifier.workoutsChanged.observe(viewLifecycleOwner) {
+            if (it == true && currentCollection == "workouts") {
+                loadCollectionData(currentCollection)
+            }
+        }
     }
     
     private fun loadCollectionData(collectionName: String) {
@@ -197,6 +213,8 @@ class DatabaseManagementFragment : Fragment() {
             "wtLessons" -> "Lesson ${id}"
             "registrations" -> "Registration ${id}"
             "counters" -> "Counter: ${document.id}"
+            "programs" -> (data["name"] as? String) ?: "Program ${id}"
+            "workouts" -> (data["programName"] as? String) ?: "Workout ${id}"
             else -> document.id
         }
         
@@ -252,6 +270,16 @@ class DatabaseManagementFragment : Fragment() {
             "counters" -> {
                 val count = (data["count"] as? Number)?.toLong() ?: 0L
                 "Current value: $count"
+            }
+            "programs" -> {
+                val exerciseCount = (data["exercises"] as? List<*>)?.size ?: 0
+                "$exerciseCount exercises"
+            }
+            "workouts" -> {
+                val exerciseCount = (data["exercises"] as? List<*>)?.size ?: 0
+                val startTime = getDateFromDocument(data) ?: Date()
+                val dateStr = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(startTime)
+                "$exerciseCount exercises, $dateStr"
             }
             else -> ""
         }
@@ -360,6 +388,21 @@ class DatabaseManagementFragment : Fragment() {
             "registrations" -> {
                 val isPaid = (data["isPaid"] as? Boolean) ?: false
                 tags.add(if (isPaid) "Paid" else "Unpaid")
+            }
+            "programs" -> {
+                val exerciseCount = (data["exercises"] as? List<*>)?.size ?: 0
+                tags.add("$exerciseCount exercises")
+                (data["description"] as? String)?.takeIf { it.isNotEmpty() }?.let {
+                    tags.add("With description")
+                }
+            }
+            "workouts" -> {
+                val duration = (data["duration"] as? Number)?.toLong() ?: 0L
+                val minutes = TimeUnit.MILLISECONDS.toMinutes(duration)
+                tags.add("$minutes min")
+                
+                val completed = (data["endTime"] != null)
+                tags.add(if (completed) "Completed" else "In progress")
             }
         }
         

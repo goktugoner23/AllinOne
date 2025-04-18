@@ -32,6 +32,13 @@ object DataChangeNotifier {
     private val _registrationsChanged = MutableLiveData<Boolean>()
     val registrationsChanged: LiveData<Boolean> = _registrationsChanged
     
+    // Add LiveData for workout-related collections
+    private val _programsChanged = MutableLiveData<Boolean>()
+    val programsChanged: LiveData<Boolean> = _programsChanged
+    
+    private val _workoutsChanged = MutableLiveData<Boolean>()
+    val workoutsChanged: LiveData<Boolean> = _workoutsChanged
+    
     // Notification methods to be called when data changes
     fun notifyTransactionsChanged() {
         _transactionsChanged.postValue(true)
@@ -61,6 +68,15 @@ object DataChangeNotifier {
         _registrationsChanged.postValue(true)
     }
     
+    // Add notification methods for workout-related collections
+    fun notifyProgramsChanged() {
+        _programsChanged.postValue(true)
+    }
+    
+    fun notifyWorkoutsChanged() {
+        _workoutsChanged.postValue(true)
+    }
+    
     /**
      * Notify that data in a specific collection has changed
      * @param collectionName The name of the collection that changed
@@ -74,6 +90,8 @@ object DataChangeNotifier {
             "events" -> notifyEventsChanged()
             "wtLessons" -> notifyLessonsChanged()
             "registrations" -> notifyRegistrationsChanged()
+            "programs" -> notifyProgramsChanged()
+            "workouts" -> notifyWorkoutsChanged()
         }
     }
 } 

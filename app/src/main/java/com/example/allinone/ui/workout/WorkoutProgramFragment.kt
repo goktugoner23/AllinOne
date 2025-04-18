@@ -13,6 +13,7 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.example.allinone.R
 import com.example.allinone.config.MuscleGroups
 import com.example.allinone.data.Program
@@ -53,8 +54,23 @@ class WorkoutProgramFragment : Fragment() {
         }
         binding.programsRecyclerView.adapter = programAdapter
 
+        // Set up SwipeRefreshLayout
+        binding.swipeRefreshLayout.setOnRefreshListener {
+            refreshPrograms()
+        }
+        
+        // Set refresh indicator colors
+        binding.swipeRefreshLayout.setColorSchemeResources(
+            R.color.colorPrimary,
+            R.color.colorAccent,
+            R.color.colorPrimaryDark
+        )
+
         // Observe programs data
         viewModel.allPrograms.observe(viewLifecycleOwner) { programs ->
+            // Hide refresh indicator
+            binding.swipeRefreshLayout.isRefreshing = false
+            
             if (programs.isEmpty()) {
                 binding.emptyProgramsText.visibility = View.VISIBLE
                 binding.programsRecyclerView.visibility = View.GONE
@@ -69,6 +85,14 @@ class WorkoutProgramFragment : Fragment() {
         binding.addProgramFab.setOnClickListener {
             showAddProgramDialog()
         }
+    }
+    
+    /**
+     * Refresh programs data from the server
+     */
+    private fun refreshPrograms() {
+        android.util.Log.d("WorkoutProgramFragment", "Refreshing programs")
+        viewModel.refreshPrograms()
     }
 
     private fun showProgramDetailsDialog(program: Program) {
@@ -246,9 +270,22 @@ class WorkoutProgramFragment : Fragment() {
     }
 
     private fun confirmDeleteProgram(program: Program) {
+        // Check if any workouts reference this program
+        val workoutsWithProgram = viewModel.allWorkouts.value?.filter { it.programId == program.id } ?: emptyList()
+        
+        val message = if (workoutsWithProgram.isEmpty()) {
+            getString(R.string.delete_program_confirmation, program.name)
+        } else {
+            // Create a more detailed warning when the program is referenced by workouts
+            val workoutCount = workoutsWithProgram.size
+            "This program is referenced by $workoutCount ${if (workoutCount == 1) "workout" else "workouts"} in your history.\n\n" +
+            "Deleting this program will not delete those workouts, but they may display incorrectly.\n\n" +
+            "Are you sure you want to delete \"${program.name}\"?"
+        }
+        
         AlertDialog.Builder(requireContext())
             .setTitle(R.string.delete_program)
-            .setMessage(getString(R.string.delete_program_confirmation, program.name))
+            .setMessage(message)
             .setPositiveButton(R.string.delete) { _, _ ->
                 viewModel.deleteProgram(program.id)
                 Toast.makeText(requireContext(), R.string.program_deleted, Toast.LENGTH_SHORT).show()

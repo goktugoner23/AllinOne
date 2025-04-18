@@ -30,10 +30,33 @@ class WorkoutDashboardFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // Set up SwipeRefreshLayout
+        binding.swipeRefreshLayout.setOnRefreshListener {
+            refreshWorkouts()
+        }
+        
+        // Set refresh indicator colors
+        binding.swipeRefreshLayout.setColorSchemeResources(
+            R.color.colorPrimary,
+            R.color.colorAccent,
+            R.color.colorPrimaryDark
+        )
+
         // Observe workout data
         viewModel.allWorkouts.observe(viewLifecycleOwner) { workouts ->
+            // Hide refresh indicator if it's showing
+            binding.swipeRefreshLayout.isRefreshing = false
+            
             updateDashboard(workouts)
         }
+    }
+
+    /**
+     * Refresh workouts data from the server
+     */
+    private fun refreshWorkouts() {
+        android.util.Log.d("WorkoutDashboardFragment", "Refreshing workouts")
+        viewModel.refreshWorkouts()
     }
 
     private fun updateDashboard(workouts: List<com.example.allinone.data.Workout>) {
@@ -77,5 +100,12 @@ class WorkoutDashboardFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        
+        // Refresh data when returning to this fragment
+        refreshWorkouts()
     }
 }

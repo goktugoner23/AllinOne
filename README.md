@@ -236,6 +236,8 @@ The app uses the following collections in Firestore:
 - `investments`: Investment records including name, value, returns, and history
 - `notes`: Text notes with rich formatting and optional images
 - `students`: Wing Tzun student records with attendance and progress tracking
+- `programs`: Workout programs with exercises, sets, reps, and weight information
+- `workouts`: Recorded workout sessions with start/end times, exercises, and completion status
 - `counters`: Sequential ID counters for all resources
 
 ### Sequential IDs
@@ -378,3 +380,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **Removed Single Image Field**: The `imageUri` field has been removed from the `Note` data class to standardize on the plural `imageUris` field for handling multiple images.
 - **Backward Compatibility**: The Firebase Manager includes migration code to handle old notes by checking for the `imageUri` field when loading notes from Firestore.
 - **Improved Consistency**: All code now consistently uses the `imageUris` field (a comma-separated list) for both single and multiple images.
+
+### Database Management Updates
+- **Added Workout Collections**: The Database Management view now displays workout-related collections (`programs` and `workouts`), enabling viewing and management of workout data.
+- **Enhanced UI**: Added dedicated formatting for workout collections in the database view, showing exercise counts, duration, and completion status.
+- **Delete Functionality**: Users can delete workout programs and recorded workouts directly from the Database Management screen.

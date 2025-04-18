@@ -67,6 +67,16 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Counters" />
+            
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Programs" />
+            
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Workouts" />
 
     </com.google.android.material.tabs.TabLayout>
 

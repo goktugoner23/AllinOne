@@ -94,9 +94,29 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Checks if a program with the given ID exists in the current program list
+     */
+    fun programExists(programId: Long): Boolean {
+        return _allPrograms.value?.any { it.id == programId } ?: false
+    }
+    
+    /**
+     * Gets a program by its ID from the current program list
+     */
+    fun getProgramById(programId: Long): Program? {
+        return _allPrograms.value?.firstOrNull { it.id == programId }
+    }
+
     fun deleteProgram(programId: Long) {
         viewModelScope.launch {
             try {
+                // Check if any workouts use this program
+                val workoutsWithProgram = _allWorkouts.value?.filter { it.programId == programId } ?: emptyList()
+                
+                // Log information about the deletion
+                android.util.Log.d("WorkoutViewModel", "Deleting program ID: $programId, ${workoutsWithProgram.size} workouts reference this program")
+                
                 // Delete from Firebase
                 withContext(Dispatchers.IO) {
                     firebaseManager.deleteProgram(programId)
@@ -109,7 +129,11 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
                     currentPrograms.removeAt(index)
                     _allPrograms.value = currentPrograms
                 }
+                
+                // Notify via log that program was deleted successfully
+                android.util.Log.d("WorkoutViewModel", "Program ID: $programId deleted successfully")
             } catch (e: Exception) {
+                android.util.Log.e("WorkoutViewModel", "Error deleting program: ${e.message}", e)
                 // Handle error
             }
         }
@@ -240,6 +264,31 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
                 _allWorkouts.value = workouts
             } catch (e: Exception) {
                 android.util.Log.e("WorkoutViewModel", "Error refreshing workouts: ${e.message}", e)
+                // Keep the existing data if there's an error
+            }
+        }
+    }
+
+    /**
+     * Force refresh programs data from Firebase
+     */
+    fun refreshPrograms() {
+        android.util.Log.d("WorkoutViewModel", "Manually refreshing programs data")
+        viewModelScope.launch {
+            try {
+                val programs = withContext(Dispatchers.IO) {
+                    firebaseManager.getPrograms()
+                }
+                android.util.Log.d("WorkoutViewModel", "Successfully loaded ${programs.size} programs from Firebase")
+                
+                // Log each program for debugging
+                programs.forEach { program ->
+                    android.util.Log.d("WorkoutViewModel", "Program: ${program.id}, ${program.name}, Exercises: ${program.exercises.size}")
+                }
+                
+                _allPrograms.value = programs
+            } catch (e: Exception) {
+                android.util.Log.e("WorkoutViewModel", "Error refreshing programs: ${e.message}", e)
                 // Keep the existing data if there's an error
             }
         }
