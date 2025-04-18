@@ -161,10 +161,10 @@ class WorkoutExerciseFragment : Fragment() {
         val hours = (timeInMillis / (1000 * 60 * 60)) % 24
         val minutes = (timeInMillis / (1000 * 60)) % 60
         val seconds = (timeInMillis / 1000) % 60
-        val milliseconds = (timeInMillis % 1000) / 100
+        val milliseconds = (timeInMillis % 1000) / 10
 
         binding.timerText.text = String.format("%02d:%02d:%02d", hours, minutes, seconds)
-        binding.timerMsText.text = String.format(".%01d", milliseconds)
+        binding.timerMsText.text = String.format(".%02d", milliseconds)
     }
 
     private fun confirmStopWorkout() {
@@ -281,7 +281,7 @@ class WorkoutExerciseFragment : Fragment() {
             binding.currentWorkoutRecyclerView.visibility = View.GONE
             binding.saveWorkoutFab.visibility = View.GONE
             binding.timerText.text = "00:00:00"
-            binding.timerMsText.text = ".0"
+            binding.timerMsText.text = ".00"
             pausedTime = 0
             elapsedTime = 0
             currentWorkout = null

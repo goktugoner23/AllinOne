@@ -142,19 +142,16 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
                 }
             } else if (oldInvestment.isPast && !newInvestment.isPast) {
                 // Case 2: Past investment changed to current - we need to create a transaction
-                // Create a new transaction for this investment
-                val transaction = Transaction(
-                    id = UUID.randomUUID().toString(),
+                // Insert transaction using repository method
+                repository.insertTransaction(
                     amount = newInvestment.amount,
-                    date = Date(), // Current date
-                    description = "Investment in ${newInvestment.name}",
-                    category = newInvestment.type,
                     type = "Investment",
-                    isIncome = false
+                    description = "Investment in ${newInvestment.name}",
+                    isIncome = false,
+                    category = newInvestment.type
                 )
                 
-                repository.addTransaction(transaction)
-                Log.d("InvestmentsViewModel", "Created new transaction for converted past investment: ${transaction.description}")
+                Log.d("InvestmentsViewModel", "Created new transaction for converted past investment: Investment in ${newInvestment.name}")
             } else if (!oldInvestment.isPast && newInvestment.isPast) {
                 // Case 3: Current investment changed to past - find and delete any matching transaction
                 val transactions = repository.transactions.value

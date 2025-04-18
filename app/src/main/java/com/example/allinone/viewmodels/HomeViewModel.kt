@@ -187,27 +187,29 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 // Add the investment first
-                repository.addInvestment(investment)
+                repository.insertInvestment(investment)
                 
                 // Only create a transaction if it's not a past investment
                 if (!investment.isPast) {
                     // Create a transaction record for this investment (as an expense)
                     val transaction = Transaction(
-                        id = UUID.randomUUID().toString(),
+                        id = (System.currentTimeMillis() / 1000).toInt().toLong(), // Simple ID generation
                         amount = investment.amount,
                         date = Calendar.getInstance().time,
                         description = "Investment in ${investment.name}",
                         category = investment.type,
                         type = "Investment",
-                        isIncome = false,
-                        isRecurring = false,
-                        recurringPeriod = null,
-                        notes = "",
-                        imageUri = null
+                        isIncome = false
                     )
                     
                     // Add the transaction
-                    repository.addTransaction(transaction)
+                    repository.insertTransaction(
+                        amount = transaction.amount,
+                        type = transaction.type,
+                        description = transaction.description,
+                        isIncome = transaction.isIncome,
+                        category = transaction.category
+                    )
                     Log.d("HomeViewModel", "Created transaction for investment: ${transaction.description} with amount: ${transaction.amount}")
                 } else {
                     Log.d("HomeViewModel", "No transaction created for past investment: ${investment.name}")
@@ -216,7 +218,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 // Refresh data after adding
                 refreshData()
             } catch (e: Exception) {
-                _errorMessage.value = e.message ?: "Unknown error occurred"
+                Log.e("HomeViewModel", "Error adding investment: ${e.message}", e)
             }
         }
     }
