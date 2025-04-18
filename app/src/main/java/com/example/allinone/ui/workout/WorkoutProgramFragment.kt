@@ -102,14 +102,147 @@ class WorkoutProgramFragment : Fragment() {
             .setTitle(R.string.program_details)
             .setView(dialogView)
             .setPositiveButton(R.string.edit) { _, _ ->
-                // TODO: Implement edit program functionality
-                Toast.makeText(requireContext(), R.string.edit_coming_soon, Toast.LENGTH_SHORT).show()
+                showEditProgramDialog(program)
             }
             .setNegativeButton(R.string.close, null)
             .setNeutralButton(R.string.delete) { _, _ ->
                 confirmDeleteProgram(program)
             }
             .show()
+    }
+
+    private fun showEditProgramDialog(program: Program) {
+        val dialogView = LayoutInflater.from(requireContext())
+            .inflate(R.layout.dialog_edit_program, null)
+
+        val programNameInput = dialogView.findViewById<EditText>(R.id.program_name_input)
+        val programDescriptionInput = dialogView.findViewById<EditText>(R.id.program_description_input)
+        val exercisesContainer = dialogView.findViewById<LinearLayout>(R.id.exercises_container)
+
+        // Pre-fill with existing data
+        programNameInput.setText(program.name)
+        if (!program.description.isNullOrEmpty()) {
+            programDescriptionInput.setText(program.description)
+        }
+
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle("Edit Program")
+            .setView(dialogView)
+            .setPositiveButton("Save", null) // We'll set the listener later
+            .setNegativeButton("Cancel", null)
+            .create()
+
+        // Add existing exercises
+        for (exercise in program.exercises) {
+            addExerciseField(exercisesContainer, exercise)
+        }
+
+        // Add button to add more exercises
+        dialogView.findViewById<View>(R.id.add_exercise_button).setOnClickListener {
+            addExerciseField(exercisesContainer)
+        }
+
+        dialog.show()
+
+        // Override the positive button to validate input before dismissing
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val programName = programNameInput.text.toString().trim()
+            if (programName.isEmpty()) {
+                programNameInput.error = "Program name is required"
+                return@setOnClickListener
+            }
+
+            val programDescription = programDescriptionInput.text.toString().trim()
+
+            // Collect exercises
+            val exercises = mutableListOf<ProgramExercise>()
+            var hasError = false
+
+            for (i in 0 until exercisesContainer.childCount) {
+                val exerciseLayout = exercisesContainer.getChildAt(i) as? LinearLayout ?: continue
+
+                val nameInput = exerciseLayout.findViewById<EditText>(R.id.exercise_name_input)
+                val setsInput = exerciseLayout.findViewById<EditText>(R.id.exercise_sets_input)
+                val repsInput = exerciseLayout.findViewById<EditText>(R.id.exercise_reps_input)
+                val weightInput = exerciseLayout.findViewById<EditText>(R.id.exercise_weight_input)
+                val notesInput = exerciseLayout.findViewById<EditText>(R.id.exercise_notes_input)
+                val muscleGroupDropdown = exerciseLayout.findViewById<AutoCompleteTextView>(R.id.muscle_group_dropdown)
+                
+                // Get the hidden exerciseId if it exists
+                val exerciseIdTag = exerciseLayout.tag
+                val exerciseId = if (exerciseIdTag != null) {
+                    exerciseIdTag as Long
+                } else {
+                    System.currentTimeMillis() + i // New temporary ID
+                }
+
+                val name = nameInput.text.toString().trim()
+                val sets = setsInput.text.toString().toIntOrNull()
+                val reps = repsInput.text.toString().toIntOrNull()
+                val weight = weightInput.text.toString().toDoubleOrNull()
+                val muscleGroup = muscleGroupDropdown.text.toString()
+                val notes = notesInput.text.toString().trim()
+
+                if (name.isEmpty()) {
+                    nameInput.error = "Exercise name is required"
+                    hasError = true
+                    continue
+                }
+
+                if (sets == null || sets <= 0) {
+                    setsInput.error = "Valid sets required"
+                    hasError = true
+                    continue
+                }
+
+                if (reps == null || reps <= 0) {
+                    repsInput.error = "Valid reps required"
+                    hasError = true
+                    continue
+                }
+
+                if (weight == null || weight <= 0) {
+                    weightInput.error = "Valid weight required"
+                    hasError = true
+                    continue
+                }
+
+                exercises.add(
+                    ProgramExercise(
+                        exerciseId = exerciseId,
+                        exerciseName = name,
+                        sets = sets,
+                        reps = reps,
+                        weight = weight,
+                        muscleGroup = muscleGroup,
+                        notes = if (notes.isNotEmpty()) notes else null
+                    )
+                )
+            }
+
+            if (hasError) {
+                return@setOnClickListener
+            }
+
+            if (exercises.isEmpty()) {
+                Toast.makeText(requireContext(), "Add at least one exercise", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            // Update program
+            val updatedProgram = program.copy(
+                name = programName,
+                description = if (programDescription.isNotEmpty()) programDescription else null,
+                exercises = exercises,
+                lastModifiedDate = java.util.Date()
+            )
+
+            // Save updated program
+            viewModel.saveProgram(updatedProgram)
+
+            dialog.dismiss()
+            Toast.makeText(requireContext(), R.string.program_updated, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun confirmDeleteProgram(program: Program) {
@@ -241,7 +374,7 @@ class WorkoutProgramFragment : Fragment() {
         }
     }
 
-    private fun addExerciseField(container: LinearLayout) {
+    private fun addExerciseField(container: LinearLayout, existingExercise: ProgramExercise? = null) {
         val exerciseView = LayoutInflater.from(requireContext())
             .inflate(R.layout.item_add_exercise, container, false)
 
@@ -253,13 +386,27 @@ class WorkoutProgramFragment : Fragment() {
             MuscleGroups.MUSCLE_GROUPS
         )
         muscleGroupDropdown.setAdapter(muscleGroupAdapter)
-        
-        // Default to first muscle group
-        if (MuscleGroups.MUSCLE_GROUPS.isNotEmpty()) {
-            muscleGroupDropdown.setText(MuscleGroups.MUSCLE_GROUPS[0], false)
+
+        // If editing an existing exercise, pre-fill the fields
+        if (existingExercise != null) {
+            exerciseView.findViewById<EditText>(R.id.exercise_name_input).setText(existingExercise.exerciseName)
+            exerciseView.findViewById<EditText>(R.id.exercise_sets_input).setText(existingExercise.sets.toString())
+            exerciseView.findViewById<EditText>(R.id.exercise_reps_input).setText(existingExercise.reps.toString())
+            exerciseView.findViewById<EditText>(R.id.exercise_weight_input).setText(existingExercise.weight.toString())
+            
+            if (!existingExercise.notes.isNullOrEmpty()) {
+                exerciseView.findViewById<EditText>(R.id.exercise_notes_input).setText(existingExercise.notes)
+            }
+            
+            if (!existingExercise.muscleGroup.isNullOrEmpty()) {
+                muscleGroupDropdown.setText(existingExercise.muscleGroup, false)
+            }
+            
+            // Store the exercise ID in the view's tag
+            exerciseView.tag = existingExercise.exerciseId
         }
 
-        // Add remove button functionality
+        // Add remove button
         exerciseView.findViewById<View>(R.id.remove_exercise_button).setOnClickListener {
             container.removeView(exerciseView)
         }

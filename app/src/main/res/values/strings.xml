@@ -262,6 +262,7 @@
     <string name="program_deleted">Program deleted successfully</string>
     <string name="edit_coming_soon">Edit functionality coming soon</string>
     <string name="close">Close</string>
+    <string name="program_updated">Program updated successfully</string>
 
     <!-- Plurals -->
     <plurals name="exercise_count">
