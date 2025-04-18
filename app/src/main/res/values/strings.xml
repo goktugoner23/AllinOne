@@ -269,4 +269,13 @@
         <item quantity="one">1 exercise</item>
         <item quantity="other">%d exercises</item>
     </plurals>
+
+    <!-- New strings from the code block -->
+    <string name="workout_stats">Stats</string>
+    <string name="workout_statistics">Workout Statistics</string>
+    <string name="total_workouts">Total Workouts</string>
+    <string name="avg_duration">Avg Duration</string>
+    <string name="total_time">Total Time</string>
+    <string name="favorite_muscle">Favorite Muscle</string>
+    <string name="workout_history">Workout History</string>
 </resources>

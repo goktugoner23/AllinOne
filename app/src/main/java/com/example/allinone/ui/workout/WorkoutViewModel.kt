@@ -7,8 +7,12 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.allinone.data.Program
 import com.example.allinone.data.Workout
+import com.example.allinone.data.WorkoutExercise
+import com.example.allinone.data.WorkoutSet
 import com.example.allinone.firebase.FirebaseIdManager
 import com.example.allinone.firebase.FirebaseManager
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -16,8 +20,9 @@ import java.util.Calendar
 import java.util.Date
 
 class WorkoutViewModel(application: Application) : AndroidViewModel(application) {
-    private val firebaseManager = FirebaseManager()
+    private val firebaseManager = FirebaseManager(application.applicationContext)
     private val idManager = FirebaseIdManager()
+    private val gson = GsonBuilder().setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").create()
 
     private val _allPrograms = MutableLiveData<List<Program>>(emptyList())
     val allPrograms: LiveData<List<Program>> = _allPrograms
@@ -37,8 +42,10 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
                 val programs = withContext(Dispatchers.IO) {
                     firebaseManager.getPrograms()
                 }
+                android.util.Log.d("WorkoutViewModel", "Loaded ${programs.size} programs: ${programs.map { it.name }}")
                 _allPrograms.value = programs
             } catch (e: Exception) {
+                android.util.Log.e("WorkoutViewModel", "Error loading programs", e)
                 // Handle error
             }
         }
@@ -111,11 +118,49 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
     fun saveWorkout(workout: Workout) {
         viewModelScope.launch {
             try {
+                // Log workout details before saving
+                android.util.Log.d("WorkoutViewModel", "Saving workout: ${workout.programName} with ${workout.exercises.size} exercises")
+                if (workout.exercises.isNotEmpty()) {
+                    android.util.Log.d("WorkoutViewModel", "Exercises before ID generation: ${workout.exercises.map { "${it.exerciseName} (${it.sets.size} sets)" }}")
+                }
+                
                 // Generate ID if not present
                 val workoutWithId = if (workout.id == 0L) {
-                    workout.copy(id = idManager.getNextId("workouts"))
+                    // Create a copy with new ID but preserve all other properties including exercises
+                    // Make a DEEP COPY of the exercises to prevent reference issues
+                    val exercisesCopy: List<WorkoutExercise> = workout.exercises.map { exercise ->
+                        val setsCopy: List<WorkoutSet> = exercise.sets.map { set ->
+                            WorkoutSet(
+                                setNumber = set.setNumber,
+                                reps = set.reps,
+                                weight = set.weight,
+                                completed = set.completed
+                            )
+                        }
+                        
+                        WorkoutExercise(
+                            exerciseId = exercise.exerciseId,
+                            exerciseName = exercise.exerciseName,
+                            muscleGroup = exercise.muscleGroup,
+                            sets = setsCopy
+                        )
+                    }
+                    
+                    // Create a new workout with the copied exercises and the new ID
+                    workout.copy(
+                        id = idManager.getNextId("workouts"),
+                        exercises = exercisesCopy
+                    )
                 } else {
                     workout
+                }
+                
+                // Verify exercises after ID generation
+                android.util.Log.d("WorkoutViewModel", "After ID generation: ${workoutWithId.exercises.size} exercises")
+                
+                // Log each exercise for debugging
+                workoutWithId.exercises.forEachIndexed { index, exercise ->
+                    android.util.Log.d("WorkoutViewModel", "Exercise ${index + 1}: ${exercise.exerciseName} with ${exercise.sets.size} sets")
                 }
 
                 // Save to Firebase
@@ -133,6 +178,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
                 }
                 _allWorkouts.value = currentWorkouts
             } catch (e: Exception) {
+                android.util.Log.e("WorkoutViewModel", "Error saving workout", e)
                 // Handle error
             }
         }
@@ -175,5 +221,59 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         return workouts.filter { workout ->
             workout.startTime.after(weekStart) && workout.startTime.before(weekEnd)
         }
+    }
+
+    fun refreshWorkouts() {
+        android.util.Log.d("WorkoutViewModel", "Manually refreshing workouts data")
+        viewModelScope.launch {
+            try {
+                val workouts = withContext(Dispatchers.IO) {
+                    firebaseManager.getWorkouts()
+                }
+                android.util.Log.d("WorkoutViewModel", "Successfully loaded ${workouts.size} workouts from Firebase")
+                
+                // Log each workout for debugging
+                workouts.forEach { workout ->
+                    android.util.Log.d("WorkoutViewModel", "Workout: ${workout.id}, ${workout.programName ?: "Unnamed"}, Exercises: ${workout.exercises.size}")
+                }
+                
+                _allWorkouts.value = workouts
+            } catch (e: Exception) {
+                android.util.Log.e("WorkoutViewModel", "Error refreshing workouts: ${e.message}", e)
+                // Keep the existing data if there's an error
+            }
+        }
+    }
+
+    fun getProgram(programId: Long, callback: (Program?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                android.util.Log.d("WorkoutViewModel", "Getting program details for ID: $programId")
+                
+                val program = withContext(Dispatchers.IO) {
+                    firebaseManager.getProgramById(programId)
+                }
+                
+                if (program != null) {
+                    android.util.Log.d("WorkoutViewModel", "Retrieved program: ${program.name} with ${program.exercises.size} exercises")
+                } else {
+                    android.util.Log.d("WorkoutViewModel", "Program with ID $programId not found")
+                }
+                
+                callback(program)
+            } catch (e: Exception) {
+                android.util.Log.e("WorkoutViewModel", "Error retrieving program: ${e.message}", e)
+                callback(null)
+            }
+        }
+    }
+
+    // Add functions for workout serialization/deserialization for passing between fragments
+    fun workoutToJson(workout: Workout): String {
+        return gson.toJson(workout)
+    }
+    
+    fun parseWorkoutFromJson(json: String): Workout {
+        return gson.fromJson(json, Workout::class.java)
     }
 }

@@ -42,7 +42,7 @@ class FirebaseIdManager {
             }
 
             // Get the current count and atomically increment it
-            val result = docRef.update("count", FieldValue.increment(1)).await()
+            docRef.update("count", FieldValue.increment(1)).await()
             
             // Retrieve the updated count
             val updatedDoc = docRef.get().await()

@@ -29,8 +29,8 @@ class WorkoutFragment : BaseFragment() {
         childFragmentManager.findFragmentByTag("program") ?: WorkoutProgramFragment()
     }
     
-    private val logFragment: Fragment by lazy { 
-        childFragmentManager.findFragmentByTag("log") ?: WorkoutLogFragment()
+    private val statsFragment: Fragment by lazy { 
+        childFragmentManager.findFragmentByTag("stats") ?: WorkoutStatsFragment()
     }
     
     override fun onCreateView(
@@ -45,7 +45,7 @@ class WorkoutFragment : BaseFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
-        // Setup navigation between Dashboard, Exercise, Program, and Log
+        // Setup navigation between Dashboard, Exercise, Program, and Stats
         binding.workoutBottomNavigation.setOnItemSelectedListener { item ->
             // Update title based on selected item
             updateTitle(item.itemId)
@@ -63,8 +63,8 @@ class WorkoutFragment : BaseFragment() {
                     switchFragment(programFragment, "program")
                     true
                 }
-                R.id.workout_log -> {
-                    switchFragment(logFragment, "log")
+                R.id.workout_stats -> {
+                    switchFragment(statsFragment, "stats")
                     true
                 }
                 else -> false
@@ -93,10 +93,10 @@ class WorkoutFragment : BaseFragment() {
     
     private fun updateTitle(itemId: Int) {
         val title = when (itemId) {
-            R.id.workout_dashboard -> "Workout Dashboard"
-            R.id.workout_exercise -> "Workout Exercise"
-            R.id.workout_program -> "Workout Programs"
-            R.id.workout_log -> "Workout Log"
+            R.id.workout_dashboard -> "Dashboard"
+            R.id.workout_exercise -> "Exercise"
+            R.id.workout_program -> "Programs"
+            R.id.workout_stats -> "Stats"
             else -> "Workout"
         }
         
