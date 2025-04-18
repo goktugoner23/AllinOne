@@ -35,9 +35,11 @@ class FirebaseManager(private val context: Context? = null) {
     private val eventsCollection = firestore.collection("events")
     private val wtLessonsCollection = firestore.collection("wtLessons")
     private val registrationsCollection = firestore.collection("registrations")
-    private val programsCollection = firestore.collection("programs")
-    private val workoutsCollection = firestore.collection("workouts")
-    private val exercisesCollection = firestore.collection("exercises")
+    
+    // Workout data collections - separate top-level collections
+    private val workoutsCollection = firestore.collection("workouts") // For workout logs
+    private val programsCollection = firestore.collection("programs") // For workout programs
+    private val exercisesCollection = firestore.collection("exercises") // For exercises
 
     // Storage references
     private val imagesRef: StorageReference = storage.reference.child("images")
@@ -936,30 +938,42 @@ class FirebaseManager(private val context: Context? = null) {
                 program
             }
 
-            // Convert program exercises to maps
-            val exerciseMaps = programWithId.exercises.map { exercise ->
-                mapOf(
+            // Save program to Firestore
+            val programMap = hashMapOf(
+                "id" to programWithId.id,
+                "name" to programWithId.name,
+                "description" to programWithId.description,
+                "createdDate" to programWithId.createdDate,
+                "lastModifiedDate" to programWithId.lastModifiedDate,
+                "deviceId" to deviceId
+            )
+
+            // Log the path where we're saving the program
+            Log.d(TAG, "Saving program to collection path: ${programsCollection.path} with ID: ${programWithId.id}")
+            
+            // Save the program
+            programsCollection.document(programWithId.id.toString()).set(programMap).await()
+            
+            // Save each exercise to the exercises collection
+            programWithId.exercises.forEach { exercise ->
+                val exerciseMap = mapOf(
+                    "id" to "${programWithId.id}_${exercise.exerciseId}", // Composite ID for uniqueness
+                    "programId" to programWithId.id,  // Reference to parent program
                     "exerciseId" to exercise.exerciseId,
                     "exerciseName" to exercise.exerciseName,
                     "sets" to exercise.sets,
                     "reps" to exercise.reps,
                     "weight" to exercise.weight,
                     "muscleGroup" to exercise.muscleGroup,
-                    "notes" to exercise.notes
+                    "notes" to exercise.notes,
+                    "deviceId" to deviceId
                 )
+                
+                // Use a composite ID to avoid conflicts
+                exercisesCollection.document("${programWithId.id}_${exercise.exerciseId}")
+                    .set(exerciseMap).await()
             }
-
-            val programMap = hashMapOf(
-                "id" to programWithId.id,
-                "name" to programWithId.name,
-                "description" to programWithId.description,
-                "exercises" to exerciseMaps,
-                "createdDate" to programWithId.createdDate,
-                "lastModifiedDate" to programWithId.lastModifiedDate,
-                "deviceId" to deviceId
-            )
-
-            programsCollection.document(programWithId.id.toString()).set(programMap).await()
+            
             return@withContext programWithId.id
         } catch (e: Exception) {
             Log.e(TAG, "Error saving program: ${e.message}", e)
@@ -969,8 +983,14 @@ class FirebaseManager(private val context: Context? = null) {
 
     suspend fun getPrograms(): List<Program> = withContext(Dispatchers.IO) {
         try {
+            // Log the collection path we're querying
+            Log.d(TAG, "Fetching programs from collection path: ${programsCollection.path}")
+            
+            // First get all the programs
             val snapshot = programsCollection.whereEqualTo("deviceId", deviceId).get().await()
-
+            Log.d(TAG, "Found ${snapshot.documents.size} programs in the collection")
+            
+            // Process each program document
             return@withContext snapshot.documents.mapNotNull { doc ->
                 try {
                     val id = doc.getLong("id") ?: return@mapNotNull null
@@ -979,21 +999,32 @@ class FirebaseManager(private val context: Context? = null) {
                     val createdDate = doc.getDate("createdDate") ?: Date()
                     val lastModifiedDate = doc.getDate("lastModifiedDate") ?: Date()
 
-                    // Parse exercises
-                    @Suppress("UNCHECKED_CAST")
-                    val exercisesList = doc.get("exercises") as? List<Map<String, Any>> ?: emptyList()
-                    val exercises = exercisesList.map { exerciseMap ->
-                        ProgramExercise(
-                            exerciseId = (exerciseMap["exerciseId"] as? Number)?.toLong() ?: 0L,
-                            exerciseName = exerciseMap["exerciseName"] as? String ?: "",
-                            sets = (exerciseMap["sets"] as? Number)?.toInt() ?: 0,
-                            reps = (exerciseMap["reps"] as? Number)?.toInt() ?: 0,
-                            weight = (exerciseMap["weight"] as? Number)?.toDouble() ?: 0.0,
-                            muscleGroup = exerciseMap["muscleGroup"] as? String,
-                            notes = exerciseMap["notes"] as? String
-                        )
+                    // For each program, get its exercises from the exercises collection
+                    val exercisesSnapshot = exercisesCollection
+                        .whereEqualTo("programId", id)
+                        .whereEqualTo("deviceId", deviceId)
+                        .get()
+                        .await()
+                    
+                    // Convert exercise documents to ProgramExercise objects
+                    val exercises = exercisesSnapshot.documents.mapNotNull { exerciseDoc ->
+                        try {
+                            ProgramExercise(
+                                exerciseId = (exerciseDoc.getLong("exerciseId") ?: 0L),
+                                exerciseName = exerciseDoc.getString("exerciseName") ?: "",
+                                sets = (exerciseDoc.getLong("sets") ?: 0).toInt(),
+                                reps = (exerciseDoc.getLong("reps") ?: 0).toInt(),
+                                weight = (exerciseDoc.getDouble("weight") ?: 0.0),
+                                muscleGroup = exerciseDoc.getString("muscleGroup"),
+                                notes = exerciseDoc.getString("notes")
+                            )
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error parsing exercise: ${e.message}", e)
+                            null
+                        }
                     }
 
+                    // Create the Program object with its exercises
                     Program(
                         id = id,
                         name = name,
@@ -1014,7 +1045,32 @@ class FirebaseManager(private val context: Context? = null) {
     }
 
     suspend fun deleteProgram(programId: Long) = withContext(Dispatchers.IO) {
-        return@withContext programsCollection.document(programId.toString()).delete()
+        try {
+            // Log the operation
+            Log.d(TAG, "Deleting program with ID: $programId and its related exercises")
+            
+            // First, delete all exercises related to this program
+            val exercisesSnapshot = exercisesCollection
+                .whereEqualTo("programId", programId)
+                .whereEqualTo("deviceId", deviceId)
+                .get()
+                .await()
+                
+            // Delete each exercise document
+            for (exerciseDoc in exercisesSnapshot.documents) {
+                exerciseDoc.reference.delete().await()
+                Log.d(TAG, "Deleted exercise: ${exerciseDoc.id}")
+            }
+            
+            // Then delete the program document
+            val result = programsCollection.document(programId.toString()).delete().await()
+            Log.d(TAG, "Successfully deleted program with ID: $programId")
+            
+            return@withContext result
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting program and exercises: ${e.message}", e)
+            throw e
+        }
     }
 
     // Workouts
@@ -1126,5 +1182,44 @@ class FirebaseManager(private val context: Context? = null) {
 
     suspend fun deleteWorkout(workoutId: Long) = withContext(Dispatchers.IO) {
         return@withContext workoutsCollection.document(workoutId.toString()).delete()
+    }
+
+    /**
+     * Get all exercises for a specific program
+     * @param programId The ID of the program to get exercises for
+     * @return List of ProgramExercise objects
+     */
+    suspend fun getExercisesForProgram(programId: Long): List<ProgramExercise> = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Fetching exercises for program ID: $programId")
+            
+            val exercisesSnapshot = exercisesCollection
+                .whereEqualTo("programId", programId)
+                .whereEqualTo("deviceId", deviceId)
+                .get()
+                .await()
+                
+            Log.d(TAG, "Found ${exercisesSnapshot.documents.size} exercises for program ID: $programId")
+            
+            return@withContext exercisesSnapshot.documents.mapNotNull { exerciseDoc ->
+                try {
+                    ProgramExercise(
+                        exerciseId = (exerciseDoc.getLong("exerciseId") ?: 0L),
+                        exerciseName = exerciseDoc.getString("exerciseName") ?: "",
+                        sets = (exerciseDoc.getLong("sets") ?: 0).toInt(),
+                        reps = (exerciseDoc.getLong("reps") ?: 0).toInt(),
+                        weight = (exerciseDoc.getDouble("weight") ?: 0.0),
+                        muscleGroup = exerciseDoc.getString("muscleGroup"),
+                        notes = exerciseDoc.getString("notes")
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing exercise: ${e.message}", e)
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting exercises for program: ${e.message}", e)
+            return@withContext emptyList<ProgramExercise>()
+        }
     }
 }

@@ -206,12 +206,6 @@ class CalendarFragment : Fragment() {
             monthEvents.clear()
             allEvents.clear()
             
-            // Get current date for filtering
-            val now = Calendar.getInstance()
-            val currentYear = now.get(Calendar.YEAR)
-            val currentMonth = now.get(Calendar.MONTH)
-            val currentDay = now.get(Calendar.DAY_OF_MONTH)
-            
             // Debug: Log events with endDate
             events.forEach { event ->
                 if (event.endDate != null) {
@@ -221,51 +215,43 @@ class CalendarFragment : Fragment() {
                 }
             }
             
-            // Process all events - STRICTLY FUTURE ONLY
+            // Process all events - INCLUDING PAST EVENTS
             events.forEach { event ->
                 val eventCal = Calendar.getInstance().apply { time = event.date }
                 val year = eventCal.get(Calendar.YEAR)
                 val month = eventCal.get(Calendar.MONTH)
                 val day = eventCal.get(Calendar.DAY_OF_MONTH)
                 
-                // Only process current and future events
-                // (Same year but later month, OR same year/month but same/later day, OR future year)
-                val isFutureOrToday = (year > currentYear) || 
-                                     (year == currentYear && month > currentMonth) || 
-                                     (year == currentYear && month == currentMonth && day >= currentDay)
+                // Store the event on its start date
+                addEventToDateMap(year, month, day, event)
                 
-                if (isFutureOrToday) {
-                    // Store the event on its start date
-                    addEventToDateMap(year, month, day, event)
+                // If the event has an end date and it's different from the start date,
+                // add references to the event on all days it spans
+                if (event.endDate != null) {
+                    val endCal = Calendar.getInstance().apply { time = event.endDate }
+                    val endYear = endCal.get(Calendar.YEAR)
+                    val endMonth = endCal.get(Calendar.MONTH)
+                    val endDay = endCal.get(Calendar.DAY_OF_MONTH)
                     
-                    // If the event has an end date and it's different from the start date,
-                    // add references to the event on all days it spans
-                    if (event.endDate != null) {
-                        val endCal = Calendar.getInstance().apply { time = event.endDate }
-                        val endYear = endCal.get(Calendar.YEAR)
-                        val endMonth = endCal.get(Calendar.MONTH)
-                        val endDay = endCal.get(Calendar.DAY_OF_MONTH)
+                    // Check if end date is different from start date
+                    if (endYear != year || endMonth != month || endDay != day) {
+                        // Create a temporary calendar for iteration
+                        val tempCal = Calendar.getInstance().apply { time = event.date }
                         
-                        // Check if end date is different from start date
-                        if (endYear != year || endMonth != month || endDay != day) {
-                            // Create a temporary calendar for iteration
-                            val tempCal = Calendar.getInstance().apply { time = event.date }
+                        // Move to the next day after the start date
+                        tempCal.add(Calendar.DAY_OF_MONTH, 1)
+                        
+                        // Add the event to each day until we reach the end date
+                        while (!isCalendarDateAfter(tempCal, endCal)) {
+                            val spanYear = tempCal.get(Calendar.YEAR)
+                            val spanMonth = tempCal.get(Calendar.MONTH)
+                            val spanDay = tempCal.get(Calendar.DAY_OF_MONTH)
                             
-                            // Move to the next day after the start date
+                            // Add to this intermediate day
+                            addEventToDateMap(spanYear, spanMonth, spanDay, event)
+                            
+                            // Move to next day
                             tempCal.add(Calendar.DAY_OF_MONTH, 1)
-                            
-                            // Add the event to each day until we reach the end date
-                            while (!isCalendarDateAfter(tempCal, endCal)) {
-                                val spanYear = tempCal.get(Calendar.YEAR)
-                                val spanMonth = tempCal.get(Calendar.MONTH)
-                                val spanDay = tempCal.get(Calendar.DAY_OF_MONTH)
-                                
-                                // Add to this intermediate day
-                                addEventToDateMap(spanYear, spanMonth, spanDay, event)
-                                
-                                // Move to next day
-                                tempCal.add(Calendar.DAY_OF_MONTH, 1)
-                            }
                         }
                     }
                 }

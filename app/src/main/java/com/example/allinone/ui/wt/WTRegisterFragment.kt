@@ -8,6 +8,8 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.OpenableColumns
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -25,6 +27,7 @@ import com.example.allinone.data.WTRegistration
 import com.example.allinone.data.WTStudent
 import com.example.allinone.databinding.DialogEditWtStudentBinding
 import com.example.allinone.databinding.FragmentWtRegisterBinding
+import com.example.allinone.viewmodels.CalendarViewModel
 import com.example.allinone.viewmodels.WTRegisterViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
@@ -37,6 +40,7 @@ class WTRegisterFragment : Fragment() {
     private var _binding: FragmentWtRegisterBinding? = null
     private val binding get() = _binding!!
     private val viewModel: WTRegisterViewModel by viewModels()
+    private val calendarViewModel: CalendarViewModel by viewModels()
     private lateinit var adapter: WTRegistrationAdapter
     private val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
     private var selectedAttachmentUri: Uri? = null
@@ -45,6 +49,7 @@ class WTRegisterFragment : Fragment() {
     private var registrations: List<WTRegistration> = emptyList()
     private var selectedStudent: WTStudent? = null
     private var selectedRegistration: WTRegistration? = null
+    private var isEditMode = false
     
     private val getContent = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
@@ -124,6 +129,9 @@ class WTRegisterFragment : Fragment() {
         observeStudents()
         observeRegistrations()
         observeNetworkStatus()
+        
+        // Force data refresh
+        viewModel.refreshData()
     }
 
     override fun onResume() {
@@ -241,6 +249,9 @@ class WTRegisterFragment : Fragment() {
                         notes = dialogBinding.notesEditText.text.toString(),
                         isPaid = isPaid
                     )
+                    
+                    // Refresh calendar to show the new registration
+                    calendarViewModel.forceRefresh()
                     
                     dialog.dismiss()
                     showSnackbar(getString(R.string.registration_success))
@@ -413,6 +424,10 @@ class WTRegisterFragment : Fragment() {
                         isPaid = dialogBinding.paidSwitch.isChecked
                     )
                     viewModel.updateRegistration(updatedRegistration)
+                    
+                    // Refresh calendar to show the updated registration
+                    calendarViewModel.forceRefresh()
+                    
                     dialog.dismiss()
                     showSnackbar(getString(R.string.registration_updated))
                 }
@@ -438,11 +453,28 @@ class WTRegisterFragment : Fragment() {
                 dialogBinding.startDateInput.setText(dateFormat.format(selectedDate))
                 dialogBinding.startDateInput.tag = selectedDate
                 
-                // Auto-fill end date to be 1 month later
-                calendar.add(Calendar.MONTH, 1)
-                val endDate = calendar.time
-                dialogBinding.endDateInput.setText(dateFormat.format(endDate))
-                dialogBinding.endDateInput.tag = endDate
+                // Get lessons from parent fragment
+                val lessons = when (val parentFragment = parentFragment) {
+                    is WTRegistryFragment -> parentFragment.getLessons()
+                    else -> emptyList()
+                }
+                
+                // Calculate end date after 8 lessons from the start date
+                val startCalendar = Calendar.getInstance()
+                startCalendar.time = selectedDate
+                val endDate = calendarViewModel.calculateDateAfterNLessons(startCalendar, lessons, 8)
+                
+                // Set end time to 22:00 (10pm)
+                val endCalendar = Calendar.getInstance()
+                endCalendar.time = endDate
+                endCalendar.set(Calendar.HOUR_OF_DAY, 22)
+                endCalendar.set(Calendar.MINUTE, 0)
+                endCalendar.set(Calendar.SECOND, 0)
+                endCalendar.set(Calendar.MILLISECOND, 0)
+                
+                // Update the end date field
+                dialogBinding.endDateInput.setText(dateFormat.format(endCalendar.time))
+                dialogBinding.endDateInput.tag = endCalendar.time
             }, year, month, day).show()
         }
         
@@ -454,6 +486,13 @@ class WTRegisterFragment : Fragment() {
             
             DatePickerDialog(requireContext(), { _, selectedYear, selectedMonth, selectedDay ->
                 calendar.set(selectedYear, selectedMonth, selectedDay)
+                
+                // Set time to 22:00 (10pm)
+                calendar.set(Calendar.HOUR_OF_DAY, 22)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                
                 val selectedDate = calendar.time
                 dialogBinding.endDateInput.setText(dateFormat.format(selectedDate))
                 dialogBinding.endDateInput.tag = selectedDate
@@ -601,6 +640,9 @@ class WTRegisterFragment : Fragment() {
                 
                 // Update adapter
                 adapter.submitList(registrations)
+                
+                // Refresh calendar to remove the deleted registration
+                calendarViewModel.forceRefresh()
             } else {
                 // Failed to remove - show error
                 Snackbar.make(

@@ -1,6 +1,7 @@
 package com.example.allinone.viewmodels
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -250,10 +251,88 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
                     
                     // Update the LiveData
                     _events.value = eventsList.toList()
+                    
+                    // Now handle registration extensions for students if needed
+                    extendRegistrationsAfterPostponement(originalDate, newDate)
                 }
                 
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to postpone lesson: ${e.message}"
+            }
+        }
+    }
+    
+    /**
+     * Extend registrations for students if a postponed lesson falls outside their registration period
+     */
+    private fun extendRegistrationsAfterPostponement(originalDate: Date, newDate: Date) {
+        viewModelScope.launch {
+            try {
+                // Get current registrations and lessons
+                val registrations = _registrations.value ?: return@launch
+                val lessons = _lessonSchedule.value ?: return@launch
+                
+                if (registrations.isEmpty() || lessons.isEmpty()) return@launch
+                
+                // Registrations that need to be updated
+                val registrationsToUpdate = mutableListOf<WTRegistration>()
+                
+                // Check each registration
+                for (registration in registrations) {
+                    // Skip if missing start or end date
+                    if (registration.startDate == null || registration.endDate == null) continue
+                    
+                    // Check if original lesson was within this registration's period
+                    val originalInRange = originalDate.time >= registration.startDate.time && 
+                                         originalDate.time <= registration.endDate.time
+                    
+                    // Check if new lesson date is after the registration's end date
+                    val newDateOutOfRange = newDate.time > registration.endDate.time
+                    
+                    // If both conditions are true, this registration needs extension
+                    if (originalInRange && newDateOutOfRange) {
+                        // Calculate new end date by adding one lesson from the current end date
+                        val endCal = Calendar.getInstance()
+                        endCal.time = registration.endDate
+                        
+                        // Use the end date as the start point to find the next lesson date
+                        val newEndDate = calculateDateAfterNLessons(endCal, lessons, 1)
+                        
+                        // Set time to 22:00 (10pm)
+                        val adjustedEndCal = Calendar.getInstance()
+                        adjustedEndCal.time = newEndDate
+                        adjustedEndCal.set(Calendar.HOUR_OF_DAY, 22)
+                        adjustedEndCal.set(Calendar.MINUTE, 0)
+                        adjustedEndCal.set(Calendar.SECOND, 0)
+                        adjustedEndCal.set(Calendar.MILLISECOND, 0)
+                        
+                        // Create updated registration with new end date
+                        val updatedRegistration = registration.copy(
+                            endDate = adjustedEndCal.time
+                        )
+                        
+                        // Add to list of registrations to update
+                        registrationsToUpdate.add(updatedRegistration)
+                    }
+                }
+                
+                // Update registrations in Firebase
+                if (registrationsToUpdate.isNotEmpty()) {
+                    for (registration in registrationsToUpdate) {
+                        repository.updateRegistration(registration)
+                        Log.d("CalendarViewModel", "Extended registration ${registration.id} end date to accommodate postponed lesson")
+                    }
+                    
+                    // Refresh registrations data
+                    repository.refreshRegistrations()
+                    
+                    // Generate events for the updated registrations
+                    generateRegistrationEvents()
+                }
+                
+            } catch (e: Exception) {
+                Log.e("CalendarViewModel", "Failed to extend registrations: ${e.message}")
+                _errorMessage.value = "Failed to update registrations: ${e.message}"
             }
         }
     }
@@ -500,5 +579,133 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             // Update the LiveData
             _events.value = eventsList.toList()
         }
+    }
+    
+    /**
+     * Calculate the next lesson date after the given start date
+     * @param startDate The starting date to search from
+     * @param lessons The list of weekly lessons to check against
+     * @return The date of the next lesson, or 7 days later if no lessons found
+     */
+    fun calculateNextLessonDate(startDate: Calendar, lessons: List<WTLesson>): Date {
+        // If there are no lessons, return a date 7 days after the start date
+        if (lessons.isEmpty()) {
+            val nextWeekCalendar = Calendar.getInstance()
+            nextWeekCalendar.time = startDate.time
+            nextWeekCalendar.add(Calendar.DAY_OF_MONTH, 7)
+            return nextWeekCalendar.time
+        }
+        
+        // Clone the start date to avoid modifying the original
+        val currentDate = Calendar.getInstance()
+        currentDate.time = startDate.time
+        
+        // Try for the next 14 days (2 weeks) to find a lesson
+        for (day in 0 until 14) {
+            // Get the day of week (1 = Sunday, 7 = Saturday)
+            val dayOfWeek = currentDate.get(Calendar.DAY_OF_WEEK)
+            
+            // Check if there's a lesson on this day
+            for (lesson in lessons) {
+                // Convert the WTLesson day format to Calendar.DAY_OF_WEEK
+                // WTLesson uses: 0 = Monday, 6 = Sunday
+                // Calendar uses: 1 = Sunday, 2 = Monday, ..., 7 = Saturday
+                val lessonDayOfWeek = when (lesson.dayOfWeek) {
+                    0 -> Calendar.MONDAY
+                    1 -> Calendar.TUESDAY
+                    2 -> Calendar.WEDNESDAY
+                    3 -> Calendar.THURSDAY
+                    4 -> Calendar.FRIDAY
+                    5 -> Calendar.SATURDAY
+                    6 -> Calendar.SUNDAY
+                    else -> -1 // Invalid day
+                }
+                
+                // If this is the right day and we haven't passed the lesson time
+                if (dayOfWeek == lessonDayOfWeek) {
+                    // We found a lesson day - return this date
+                    return currentDate.time
+                }
+            }
+            
+            // Move to the next day
+            currentDate.add(Calendar.DAY_OF_MONTH, 1)
+        }
+        
+        // If no lessons found within 14 days, return a date 7 days after start
+        val nextWeekCalendar = Calendar.getInstance()
+        nextWeekCalendar.time = startDate.time
+        nextWeekCalendar.add(Calendar.DAY_OF_MONTH, 7)
+        return nextWeekCalendar.time
+    }
+    
+    /**
+     * Calculate the date after a specified number of lessons from the start date
+     * @param startDate The starting date to search from
+     * @param lessons The list of weekly lessons to check against
+     * @param lessonCount The number of lessons to count (default is 8)
+     * @return The date after the specified number of lessons
+     */
+    fun calculateDateAfterNLessons(startDate: Calendar, lessons: List<WTLesson>, lessonCount: Int = 8): Date {
+        // If there are no lessons, return a date 8 weeks after the start date
+        if (lessons.isEmpty()) {
+            val endCalendar = Calendar.getInstance()
+            endCalendar.time = startDate.time
+            endCalendar.add(Calendar.WEEK_OF_YEAR, 8)
+            return endCalendar.time
+        }
+        
+        // Clone the start date to avoid modifying the original
+        val currentDate = Calendar.getInstance()
+        currentDate.time = startDate.time
+        
+        // Keep track of how many lessons we've found
+        var lessonsFound = 0
+        
+        // Try for up to a year to find enough lessons
+        for (day in 0 until 365) {
+            // Get the day of week (1 = Sunday, 7 = Saturday)
+            val dayOfWeek = currentDate.get(Calendar.DAY_OF_WEEK)
+            
+            // Check if there's a lesson on this day
+            for (lesson in lessons) {
+                // Convert the WTLesson day format to Calendar.DAY_OF_WEEK
+                // WTLesson uses: 0 = Monday, 6 = Sunday
+                // Calendar uses: 1 = Sunday, 2 = Monday, ..., 7 = Saturday
+                val lessonDayOfWeek = when (lesson.dayOfWeek) {
+                    0 -> Calendar.MONDAY
+                    1 -> Calendar.TUESDAY
+                    2 -> Calendar.WEDNESDAY
+                    3 -> Calendar.THURSDAY
+                    4 -> Calendar.FRIDAY
+                    5 -> Calendar.SATURDAY
+                    6 -> Calendar.SUNDAY
+                    else -> -1 // Invalid day
+                }
+                
+                // If this is a lesson day
+                if (dayOfWeek == lessonDayOfWeek) {
+                    // We found a lesson day
+                    lessonsFound++
+                    
+                    // If we've found enough lessons, return this date
+                    if (lessonsFound >= lessonCount) {
+                        return currentDate.time
+                    }
+                    
+                    // Break the inner loop since we've already counted this day's lesson
+                    break
+                }
+            }
+            
+            // Move to the next day
+            currentDate.add(Calendar.DAY_OF_MONTH, 1)
+        }
+        
+        // If not enough lessons found within a year, fallback to 8 weeks after start
+        val fallbackCalendar = Calendar.getInstance()
+        fallbackCalendar.time = startDate.time
+        fallbackCalendar.add(Calendar.WEEK_OF_YEAR, 8)
+        return fallbackCalendar.time
     }
 } 

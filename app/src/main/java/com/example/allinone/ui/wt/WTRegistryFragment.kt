@@ -212,6 +212,132 @@ class WTRegistryFragment : Fragment() {
         // No action needed in this fragment
     }
 
+    /**
+     * Get the current list of lessons from the lessons fragment
+     * This is used by other fragments to calculate end dates
+     * @return List of lessons
+     */
+    fun getLessons(): List<WTLesson> {
+        val lessonsFragment = childFragmentManager.findFragmentByTag("lessons") as? WTLessonsFragment
+        return lessonsFragment?.getLessons() ?: emptyList()
+    }
+    
+    /**
+     * Calculate the end date after a specific number of lessons
+     * This uses the lesson schedule to determine how many weeks are needed
+     * 
+     * @param startDate The calendar containing the start date
+     * @param lessonCount The number of lessons to attend
+     * @param lessons The list of available lessons
+     * @return The calculated end date
+     */
+    fun calculateEndDateAfterLessons(
+        startDate: Calendar,
+        lessonCount: Int,
+        lessons: List<WTLesson>
+    ): Date {
+        // If no lessons defined or lesson count is 0, default to 8 weeks
+        if (lessons.isEmpty() || lessonCount <= 0) {
+            val calendar = Calendar.getInstance()
+            calendar.time = startDate.time
+            calendar.add(Calendar.WEEK_OF_YEAR, 8)
+            return calendar.time
+        }
+        
+        // Count how many lessons occur each week
+        val lessonsPerWeek = lessons.size
+        
+        // Calculate how many weeks needed
+        val weeksNeeded = if (lessonsPerWeek > 0) {
+            Math.ceil(lessonCount.toDouble() / lessonsPerWeek).toInt()
+        } else {
+            8 // Default to 8 weeks if no lessons per week
+        }
+        
+        // Calculate end date
+        val calendar = Calendar.getInstance()
+        calendar.time = startDate.time
+        calendar.add(Calendar.WEEK_OF_YEAR, weeksNeeded)
+        
+        return calendar.time
+    }
+
+    /**
+     * Calculate the end date after N lessons from the start date
+     * @param startDate The starting date to search from
+     * @param lessons The list of weekly lessons to check against
+     * @param lessonCount The number of lessons to count (default is 8)
+     * @return The date after the specified number of lessons
+     */
+    fun calculateEndDateAfterNLessons(
+        startDate: Calendar,
+        lessons: List<WTLesson>,
+        lessonCount: Int = 8
+    ): Date {
+        // Since CalendarViewModel is not easily accessible here, we implement the logic directly
+        
+        // If there are no lessons, return a date 8 weeks after the start date
+        if (lessons.isEmpty()) {
+            val endCalendar = Calendar.getInstance()
+            endCalendar.time = startDate.time
+            endCalendar.add(Calendar.WEEK_OF_YEAR, 8)
+            return endCalendar.time
+        }
+        
+        // Clone the start date to avoid modifying the original
+        val currentDate = Calendar.getInstance()
+        currentDate.time = startDate.time
+        
+        // Keep track of how many lessons we've found
+        var lessonsFound = 0
+        
+        // Try for up to a year to find enough lessons
+        for (day in 0 until 365) {
+            // Get the day of week (1 = Sunday, 7 = Saturday)
+            val dayOfWeek = currentDate.get(Calendar.DAY_OF_WEEK)
+            
+            // Check if there's a lesson on this day
+            for (lesson in lessons) {
+                // Convert WTLesson day format to Calendar.DAY_OF_WEEK
+                // WTLesson uses: 0 = Monday, 6 = Sunday
+                // Calendar uses: 1 = Sunday, 2 = Monday, ..., 7 = Saturday
+                val lessonDayOfWeek = when (lesson.dayOfWeek) {
+                    0 -> Calendar.MONDAY
+                    1 -> Calendar.TUESDAY
+                    2 -> Calendar.WEDNESDAY
+                    3 -> Calendar.THURSDAY
+                    4 -> Calendar.FRIDAY
+                    5 -> Calendar.SATURDAY
+                    6 -> Calendar.SUNDAY
+                    else -> -1 // Invalid day
+                }
+                
+                // If this is a lesson day
+                if (dayOfWeek == lessonDayOfWeek) {
+                    // We found a lesson day
+                    lessonsFound++
+                    
+                    // If we've found enough lessons, return this date
+                    if (lessonsFound >= lessonCount) {
+                        return currentDate.time
+                    }
+                    
+                    // Break the inner loop since we've already counted this day's lesson
+                    break
+                }
+            }
+            
+            // Move to the next day
+            currentDate.add(Calendar.DAY_OF_MONTH, 1)
+        }
+        
+        // If not enough lessons found within a year, fallback to 8 weeks after start
+        val fallbackCalendar = Calendar.getInstance()
+        fallbackCalendar.time = startDate.time
+        fallbackCalendar.add(Calendar.WEEK_OF_YEAR, 8)
+        return fallbackCalendar.time
+    }
+
     companion object {
         fun newInstance() = WTRegistryFragment()
     }

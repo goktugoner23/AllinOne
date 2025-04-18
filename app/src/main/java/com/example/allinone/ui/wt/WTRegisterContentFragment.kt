@@ -359,7 +359,7 @@ class WTRegisterContentFragment : Fragment() {
 
         // Set switch to unchecked by default (unpaid)
         dialogBinding.paidSwitch.isChecked = false
-
+        
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.add_registration)
             .setView(dialogBinding.root)
@@ -378,37 +378,38 @@ class WTRegisterContentFragment : Fragment() {
 
         // Set the dialog button listener after creating to prevent auto-dismissal
         dialog.setOnShowListener {
-            dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val positiveButton = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+            positiveButton.setOnClickListener {
+                // Validate form
                 if (validateRegistrationForm(dialogBinding)) {
-                    // Save the registration
-                    val student = selectedStudent ?: return@setOnClickListener
-                    val startDate = dialogBinding.startDateInput.tag as? Date
-                    val endDate = dialogBinding.endDateInput.tag as? Date
-                    val amountText = dialogBinding.amountInput.text.toString().trim()
-                    val amount = if (amountText.isEmpty()) 0.0 else amountText.toDoubleOrNull() ?: 0.0
-                    val notesText = dialogBinding.notesEditText.text.toString().trim()
+                    val student = selectedStudent!!
+                    val startDate = dialogBinding.startDateInput.tag as Date
+                    val endDate = dialogBinding.endDateInput.tag as Date
+                    val amount = dialogBinding.amountInput.text.toString().toDoubleOrNull() ?: 0.0
                     val isPaid = dialogBinding.paidSwitch.isChecked
-
+                    
+                    // Log the registration
+                    Log.d("WTRegisterContent", "Creating registration for student: ${student.id} " +
+                        "with startDate=${startDate}, endDate=${endDate}, " +
+                        "amount=${amount}, isPaid=${isPaid}")
+                    
+                    // Create a new registration record
                     viewModel.addRegistration(
                         studentId = student.id,
                         amount = amount,
                         startDate = startDate,
                         endDate = endDate,
                         attachmentUri = selectedAttachmentUri?.toString(),
-                        notes = if (notesText.isEmpty()) null else notesText,
+                        notes = dialogBinding.notesEditText.text.toString().takeIf { it.isNotBlank() },
                         isPaid = isPaid
                     )
-
+                    
                     dialog.dismiss()
-                    Toast.makeText(requireContext(), "Registration saved", Toast.LENGTH_SHORT).show()
                 }
+                // If validation fails, dialog stays open with errors shown
             }
         }
-
-        // Clear selections and show dialog
-        selectedStudent = null
-        selectedRegistration = null
-        selectedAttachmentUri = null
+        
         dialog.show()
     }
 
@@ -480,6 +481,55 @@ class WTRegisterContentFragment : Fragment() {
     private fun setupDatePickers(dialogBinding: DialogEditWtStudentBinding) {
         dialogBinding.startDateInput.setOnClickListener { showDatePicker(dialogBinding.startDateInput) }
         dialogBinding.endDateInput.setOnClickListener { showDatePicker(dialogBinding.endDateInput) }
+        
+        // Add text change listener to start date to calculate end date when start date changes
+        dialogBinding.startDateInput.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                calculateEndDateAfter8Lessons(dialogBinding)
+            }
+        })
+    }
+    
+    private fun calculateEndDateAfter8Lessons(dialogBinding: DialogEditWtStudentBinding) {
+        val startDate = dialogBinding.startDateInput.tag as? Date
+        
+        if (startDate != null) {
+            try {
+                // Create calendar from start date
+                val startCalendar = Calendar.getInstance()
+                startCalendar.time = startDate
+                
+                // Get parent fragment (which should be WTRegistryFragment)
+                val parentFragment = parentFragment
+                if (parentFragment is WTRegistryFragment) {
+                    // Get lessons from registry fragment
+                    val lessons = parentFragment.getLessons()
+                    
+                    // Calculate end date after 8 lessons
+                    val endDate = parentFragment.calculateEndDateAfterNLessons(
+                        startCalendar,
+                        lessons,
+                        8 // Fixed at 8 lessons
+                    )
+                    
+                    // Set time to 22:00 (10pm)
+                    val endCalendar = Calendar.getInstance()
+                    endCalendar.time = endDate
+                    endCalendar.set(Calendar.HOUR_OF_DAY, 22)
+                    endCalendar.set(Calendar.MINUTE, 0)
+                    endCalendar.set(Calendar.SECOND, 0)
+                    endCalendar.set(Calendar.MILLISECOND, 0)
+                    
+                    // Update the end date field
+                    dialogBinding.endDateInput.setText(dateFormat.format(endCalendar.time))
+                    dialogBinding.endDateInput.tag = endCalendar.time
+                }
+            } catch (e: Exception) {
+                Log.e("WTRegisterContent", "Error calculating end date: ${e.message}")
+            }
+        }
     }
     
     private fun showDatePicker(view: View) {
@@ -496,6 +546,15 @@ class WTRegisterContentFragment : Fragment() {
         DatePickerDialog(requireContext(), { _, selectedYear, selectedMonth, selectedDay ->
             val selectedCalendar = Calendar.getInstance()
             selectedCalendar.set(selectedYear, selectedMonth, selectedDay)
+            
+            // If this is the end date, set the time to 22:00 (10pm)
+            if (view.id == R.id.endDateInput) {
+                selectedCalendar.set(Calendar.HOUR_OF_DAY, 22)
+                selectedCalendar.set(Calendar.MINUTE, 0)
+                selectedCalendar.set(Calendar.SECOND, 0)
+                selectedCalendar.set(Calendar.MILLISECOND, 0)
+            }
+            
             val selectedDate = selectedCalendar.time
             
             // Format date for display
@@ -588,30 +647,34 @@ class WTRegisterContentFragment : Fragment() {
 
         // Set the positive button listener after creating to prevent auto-dismissal
         dialog.setOnShowListener {
-            dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val positiveButton = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+            positiveButton.setOnClickListener {
+                // Validate form
                 if (validateRegistrationForm(dialogBinding)) {
-                    // Update the registration
-                    val student = selectedStudent ?: return@setOnClickListener
-                    val startDate = dialogBinding.startDateInput.tag as? Date
-                    val endDate = dialogBinding.endDateInput.tag as? Date
-                    val amountText = dialogBinding.amountInput.text.toString().trim()
-                    val amount = if (amountText.isEmpty()) 0.0 else amountText.toDoubleOrNull() ?: 0.0
-                    val notesText = dialogBinding.notesEditText.text.toString().trim()
+                    val startDate = dialogBinding.startDateInput.tag as Date
+                    val endDate = dialogBinding.endDateInput.tag as Date
+                    val amount = dialogBinding.amountInput.text.toString().toDoubleOrNull() ?: 0.0
                     val isPaid = dialogBinding.paidSwitch.isChecked
-
-                    val updatedRegistration = registration.copy(
-                        studentId = student.id,
-                        amount = amount,
+                    
+                    // Update registration object
+                    val updatedRegistration = selectedRegistration!!.copy(
                         startDate = startDate,
                         endDate = endDate,
-                        attachmentUri = selectedAttachmentUri?.toString(),
-                        notes = if (notesText.isEmpty()) null else notesText,
-                        isPaid = isPaid
+                        amount = amount,
+                        isPaid = isPaid,
+                        notes = dialogBinding.notesEditText.text.toString().takeIf { it.isNotBlank() },
+                        attachmentUri = selectedAttachmentUri?.toString() ?: selectedRegistration!!.attachmentUri
                     )
-
+                    
+                    // Log the update
+                    Log.d("WTRegisterContent", "Updating registration: ${updatedRegistration.id} " +
+                        "with startDate=${startDate}, endDate=${endDate}, " +
+                        "amount=${amount}, isPaid=${isPaid}")
+                    
+                    // Update via ViewModel
                     viewModel.updateRegistration(updatedRegistration)
+                    
                     dialog.dismiss()
-                    Toast.makeText(requireContext(), "Registration updated", Toast.LENGTH_SHORT).show()
                 }
             }
         }

@@ -390,4 +390,13 @@ class WTLessonsFragment : Fragment() {
         // Log for debugging
         Log.d("WTLessonsFragment", "onResume: Refreshing lessons data")
     }
+    
+    /**
+     * Get the current list of lessons from the ViewModel
+     * This is used by other fragments to calculate end dates
+     * @return The current list of lessons
+     */
+    fun getLessons(): List<WTLesson> {
+        return viewModel.lessons.value ?: emptyList()
+    }
 } 

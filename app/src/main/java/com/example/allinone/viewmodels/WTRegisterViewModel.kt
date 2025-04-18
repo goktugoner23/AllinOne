@@ -203,13 +203,24 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                         _error.value = "Failed to upload attachment, but registration will be saved"
                     }
                 }
+                
+                // Ensure end date has time set to 22:00 (10pm)
+                val finalEndDate = endDate?.let {
+                    val calendar = Calendar.getInstance()
+                    calendar.time = it
+                    calendar.set(Calendar.HOUR_OF_DAY, 22)
+                    calendar.set(Calendar.MINUTE, 0)
+                    calendar.set(Calendar.SECOND, 0)
+                    calendar.set(Calendar.MILLISECOND, 0)
+                    calendar.time
+                }
 
                 val registration = WTRegistration(
                     id = registrationId,  // Use the pre-generated ID
                     studentId = studentId,
                     amount = amount,
                     startDate = startDate,
-                    endDate = endDate,
+                    endDate = finalEndDate, // Use the modified end date with 10pm time
                     paymentDate = Date(),
                     attachmentUri = cloudAttachmentUrl ?: attachmentUri, // Use cloud URL if available, otherwise local URI
                     notes = notes,
@@ -247,7 +258,7 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                 }
 
                 // Add end date to calendar if available
-                endDate?.let { date ->
+                finalEndDate?.let { date ->
                     val studentName = repository.students.value.find { it.id == studentId }?.name ?: "Unknown Student"
                     val title = "Registration End: $studentName"
                     val description = "Registration period ending for $studentName. Amount: $amount"
@@ -257,7 +268,7 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                         id = registration.id,  // Reuse registration ID for the event
                         title = title,
                         description = description,
-                        date = date,
+                        date = date,  // Already has time set to 22:00
                         type = "Registration End"
                     )
                     repository.insertEvent(event)
@@ -331,9 +342,21 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                     }
                 }
 
-                // Create updated registration with possibly new attachment URL
+                // Ensure end date has time set to 22:00 (10pm)
+                val finalEndDate = registration.endDate?.let {
+                    val calendar = Calendar.getInstance()
+                    calendar.time = it
+                    calendar.set(Calendar.HOUR_OF_DAY, 22)
+                    calendar.set(Calendar.MINUTE, 0)
+                    calendar.set(Calendar.SECOND, 0)
+                    calendar.set(Calendar.MILLISECOND, 0)
+                    calendar.time
+                }
+
+                // Create updated registration with possibly new attachment URL and correct end date
                 val updatedRegistration = registration.copy(
-                    attachmentUri = cloudAttachmentUrl
+                    attachmentUri = cloudAttachmentUrl,
+                    endDate = finalEndDate
                 )
 
                 // Check for payment status changes
@@ -370,7 +393,7 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                     repository.deleteEvent(event)
 
                     // Add new event for the updated end date
-                    registration.endDate?.let { newDate ->
+                    finalEndDate?.let { newDate ->
                         val studentName = repository.students.value.find { it.id == registration.studentId }?.name ?: "Unknown Student"
                         val title = "Registration End: $studentName"
                         val description = "Registration period ending for $studentName. Amount: ${registration.amount}"
@@ -379,7 +402,7 @@ class WTRegisterViewModel(application: Application) : AndroidViewModel(applicati
                             id = registration.id,  // Reuse registration ID for the event
                             title = title,
                             description = description,
-                            date = newDate,
+                            date = newDate,  // Already has time set to 22:00
                             type = "Registration End"
                         )
                         repository.insertEvent(newEvent)
