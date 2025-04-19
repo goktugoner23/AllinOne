@@ -17,6 +17,63 @@
         android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- Month filter section -->
+    <LinearLayout
+        android:id="@+id/filterSection"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="8dp"
+        app:layout_constraintTop_toBottomOf="@id/networkStatusBanner">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:hint="@string/select_month"
+                android:layout_gravity="center_vertical"
+                app:boxStrokeWidth="1dp"
+                app:hintTextAppearance="@style/TextAppearance.AppCompat.Small">
+
+                <AutoCompleteTextView
+                    android:id="@+id/monthDropdown"
+                    android:layout_width="match_parent"
+                    android:inputType="none"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    style="@style/FilterDropdownStyle" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <Button
+                android:id="@+id/applyFilterButton"
+                android:layout_width="wrap_content"
+                android:text="@string/apply"
+                android:layout_gravity="center_vertical"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                style="@style/FilterButtonStyle" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/totalAmountText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textSize="16sp"
+            android:textAlignment="textEnd"
+            android:paddingEnd="8dp"
+            android:paddingStart="8dp"
+            android:visibility="gone" />
+    </LinearLayout>
+
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swipe_refresh_layout"
         android:layout_width="match_parent"
@@ -24,7 +81,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/networkStatusBanner">
+        app:layout_constraintTop_toBottomOf="@id/filterSection">
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/studentsRecyclerView"
@@ -82,4 +139,4 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:tint="@color/white" />
 
-</androidx.constraintlayout.widget.ConstraintLayout> 
+</androidx.constraintlayout.widget.ConstraintLayout>

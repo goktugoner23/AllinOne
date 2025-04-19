@@ -9,22 +9,36 @@
         <item name="android:focusable">true</item>
         <item name="android:background">?attr/selectableItemBackground</item>
     </style>
-    
+
     <!-- Bottom Navigation Styles for both light and dark themes -->
     <style name="BottomNavigationStyle">
         <item name="itemIconTint">@color/bottom_nav_item_color</item>
         <item name="itemTextColor">@color/bottom_nav_item_color</item>
         <item name="itemRippleColor">@color/bright_tab_selected</item>
     </style>
-    
+
     <style name="circleImageView">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">50%</item>
     </style>
-    
+
     <!-- Style for bold text - black in light mode -->
     <style name="BoldText">
         <item name="android:textStyle">bold</item>
         <item name="android:textColor">@android:color/black</item>
     </style>
-</resources> 
+
+    <!-- Style for filter elements to ensure consistent height -->
+    <style name="FilterButtonStyle" parent="Widget.MaterialComponents.Button">
+        <item name="android:minHeight">36dp</item>
+        <item name="android:layout_height">36dp</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <!-- Style for dropdown to match button height -->
+    <style name="FilterDropdownStyle">
+        <item name="android:minHeight">36dp</item>
+        <item name="android:layout_height">36dp</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+</resources>

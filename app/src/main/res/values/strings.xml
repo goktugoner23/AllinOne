@@ -102,6 +102,12 @@
     <string name="attachments_only_for_paid_registrations">Attachments can only be added for paid registrations</string>
     <string name="no_registrations">No Course Registrations</string>
     <string name="no_registrations_prompt">Add students to courses by clicking the + button</string>
+    <string name="select_month">Select Month</string>
+    <string name="apply">Apply</string>
+    <string name="all_months">All Months</string>
+    <string name="total">Total</string>
+    <string name="total_amount_label">Total Amount:</string>
+    <string name="amount_format">₺%.2f</string>
 
     <!-- Photo Selection -->
     <string name="select_profile_photo">Select Profile Photo</string>
