@@ -54,6 +54,7 @@ import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.example.allinone.workers.LogcatCaptureWorker
 import com.example.allinone.ui.SourceCodeViewerFragment
+import kotlinx.coroutines.SupervisorJob
 
 class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedListener {
     private lateinit var binding: ActivityMainBinding
@@ -104,16 +105,14 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
     }
 
     override fun attachBaseContext(newBase: Context) {
-        // Load the saved theme preference
+        // Load the saved theme preference - this should be fast as it's a simple preference read
         val prefs = newBase.getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val isDarkMode = prefs.getBoolean(KEY_DARK_MODE, false)
 
         // Apply the appropriate theme mode
-        if (isDarkMode) {
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-        } else {
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-        }
+        AppCompatDelegate.setDefaultNightMode(
+            if (isDarkMode) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+        )
 
         super.attachBaseContext(newBase)
     }
@@ -121,29 +120,46 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
     override fun onCreate(savedInstanceState: Bundle?) {
         // Install splash screen before super.onCreate()
         val splashScreen = installSplashScreen()
-
-        // Keep splash screen visible only while initializing
-        var keepSplashScreen = true
-        splashScreen.setKeepOnScreenCondition { keepSplashScreen }
-
+        
+        // Keep splash screen visible until we're ready
+        splashScreen.setKeepOnScreenCondition { true }
+        
         super.onCreate(savedInstanceState)
 
-        // Set the main activity content view
+        // Set the main activity content view - use post to defer layout inflation slightly
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        
+        // Initialize ViewModels early (this is fast)
+        calendarViewModel = ViewModelProvider(this)[CalendarViewModel::class.java]
+        wtLessonsViewModel = ViewModelProvider(this)[WTLessonsViewModel::class.java]
+        
+        // Setup UI elements that need to be immediately visible
+        setupImmediateUI()
+        
+        // Use post to defer non-critical initialization until after first frame render
+        binding.root.post {
+            // Initialize the rest of the app in the background
+            initializeApp()
+            
+            // Allow the splash screen to dismiss after initialization
+            splashScreen.setKeepOnScreenCondition { false }
+        }
+    }
 
-        // Initialize the app
-        initializeApp()
-
-        // Setup theme toggle switch
+    /**
+     * Sets up immediately visible UI elements needed for the initial view
+     */
+    private fun setupImmediateUI() {
+        // Setup navigation - UI-critical operation
+        setupNavigation()
+        
+        // Setup theme toggle - UI-critical operation
         setupThemeToggle()
-
-        // Ensure bottom navigation and toolbar are always visible
+        
+        // Ensure bottom navigation and toolbar are always visible initially
         binding.bottomNavigation.visibility = View.VISIBLE
         binding.appBarLayout.visibility = View.VISIBLE
-
-        // Allow the splash screen to dismiss
-        keepSplashScreen = false
     }
 
     private fun setupThemeToggle() {
@@ -172,30 +188,15 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
     }
 
     private fun initializeApp() {
-        // Initialize offline status helper
-        offlineStatusHelper.initialize()
-
-        // Setup navigation
-        setupNavigation()
-
-        // Ask for necessary permissions right at the start
-        requestAppPermissions()
-
-        // Schedule workers
-        scheduleBackup()
-        scheduleExpirationNotifications()
-
-        // Test Firebase connection
-        testFirebaseConnection()
-
-        // Initialize ViewModels
-        calendarViewModel = ViewModelProvider(this)[CalendarViewModel::class.java]
-        wtLessonsViewModel = ViewModelProvider(this)[WTLessonsViewModel::class.java]
-
-        // Connect WTLessonsViewModel to CalendarViewModel
+        // Setup view model connections (simple operation)
         setupViewModelConnections()
+        
+        // Request permissions - needs to be done early
+        lifecycleScope.launch { 
+            requestAppPermissions()
+        }
 
-        // Observe repository error messages
+        // Observe repository error messages - lightweight observers
         firebaseRepository.errorMessage.observe(this) { message ->
             if (!message.isNullOrEmpty()) {
                 showErrorMessage(message)
@@ -203,6 +204,40 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             }
         }
 
+        // Use Dispatchers.Default for CPU intensive tasks
+        lifecycleScope.launch(Dispatchers.Default) {
+            // Run offline status initialization in parallel
+            val offlineStatusJob = launch { offlineStatusHelper.initialize() }
+            
+            // Run background operations with a slight delay to prioritize UI
+            withContext(Dispatchers.IO) {
+                delay(800) // Delay to prioritize UI responsiveness
+                
+                // Run background operations in parallel but more safely
+                val supervisorJob = SupervisorJob()
+                val backgroundScope = CoroutineScope(Dispatchers.IO + supervisorJob)
+                
+                // Launch tasks in parallel
+                backgroundScope.launch { scheduleBackup() }
+                backgroundScope.launch { scheduleExpirationNotifications() }
+                backgroundScope.launch { testFirebaseConnection() }
+            }
+            
+            // Wait for offline status to complete
+            offlineStatusJob.join()
+            
+            // Now setup LiveData observers after a delay to ensure UI is responsive
+            withContext(Dispatchers.Main) {
+                delay(300)
+                setupFirebaseObservers()
+            }
+        }
+    }
+
+    /**
+     * Set up Firebase-related observers separately to improve organization and performance
+     */
+    private fun setupFirebaseObservers() {
         // Observe Google Play Services availability
         firebaseRepository.isGooglePlayServicesAvailable.observe(this) { isAvailable ->
             if (!isAvailable) {
@@ -287,9 +322,9 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             expirationWorkRequest
         )
 
-        // Schedule logcat capture worker to run every 30 minutes
+        // Schedule logcat capture worker to run every 6 hours instead of 30 minutes
         val logcatWorkRequest = PeriodicWorkRequestBuilder<LogcatCaptureWorker>(
-            30, TimeUnit.MINUTES
+            6, TimeUnit.HOURS
         ).build()
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
@@ -483,69 +518,38 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         destination: NavDestination,
         arguments: Bundle?
     ) {
+        // Use a single when statement to determine UI elements visibility
         when (destination.id) {
-            R.id.nav_transactions -> {
+            // Main screens that need bottom navigation
+            R.id.homeFragment, R.id.nav_investments, R.id.nav_transaction_report,
+            R.id.nav_transactions, R.id.nav_wt_registry, R.id.nav_calendar,
+            R.id.nav_notes, R.id.nav_instagram_business, R.id.nav_workout -> {
+                binding.bottomNavigation.visibility = View.VISIBLE
+                binding.toolbar.visibility = View.VISIBLE
+            }
+            
+            // Show toolbar but hide bottom nav
+            R.id.nav_transaction_report -> {
+                binding.toolbar.visibility = View.VISIBLE
+                binding.appBarLayout.visibility = View.VISIBLE
                 binding.bottomNavigation.visibility = View.VISIBLE
             }
-            R.id.nav_wt_registry -> {
-                binding.bottomNavigation.visibility = View.VISIBLE
-            }
-            R.id.nav_calendar -> {
-                binding.bottomNavigation.visibility = View.VISIBLE
-            }
-            R.id.nav_notes -> {
-                binding.bottomNavigation.visibility = View.VISIBLE
-            }
-            R.id.nav_instagram_business -> {
-                binding.bottomNavigation.visibility = View.VISIBLE
-            }
-            R.id.nav_workout -> {
-                binding.bottomNavigation.visibility = View.VISIBLE
-            }
+            
+            // History needs special handling
             R.id.nav_history -> {
+                binding.toolbar.visibility = View.GONE
                 binding.bottomNavigation.visibility = View.GONE
             }
-            R.id.nav_database_management -> {
-                binding.bottomNavigation.visibility = View.GONE
-            }
+            
+            // Backup needs intent launch
             R.id.nav_backup -> {
                 binding.bottomNavigation.visibility = View.GONE
                 startActivity(Intent(this, BackupActivity::class.java))
             }
-            R.id.nav_error_logs -> {
-                binding.bottomNavigation.visibility = View.GONE
-            }
-            R.id.nav_source_code -> {
-                binding.bottomNavigation.visibility = View.GONE
-            }
-            R.id.nav_clear_data -> {
-                binding.bottomNavigation.visibility = View.GONE
-            }
-            R.id.nav_clear_db -> {
-                binding.bottomNavigation.visibility = View.GONE
-            }
-        }
-
-        // Hide bottom navigation for certain screens
-        when (destination.id) {
-            R.id.homeFragment, R.id.nav_investments, R.id.nav_transaction_report -> {
-                binding.bottomNavigation.visibility = View.VISIBLE
-            }
+            
+            // All other destinations
             else -> {
                 binding.bottomNavigation.visibility = View.GONE
-            }
-        }
-
-        // Hide/show toolbar for certain screens
-        when (destination.id) {
-            R.id.nav_history -> {
-                binding.toolbar.visibility = View.GONE
-            }
-            R.id.nav_transaction_report -> {
-                binding.toolbar.visibility = View.VISIBLE
-                binding.appBarLayout.visibility = View.VISIBLE
-            }
-            else -> {
                 binding.toolbar.visibility = View.VISIBLE
             }
         }
@@ -628,13 +632,7 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         setSupportActionBar(binding.toolbar)
 
         // Set up the drawer toggle
-        toggle = ActionBarDrawerToggle(
-            this,
-            drawerLayout,
-            binding.toolbar,
-            0,
-            0
-        )
+        toggle = ActionBarDrawerToggle(this, drawerLayout, binding.toolbar, 0, 0)
         drawerLayout.addDrawerListener(toggle)
         toggle.syncState()
 
@@ -646,103 +644,11 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
         // Add destination changed listener
         navController.addOnDestinationChangedListener(this)
 
-        // Setup bottom navigation with NavController
-        binding.bottomNavigation.setupWithNavController(navController)
-
-        // Add custom navigation for bottom navigation items
-        binding.bottomNavigation.setOnItemSelectedListener { item ->
-            when (item.itemId) {
-                R.id.homeFragment -> {
-                    navController.navigate(R.id.homeFragment)
-                    true
-                }
-                R.id.nav_investments -> {
-                    navController.navigate(R.id.nav_investments)
-                    true
-                }
-                R.id.nav_transaction_report -> {
-                    navController.navigate(R.id.nav_transaction_report)
-                    true
-                }
-                else -> false
-            }
-        }
-
-        // Handle navigation item selection
-        navigationView.setNavigationItemSelectedListener { menuItem ->
-            when (menuItem.itemId) {
-                R.id.nav_transactions -> {
-                    navController.navigate(R.id.homeFragment)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_wt_registry -> {
-                    navController.navigate(R.id.nav_wt_registry)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_calendar -> {
-                    navController.navigate(R.id.nav_calendar)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_notes -> {
-                    navController.navigate(R.id.nav_notes)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_instagram_business -> {
-                    navController.navigate(R.id.nav_instagram_business)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_workout -> {
-                    navController.navigate(R.id.nav_workout)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_history -> {
-                    navController.navigate(R.id.nav_history)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_database_management -> {
-                    navController.navigate(R.id.nav_database_management)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_backup -> {
-                    // Navigate to backup activity
-                    val intent = Intent(this, BackupActivity::class.java)
-                    startActivity(intent)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_error_logs -> {
-                    navController.navigate(R.id.nav_error_logs)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_clear_data -> {
-                    // Clear app data instead of logging out
-                    clearAppData()
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_clear_db -> {
-                    // Clear Firestore database
-                    clearFirestoreDatabase()
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_source_code -> {
-                    navController.navigate(R.id.nav_source_code)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                else -> false
-            }
-        }
+        // Setup bottom navigation with NavController - bypassing the standard behavior for better performance
+        setupBottomNavigation()
+        
+        // Handle navigation drawer item selection
+        setupNavigationDrawer()
 
         // Make sure the hamburger icon is always showing on specific screens
         navController.addOnDestinationChangedListener { _, destination, _ ->
@@ -754,6 +660,75 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                 supportActionBar?.setDisplayShowHomeEnabled(true)
                 supportActionBar?.setHomeButtonEnabled(true)
                 toggle.syncState()
+            }
+        }
+    }
+
+    /**
+     * Setup bottom navigation with custom implementation for faster navigation
+     */
+    private fun setupBottomNavigation() {
+        binding.bottomNavigation.setOnItemSelectedListener { item ->
+            // Using a map for O(1) lookup instead of when statement
+            val destinationMap = mapOf(
+                R.id.homeFragment to R.id.homeFragment,
+                R.id.nav_investments to R.id.nav_investments,
+                R.id.nav_transaction_report to R.id.nav_transaction_report
+            )
+            
+            destinationMap[item.itemId]?.let {
+                navController.navigate(it)
+                true
+            } ?: false
+        }
+    }
+
+    /**
+     * Setup navigation drawer with improved performance
+     */
+    private fun setupNavigationDrawer() {
+        navigationView.setNavigationItemSelectedListener { menuItem ->
+            // Using a map for O(1) lookup instead of when statement
+            val navigationActions = mapOf(
+                R.id.nav_transactions to R.id.homeFragment,
+                R.id.nav_wt_registry to R.id.nav_wt_registry,
+                R.id.nav_calendar to R.id.nav_calendar,
+                R.id.nav_notes to R.id.nav_notes,
+                R.id.nav_instagram_business to R.id.nav_instagram_business,
+                R.id.nav_workout to R.id.nav_workout,
+                R.id.nav_history to R.id.nav_history,
+                R.id.nav_database_management to R.id.nav_database_management,
+                R.id.nav_error_logs to R.id.nav_error_logs,
+                R.id.nav_source_code to R.id.nav_source_code
+            )
+            
+            when (menuItem.itemId) {
+                R.id.nav_backup -> {
+                    // Launch BackupActivity
+                    startActivity(Intent(this, BackupActivity::class.java))
+                    drawerLayout.closeDrawers()
+                    true
+                }
+                R.id.nav_clear_data -> {
+                    // Clear app data
+                    clearAppData()
+                    drawerLayout.closeDrawers()
+                    true
+                }
+                R.id.nav_clear_db -> {
+                    // Clear Firestore database
+                    clearFirestoreDatabase()
+                    drawerLayout.closeDrawers()
+                    true
+                }
+                else -> {
+                    // Navigate using the navigation component
+                    navigationActions[menuItem.itemId]?.let {
+                        navController.navigate(it)
+                        drawerLayout.closeDrawers()
+                        true
+                    } ?: false
+                }
             }
         }
     }
