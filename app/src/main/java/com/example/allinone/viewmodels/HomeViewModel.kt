@@ -45,35 +45,27 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun updateCombinedBalance() {
         val transactions = _allTransactions.value ?: emptyList()
-        val investments = _allInvestments.value ?: emptyList()
 
-        // Filter out investment transactions to avoid double-counting
-        val nonInvestmentTransactions = transactions.filter { transaction ->
-            transaction.type != "Investment"
-        }
+        // Calculate total income and expense from ALL transactions
+        val totalIncome = transactions.filter { it.isIncome }.sumOf { it.amount }
+        val totalExpense = transactions.filter { !it.isIncome }.sumOf { it.amount }
 
-        // Calculate income and expense from non-investment transactions
-        val totalIncome = nonInvestmentTransactions.filter { it.isIncome }.sumOf { it.amount }
-        val totalExpense = nonInvestmentTransactions.filter { !it.isIncome }.sumOf { it.amount }
+        // Calculate balance
+        val balance = totalIncome - totalExpense
 
-        // Add investment transactions separately
-        val investmentIncome = transactions.filter { it.type == "Investment" && it.isIncome }.sumOf { it.amount }
-        val investmentExpense = transactions.filter { it.type == "Investment" && !it.isIncome }.sumOf { it.amount }
+        _combinedBalance.value = Triple(totalIncome, totalExpense, balance)
 
-        // Include only non-past investments in total expense
-        val totalInvestments = investments.filter { !it.isPast }.sumOf { it.amount }
+        // Log detailed breakdown for debugging
+        val incomeByType = transactions.filter { it.isIncome }.groupBy { it.type }
+            .mapValues { it.value.sumOf { transaction -> transaction.amount } }
 
-        // Calculate final totals
-        val finalTotalIncome = totalIncome + investmentIncome
-        val finalTotalExpense = totalExpense + totalInvestments
+        val expenseByType = transactions.filter { !it.isIncome }.groupBy { it.type }
+            .mapValues { it.value.sumOf { transaction -> transaction.amount } }
 
-        val balance = finalTotalIncome - finalTotalExpense
-
-        _combinedBalance.value = Triple(finalTotalIncome, finalTotalExpense, balance)
-
-        Log.d("HomeViewModel", "Balance calculation: Income=$finalTotalIncome, Expense=$finalTotalExpense, Balance=$balance")
-        Log.d("HomeViewModel", "Investment transactions: Income=$investmentIncome, Expense=$investmentExpense")
-        Log.d("HomeViewModel", "Total investments value: $totalInvestments")
+        Log.d("HomeViewModel", "Balance calculation: Income=$totalIncome, Expense=$totalExpense, Balance=$balance")
+        Log.d("HomeViewModel", "Income by type: $incomeByType")
+        Log.d("HomeViewModel", "Expense by type: $expenseByType")
+        Log.d("HomeViewModel", "Total transactions count: ${transactions.size}")
     }
 
     fun addTransaction(
