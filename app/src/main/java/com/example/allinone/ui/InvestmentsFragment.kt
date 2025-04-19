@@ -11,6 +11,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
@@ -39,6 +40,7 @@ import java.util.Date
 import java.util.UUID
 import com.google.firebase.storage.FirebaseStorage
 import com.bumptech.glide.Glide
+import com.example.allinone.adapters.FullscreenImageAdapter
 
 class InvestmentsFragment : Fragment() {
     private var _binding: FragmentInvestmentsBinding? = null
@@ -554,32 +556,66 @@ class InvestmentsFragment : Fragment() {
     fun showFullscreenImage(uri: String?) {
         if (uri == null) return
         
-        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_fullscreen_image, null)
+        // Determine if uri is part of an investment with multiple images
+        val allImages = mutableListOf<String>()
+        var initialPosition = 0
         
-        // Find the image view in the dialog layout
-        val imageView: ShapeableImageView = dialogView.findViewById(R.id.fullscreenImageView)
-        
-        // Load the image using Glide which handles both local and remote URLs
-        try {
-            // Use Glide to load the image instead of setImageURI
-            Glide.with(requireContext())
-                .load(uri)
-                .into(imageView)
-            
-            // Log for debugging
-            Log.d("InvestmentsFragment", "Loading fullscreen image: $uri")
-        } catch (e: Exception) {
-            Log.e("InvestmentsFragment", "Error loading image: ${e.message}", e)
-            Toast.makeText(context, "Error loading image: ${e.message}", Toast.LENGTH_SHORT).show()
-            return
+        // Get the current investment (if any) that contains this image
+        val investment = viewModel.allInvestments.value?.find { inv ->
+            inv.imageUri?.split(",")?.filter { it.isNotBlank() }?.contains(uri) == true
         }
         
+        // If we found the investment, get all its images
+        if (investment != null && !investment.imageUri.isNullOrBlank()) {
+            val images = investment.imageUri.split(",").filter { it.isNotBlank() }
+            allImages.addAll(images)
+            initialPosition = images.indexOf(uri).coerceAtLeast(0)
+        } else {
+            // Just show this single image
+            allImages.add(uri)
+        }
+        
+        // Create the dialog
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_fullscreen_image, null)
         val dialog = Dialog(requireContext(), android.R.style.Theme_Black_NoTitleBar_Fullscreen)
         dialog.setContentView(dialogView)
+        
+        // Setup ViewPager
+        val viewPager = dialogView.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.fullscreenViewPager)
+        val imageCounter = dialogView.findViewById<TextView>(R.id.imageCounterText)
+        
+        // Setup adapter for the ViewPager
+        val adapter = com.example.allinone.adapters.FullscreenImageAdapter(requireContext(), allImages)
+        viewPager.adapter = adapter
+        
+        // Set initial position
+        viewPager.setCurrentItem(initialPosition, false)
+        
+        // Update counter text
+        updateImageCounter(imageCounter, initialPosition, allImages.size)
+        
+        // Listen for page changes
+        viewPager.registerOnPageChangeCallback(object : androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback() {
+            override fun onPageSelected(position: Int) {
+                super.onPageSelected(position)
+                updateImageCounter(imageCounter, position, allImages.size)
+            }
+        })
+        
+        // Show dialog
         dialog.show()
         
-        // Close on click
-        imageView.setOnClickListener { dialog.dismiss() }
+        // Close on click anywhere on the screen
+        dialogView.setOnClickListener { dialog.dismiss() }
+    }
+    
+    private fun updateImageCounter(textView: TextView, position: Int, total: Int) {
+        if (total <= 1) {
+            textView.visibility = View.GONE
+        } else {
+            textView.visibility = View.VISIBLE
+            textView.text = "${position + 1} / $total"
+        }
     }
 
     private fun getFileUri(uri: Uri): Uri? {

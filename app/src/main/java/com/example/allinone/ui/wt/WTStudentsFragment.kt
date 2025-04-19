@@ -60,6 +60,7 @@ import android.widget.EditText
 import android.view.MotionEvent
 import android.view.inputmethod.EditorInfo
 import android.widget.ImageView
+import android.app.Dialog
 
 class WTStudentsFragment : Fragment() {
     private var _binding: FragmentWtStudentsBinding? = null
@@ -543,37 +544,41 @@ class WTStudentsFragment : Fragment() {
             .show()
     }
     
-    // View the photo in a fullscreen dialog
+    // View the photo in a fullscreen dialog with slider support
     private fun viewFullPhoto() {
         currentPhotoUri?.let { uri ->
-            val dialog = MaterialAlertDialogBuilder(requireContext())
-                .setView(R.layout.dialog_fullscreen_image)
-                .create()
-            
-            dialog.show()
-            
-            val imageView = dialog.findViewById<com.google.android.material.imageview.ShapeableImageView>(R.id.fullscreenImageView)
-            try {
-                Log.d("WTStudentsFragment", "Loading fullscreen image from URI: $uri")
-                if (uri.toString().startsWith("https://")) {
-                    com.bumptech.glide.Glide.with(requireContext())
-                        .load(uri)
-                        .placeholder(R.drawable.default_profile)
-                        .error(R.drawable.default_profile)
-                        .into(imageView!!)
-                } else {
-                    imageView?.setImageURI(uri)
-                }
-            } catch (e: Exception) {
-                Log.e("WTStudentsFragment", "Error loading fullscreen image: ${e.message}")
-                Toast.makeText(requireContext(), "Failed to load image", Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            }
-            
-            // Close on tap
-            imageView?.setOnClickListener {
-                dialog.dismiss()
-            }
+            // Just delegate to our existing full screen image method
+            showFullScreenImage(uri.toString())
+        }
+    }
+    
+    // Show the photo in a fullscreen dialog with slider support
+    private fun showFullScreenImage(photoUri: String?) {
+        if (photoUri == null) return
+        
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_fullscreen_image, null)
+        val dialog = Dialog(requireContext(), android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        dialog.setContentView(dialogView)
+        
+        // Create a list with just this one image
+        val images = listOf(photoUri)
+        
+        // Setup ViewPager
+        val viewPager = dialogView.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.fullscreenViewPager)
+        val imageCounter = dialogView.findViewById<TextView>(R.id.imageCounterText)
+        
+        // Hide the counter since we only have one image
+        imageCounter.visibility = View.GONE
+        
+        // Create and set adapter
+        val adapter = com.example.allinone.adapters.FullscreenImageAdapter(requireContext(), images)
+        viewPager.adapter = adapter
+        
+        dialog.show()
+        
+        // Close on tap
+        dialogView.setOnClickListener {
+            dialog.dismiss()
         }
     }
     
@@ -1121,39 +1126,6 @@ class WTStudentsFragment : Fragment() {
             message,
             com.google.android.material.snackbar.Snackbar.LENGTH_LONG
         ).show()
-    }
-
-    private fun showFullScreenImage(photoUri: String?) {
-        photoUri?.let { uri ->
-            val dialog = MaterialAlertDialogBuilder(requireContext())
-                .setView(R.layout.dialog_fullscreen_image)
-                .create()
-            
-            dialog.show()
-            
-            val imageView = dialog.findViewById<com.google.android.material.imageview.ShapeableImageView>(R.id.fullscreenImageView)
-            try {
-                Log.d("WTStudentsFragment", "Loading fullscreen image from URI: $uri")
-                if (uri.startsWith("https://")) {
-                    com.bumptech.glide.Glide.with(requireContext())
-                        .load(uri)
-                        .placeholder(R.drawable.default_profile)
-                        .error(R.drawable.default_profile)
-                        .into(imageView!!)
-                } else {
-                    imageView?.setImageURI(Uri.parse(uri))
-                }
-            } catch (e: Exception) {
-                Log.e("WTStudentsFragment", "Error loading fullscreen image: ${e.message}")
-                Toast.makeText(requireContext(), "Failed to load image", Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            }
-            
-            // Close on tap
-            imageView?.setOnClickListener {
-                dialog.dismiss()
-            }
-        }
     }
 
     private fun setupSwipeRefresh() {

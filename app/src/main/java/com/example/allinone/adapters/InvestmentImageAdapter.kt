@@ -51,15 +51,25 @@ class InvestmentImageAdapter(
 
         fun bind(uri: Uri) {
             try {
-                val contentResolver = itemView.context.contentResolver
-                contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
+                // Check if this is a content URI (local) or http/https (remote)
+                if (uri.scheme == "content") {
+                    try {
+                        val contentResolver = itemView.context.contentResolver
+                        contentResolver.takePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                    } catch (e: Exception) {
+                        // Log but continue - some URIs might not support this
+                    }
+                }
                 
-                // Use Glide for safer image loading
+                // Use Glide with placeholders for better visual feedback
                 Glide.with(itemView.context)
                     .load(uri)
+                    .placeholder(com.example.allinone.R.drawable.placeholder_image)
+                    .error(com.example.allinone.R.drawable.error_image)
+                    .centerCrop()
                     .into(binding.imageView)
             } catch (e: Exception) {
                 e.printStackTrace()
