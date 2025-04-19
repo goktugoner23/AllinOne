@@ -176,8 +176,10 @@ class FirebaseManager(private val context: Context? = null) {
     suspend fun getInvestments(): List<Investment> {
         return withContext(Dispatchers.IO) {
             try {
-                val snapshot = investmentsCollection.whereEqualTo("deviceId", deviceId).get().await()
-                snapshot.documents.mapNotNull { doc ->
+                // Get all investments without filtering by deviceId
+                Log.d(TAG, "Fetching all investments from Firebase")
+                val snapshot = investmentsCollection.get().await()
+                val investments = snapshot.documents.mapNotNull { doc ->
                     val id = doc.getLong("id") ?: return@mapNotNull null
                     val name = doc.getString("name") ?: ""
                     val type = doc.getString("type") ?: ""
@@ -189,7 +191,10 @@ class FirebaseManager(private val context: Context? = null) {
 
                     Investment(id, name, amount, type, description, imageUri, date, isPast)
                 }
+                Log.d(TAG, "Fetched ${investments.size} investments from Firebase")
+                investments
             } catch (e: Exception) {
+                Log.e(TAG, "Error fetching investments: ${e.message}", e)
                 emptyList()
             }
         }

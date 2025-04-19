@@ -22,13 +22,15 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.allinone.R
 import com.example.allinone.adapters.InvestmentAdapter
 import com.example.allinone.adapters.InvestmentImageAdapter
+import com.example.allinone.adapters.InvestmentPagerAdapter
 import com.example.allinone.data.Investment
 import com.example.allinone.databinding.DialogEditInvestmentBinding
 import com.example.allinone.databinding.FragmentInvestmentsBinding
 import com.example.allinone.viewmodels.InvestmentsViewModel
 import com.example.allinone.viewmodels.HomeViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.github.chrisbanes.photoview.PhotoView
+import com.google.android.material.imageview.ShapeableImageView
+import com.google.android.material.tabs.TabLayoutMediator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -36,6 +38,7 @@ import kotlinx.coroutines.withContext
 import java.util.Date
 import java.util.UUID
 import com.google.firebase.storage.FirebaseStorage
+import com.bumptech.glide.Glide
 
 class InvestmentsFragment : Fragment() {
     private var _binding: FragmentInvestmentsBinding? = null
@@ -75,7 +78,7 @@ class InvestmentsFragment : Fragment() {
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            observeViewModel()
+            setupTabLayout()
         } else {
             Toast.makeText(context, "Permission required to show images", Toast.LENGTH_SHORT).show()
         }
@@ -93,9 +96,9 @@ class InvestmentsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         checkAndRequestPermissions()
-        setupRecyclerView()
+        setupTabLayout()
         setupClickListeners()
-        observeViewModel()
+        setupObservers()
 
         // Check for pending transaction data
         arguments?.let { args ->
@@ -118,6 +121,58 @@ class InvestmentsFragment : Fragment() {
             }
         }
     }
+    
+    private fun setupObservers() {
+        // Observe add status
+        viewModel.addStatus.observe(viewLifecycleOwner) { status ->
+            when (status) {
+                is InvestmentsViewModel.AddStatus.SUCCESS -> {
+                    Log.d("InvestmentsFragment", "Investment added successfully")
+                    // Refresh data in all tabs
+                    refreshInvestmentData()
+                }
+                is InvestmentsViewModel.AddStatus.ERROR -> {
+                    Log.e("InvestmentsFragment", "Error adding investment")
+                    Toast.makeText(requireContext(), "Error adding investment", Toast.LENGTH_SHORT).show()
+                }
+                else -> { /* Do nothing */ }
+            }
+        }
+        
+        // Observe update status
+        viewModel.updateStatus.observe(viewLifecycleOwner) { status ->
+            when (status) {
+                is InvestmentsViewModel.UpdateStatus.SUCCESS -> {
+                    Log.d("InvestmentsFragment", "Investment updated successfully")
+                    refreshInvestmentData()
+                }
+                is InvestmentsViewModel.UpdateStatus.ERROR -> {
+                    Log.e("InvestmentsFragment", "Error updating investment")
+                    Toast.makeText(requireContext(), "Error updating investment", Toast.LENGTH_SHORT).show()
+                }
+                else -> { /* Do nothing */ }
+            }
+        }
+        
+        // Observe delete status
+        viewModel.deleteStatus.observe(viewLifecycleOwner) { status ->
+            when (status) {
+                is InvestmentsViewModel.DeleteStatus.SUCCESS -> {
+                    Log.d("InvestmentsFragment", "Investment deleted successfully")
+                    refreshInvestmentData()
+                }
+                is InvestmentsViewModel.DeleteStatus.ERROR -> {
+                    Log.e("InvestmentsFragment", "Error deleting investment")
+                    Toast.makeText(requireContext(), "Error deleting investment", Toast.LENGTH_SHORT).show()
+                }
+                else -> { /* Do nothing */ }
+            }
+        }
+    }
+    
+    private fun refreshInvestmentData() {
+        viewModel.refreshData()
+    }
 
     private fun checkAndRequestPermissions() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
@@ -127,18 +182,19 @@ class InvestmentsFragment : Fragment() {
         }
     }
 
-    private fun setupRecyclerView() {
-        adapter = InvestmentAdapter(
-            onItemClick = { investment -> showInvestmentDetails(investment) },
-            onItemLongClick = { investment -> showDeleteConfirmation(investment) },
-            onImageClick = { uri -> showFullscreenImage(uri) }
-        )
-
-        binding.investmentsRecyclerView.apply {
-            layoutManager = LinearLayoutManager(requireContext())
-            adapter = this@InvestmentsFragment.adapter
-            addItemDecoration(DividerItemDecoration(context, DividerItemDecoration.VERTICAL))
-        }
+    private fun setupTabLayout() {
+        // Setup ViewPager with adapter
+        val pagerAdapter = InvestmentPagerAdapter(this)
+        binding.investmentViewPager.adapter = pagerAdapter
+        
+        // Connect TabLayout with ViewPager2
+        TabLayoutMediator(binding.investmentTabLayout, binding.investmentViewPager) { tab, position ->
+            tab.text = when (position) {
+                InvestmentPagerAdapter.INVESTMENTS_TAB -> "Investments"
+                InvestmentPagerAdapter.FUTURES_TAB -> "Futures"
+                else -> null
+            }
+        }.attach()
     }
 
     private fun setupClickListeners() {
@@ -147,7 +203,7 @@ class InvestmentsFragment : Fragment() {
         }
     }
 
-    private fun showAddInvestmentDialog(
+    fun showAddInvestmentDialog(
         pendingAmount: Double? = null,
         pendingDescription: String? = null,
         isIncome: Boolean = false
@@ -178,7 +234,7 @@ class InvestmentsFragment : Fragment() {
                 }
             },
             onImageClick = { uri ->
-                showFullscreenImage(uri)
+                showFullscreenImage(uri.toString())
             }
         )
 
@@ -248,47 +304,33 @@ class InvestmentsFragment : Fragment() {
                                 val realUri = getFileUri(imageUri)
 
                                 if (realUri != null) {
-                                    Log.d("InvestmentsFragment", "Uploading image: $realUri")
-
-                                    // Direct Firebase Storage reference approach
-                                    val storageRef = com.google.firebase.storage.FirebaseStorage.getInstance().reference
-                                        .child("investments") // Folder name
-                                        .child(investmentId.toString()) // ID subfolder
-                                        .child("img_" + UUID.randomUUID().toString() + ".jpg") // Unique image name
-
                                     try {
-                                        // Use putFile with null metadata to avoid permission issues
-                                        Log.d("InvestmentsFragment", "Starting upload to path: investments/${investmentId}/img_xxx.jpg")
-                                        val uploadTask = storageRef.putFile(realUri,
-                                            com.google.firebase.storage.StorageMetadata.Builder()
-                                                .setContentType("image/jpeg")
-                                                .build()
-                                        )
+                                        val uuid = UUID.randomUUID().toString()
+                                        val storageRef = FirebaseStorage.getInstance().reference
+                                            .child("investments")
+                                            .child(investmentId.toString())
+                                            .child("$uuid.jpg")
 
-                                        // Add progress listener
-                                        uploadTask.addOnProgressListener { taskSnapshot ->
-                                            val progress = (100.0 * taskSnapshot.bytesTransferred / taskSnapshot.totalByteCount).toInt()
-                                            Log.d("InvestmentsFragment", "Upload progress: $progress%")
-                                        }
+                                        // Upload the file
+                                        val uploadTask = storageRef.putFile(realUri)
+                                        uploadTask.await()
 
-                                        val taskSnapshot = uploadTask.await()
-                                        val downloadUrl = taskSnapshot.storage.downloadUrl.await().toString()
-
-                                        Log.d("InvestmentsFragment", "Upload success: $downloadUrl")
-                                        imageUrls.add(downloadUrl)
+                                        // Get download URL
+                                        val downloadUrl = storageRef.downloadUrl.await()
+                                        imageUrls.add(downloadUrl.toString())
+                                        Log.d("InvestmentsFragment", "Image uploaded: $downloadUrl")
                                     } catch (e: Exception) {
-                                        Log.e("InvestmentsFragment", "Failed to upload image: ${e.message}", e)
+                                        Log.e("InvestmentsFragment", "Error uploading image", e)
                                     }
-                                } else {
-                                    Log.e("InvestmentsFragment", "Failed to get real URI for $imageUri")
                                 }
                             }
 
-                            // 3. Update investment with image URLs
+                            // 3. Update the investment with image URLs
                             if (imageUrls.isNotEmpty()) {
-                                Log.d("InvestmentsFragment", "Updating investment with ${imageUrls.size} image URLs")
-                                val joinedUrls = imageUrls.joinToString(",")
-                                val updatedInvestment = investment.copy(id = investmentId, imageUri = joinedUrls)
+                                val updatedInvestment = investment.copy(
+                                    id = investmentId,
+                                    imageUri = imageUrls.joinToString(",")
+                                )
                                 viewModel.updateInvestment(updatedInvestment)
                             }
                         }
@@ -305,6 +347,9 @@ class InvestmentsFragment : Fragment() {
                                 Log.d("InvestmentsFragment", "Applied pending ${if (isIncome) "income" else "expense"} transaction of $pendingAmount to investment $investmentId")
                             }
                         }
+                        
+                        // Refresh the UI data
+                        refreshInvestmentData()
                     } else {
                         Log.e("InvestmentsFragment", "Got null investment ID")
                     }
@@ -325,315 +370,225 @@ class InvestmentsFragment : Fragment() {
             }
         }
 
+        // Prefill with pending data if any
+        if (pendingAmount != null) {
+            dialogBinding.amountInput.setText(pendingAmount.toString())
+        }
+        if (!pendingDescription.isNullOrBlank()) {
+            dialogBinding.descriptionInput.setText(pendingDescription)
+        }
+
         dialog.show()
     }
 
-    /**
-     * Get a file URI that Firebase can handle (content:// URI)
-     */
-    private fun getFileUri(uri: Uri): Uri? {
-        // If it's already a file URI or content URI, return it
-        val uriString = uri.toString()
-        Log.d("InvestmentsFragment", "Getting file URI for: $uriString")
-
-        return when {
-            uriString.startsWith("content://") -> uri
-            uriString.startsWith("file://") -> uri
-            else -> {
-                try {
-                    // For http/https URLs, we can't upload directly
-                    // These are likely existing URLs that are already in Firebase
-                    if (uriString.startsWith("http")) {
-                        Log.d("InvestmentsFragment", "URL is already in Firebase: $uriString")
-                        return uri
-                    }
-
-                    // Try to convert to URI
-                    Uri.parse(uriString)
-                } catch (e: Exception) {
-                    Log.e("InvestmentsFragment", "Error parsing URI: $uriString", e)
-                    null
-                }
-            }
-        }
+    fun showInvestmentDetails(investment: Investment) {
+        // Skip the view modal and directly open the edit modal
+        showEditInvestmentDialog(investment)
     }
 
-    /**
-     * Upload investment images to ID-specific folders and then update the investment
-     * @deprecated No longer used - uploads are handled directly in showAddInvestmentDialog
-     */
-    @Suppress("UNUSED_PARAMETER")
-    private fun uploadInvestmentWithImages(initialInvestment: Investment, imageUris: List<Uri>) {
-        // This method is deprecated in favor of direct approach in showAddInvestmentDialog
-        // We're keeping the method signature to avoid compilation errors but it's no longer used
-        Log.d("InvestmentsFragment", "This method is deprecated, using direct upload instead")
-    }
+    private fun showEditInvestmentDialog(investment: Investment) {
+        val dialogBinding = DialogEditInvestmentBinding.inflate(layoutInflater)
+        this.dialogBinding = dialogBinding
 
-    private fun showInvestmentDetails(investment: Investment? = null) {
-        if (investment == null) return
-
-        Log.d("InvestmentsFragment", "Showing details for investment: ${investment.name}, image URIs: ${investment.imageUri}")
-
-        dialogBinding = DialogEditInvestmentBinding.inflate(layoutInflater)
+        // Populate fields with investment data
+        dialogBinding.nameInput.setText(investment.name)
+        dialogBinding.amountInput.setText(investment.amount.toString())
+        dialogBinding.typeInput.setText(investment.type)
+        dialogBinding.descriptionInput.setText(investment.description ?: "")
+        dialogBinding.isPastInvestmentCheckbox.isChecked = investment.isPast
 
         // Setup investment type dropdown
-        val types = arrayOf("Crypto", "Stock", "Gold", "Other")
-        val typeAdapter = ArrayAdapter(requireContext(), R.layout.dropdown_item, types)
-        dialogBinding?.typeInput?.apply {
-            setAdapter(typeAdapter)
-            setText(investment.type, false)  // false prevents filtering the dropdown list
-        }
-
-        // Populate fields
-        dialogBinding?.nameInput?.setText(investment.name)
-        dialogBinding?.amountInput?.setText(investment.amount.toString())
-        dialogBinding?.descriptionInput?.setText(investment.description)
-        dialogBinding?.isPastInvestmentCheckbox?.isChecked = investment.isPast
+        val investmentTypes = arrayOf("Stocks", "Crypto", "Gold", "Other")
+        val arrayAdapter = ArrayAdapter(requireContext(), R.layout.dropdown_item, investmentTypes)
+        dialogBinding.typeInput.setAdapter(arrayAdapter)
 
         // Setup images
         selectedImages.clear()
-
-        // Check if we have image URIs in the investment
-        if (!investment.imageUri.isNullOrEmpty()) {
-            Log.d("InvestmentsFragment", "Found image URIs: ${investment.imageUri}")
-
-            // Split by comma and process each URI
-            val imageUrisList = investment.imageUri.split(",").filter { it.isNotEmpty() }
-            Log.d("InvestmentsFragment", "Processing ${imageUrisList.size} image URIs")
-
-            for (uriString in imageUrisList) {
-                try {
-                    val trimmedUri = uriString.trim()
-                    Log.d("InvestmentsFragment", "Processing URI: $trimmedUri")
-                    val uri = Uri.parse(trimmedUri)
-                    Log.d("InvestmentsFragment", "Adding URI to selectedImages: $uri")
-                    selectedImages.add(uri)
-                } catch (e: Exception) {
-                    Log.e("InvestmentsFragment", "Error parsing URI: $uriString", e)
-                }
-            }
-
-            Log.d("InvestmentsFragment", "Final selected images count: ${selectedImages.size}")
-        } else {
-            Log.d("InvestmentsFragment", "No image URIs found in investment")
-        }
+        val existingImageUris = investment.imageUri?.split(",")?.filter { it.isNotBlank() }?.map { Uri.parse(it) } ?: emptyList()
+        selectedImages.addAll(existingImageUris)
 
         imageAdapter = InvestmentImageAdapter(
             onDeleteClick = { uri ->
-                Log.d("InvestmentsFragment", "Removing image URI: $uri")
                 selectedImages.remove(uri)
                 imageAdapter.submitList(selectedImages.toList())
                 if (selectedImages.isEmpty()) {
-                    dialogBinding?.imagesRecyclerView?.visibility = View.GONE
+                    dialogBinding.imagesRecyclerView.visibility = View.GONE
                 }
             },
-            onImageClick = { uri ->
-                Log.d("InvestmentsFragment", "Image clicked: $uri")
-                showFullscreenImage(uri)
-            }
+            onImageClick = { uri -> showFullscreenImage(uri.toString()) }
         )
 
-        dialogBinding?.imagesRecyclerView?.apply {
+        dialogBinding.imagesRecyclerView.apply {
             layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
             adapter = imageAdapter
-            visibility = if (selectedImages.isNotEmpty()) View.VISIBLE else View.GONE
+            visibility = if (selectedImages.isEmpty()) View.GONE else View.VISIBLE
         }
 
-        // Make sure to update the adapter with the latest list
         imageAdapter.submitList(selectedImages.toList())
 
-        // Add click listener for the add image button
-        dialogBinding?.addImageButton?.setOnClickListener {
+        dialogBinding.addImageButton.setOnClickListener {
             getContent.launch("image/*")
         }
 
-        // Create dialog with update button
         val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Investment Details")
-            .setView(dialogBinding?.root)
-            .setPositiveButton("Update") { _, _ ->
-                val updatedInvestment = investment.copy(
-                    name = dialogBinding?.nameInput?.text?.toString() ?: "",
-                    amount = dialogBinding?.amountInput?.text?.toString()?.toDoubleOrNull() ?: 0.0,
-                    type = dialogBinding?.typeInput?.text?.toString() ?: "",
-                    description = dialogBinding?.descriptionInput?.text?.toString(),
-                    imageUri = selectedImages.joinToString(",") { it.toString() },
-                    isPast = dialogBinding?.isPastInvestmentCheckbox?.isChecked ?: false
-                )
+            .setTitle("Edit Investment")
+            .setView(dialogBinding.root)
+            .setNegativeButton("Cancel", null)
+            .create()
 
-                // Use the same loading dialog and direct Firebase Storage approach for edit mode too
-                val loadingDialog = MaterialAlertDialogBuilder(requireContext())
-                    .setView(R.layout.dialog_loading)
-                    .setCancelable(false)
-                    .create()
+        dialog.setButton(Dialog.BUTTON_POSITIVE, "Save") { _, _ ->
+            val name = dialogBinding.nameInput.text?.toString()
+            val amountText = dialogBinding.amountInput.text?.toString()
+            val type = (dialogBinding.typeInput as? AutoCompleteTextView)?.text?.toString()
+            val description = dialogBinding.descriptionInput.text?.toString()
+            val isPast = dialogBinding.isPastInvestmentCheckbox.isChecked
 
-                lifecycleScope.launch {
-                    try {
-                        loadingDialog.show()
+            if (name.isNullOrBlank() || amountText.isNullOrBlank() || type.isNullOrBlank()) {
+                Toast.makeText(context, "Please fill in all required fields", Toast.LENGTH_SHORT).show()
+                return@setButton
+            }
 
-                        // Find any new images that need to be uploaded (local URIs)
-                        val newImages = selectedImages.filter {
-                            !it.toString().startsWith("http") && !(investment.imageUri?.contains(it.toString()) ?: false)
+            val amount = amountText.toDoubleOrNull()
+            if (amount == null) {
+                Toast.makeText(context, "Please enter a valid amount", Toast.LENGTH_SHORT).show()
+                return@setButton
+            }
+
+            // Handle update with existing and new images
+            lifecycleScope.launch {
+                try {
+                    // First handle images if needed
+                    var imageUriString = investment.imageUri
+                    
+                    // Check if image list was modified
+                    val oldImages = investment.imageUri?.split(",")?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
+                    val currentImageUris = selectedImages.map { it.toString() }.toSet()
+                    
+                    if (oldImages != currentImageUris) {
+                        // Images changed, update them
+                        val newImageUris = mutableListOf<String>()
+                        
+                        // Keep track of existing images that we're keeping
+                        val existingImages = selectedImages.filter { 
+                            it.toString().startsWith("http") 
+                        }.map { it.toString() }
+                        newImageUris.addAll(existingImages)
+                        
+                        // Upload any new images
+                        val newImages = selectedImages.filter { 
+                            !it.toString().startsWith("http") 
                         }
-
-                        // If there are new images, upload them and append to existing URLs
+                        
                         if (newImages.isNotEmpty()) {
-                            Log.d("InvestmentsFragment", "Uploading ${newImages.size} new images for investment ${investment.id}")
-
-                            val imageUrls = mutableListOf<String>()
-                            // Add existing HTTP URLs
-                            imageUrls.addAll(selectedImages.filter { it.toString().startsWith("http") }.map { it.toString() })
-
-                            // Upload new images
                             for (imageUri in newImages) {
                                 val realUri = getFileUri(imageUri)
                                 if (realUri != null) {
-                                    val storageRef = com.google.firebase.storage.FirebaseStorage.getInstance().reference
-                                        .child("investments")
-                                        .child(investment.id.toString())
-                                        .child("img_" + UUID.randomUUID().toString() + ".jpg")
-
                                     try {
-                                        Log.d("InvestmentsFragment", "Uploading new image in edit mode: $realUri")
-                                        val uploadTask = storageRef.putFile(realUri,
-                                            com.google.firebase.storage.StorageMetadata.Builder()
-                                                .setContentType("image/jpeg")
-                                                .build()
-                                        )
-                                        val taskSnapshot = uploadTask.await()
-                                        val downloadUrl = taskSnapshot.storage.downloadUrl.await().toString()
-
-                                        Log.d("InvestmentsFragment", "Edit mode upload success: $downloadUrl")
-                                        imageUrls.add(downloadUrl)
+                                        val uuid = UUID.randomUUID().toString()
+                                        val storageRef = FirebaseStorage.getInstance().reference
+                                            .child("investments")
+                                            .child(investment.id.toString())
+                                            .child("$uuid.jpg")
+                                            
+                                        val uploadTask = storageRef.putFile(realUri)
+                                        uploadTask.await()
+                                        
+                                        val downloadUrl = storageRef.downloadUrl.await()
+                                        newImageUris.add(downloadUrl.toString())
                                     } catch (e: Exception) {
-                                        Log.e("InvestmentsFragment", "Failed to upload image in edit mode: ${e.message}", e)
+                                        Log.e("InvestmentsFragment", "Error uploading image", e)
                                     }
                                 }
                             }
-
-                            // Update image URIs with both existing and new URLs
-                            if (imageUrls.isNotEmpty()) {
-                                val investmentWithImages = updatedInvestment.copy(imageUri = imageUrls.joinToString(","))
-                                viewModel.updateInvestment(investmentWithImages)
-                            } else {
-                                viewModel.updateInvestment(updatedInvestment)
-                            }
-                        } else {
-                            // No new images to upload, just update the investment
-                            viewModel.updateInvestment(updatedInvestment)
                         }
-
-                        withContext(Dispatchers.Main) {
-                            loadingDialog.dismiss()
-                            Toast.makeText(context, "Investment updated", Toast.LENGTH_SHORT).show()
-                        }
-                    } catch (e: Exception) {
-                        Log.e("InvestmentsFragment", "Error updating investment: ${e.message}", e)
-                        withContext(Dispatchers.Main) {
-                            loadingDialog.dismiss()
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-                        }
+                        
+                        imageUriString = newImageUris.joinToString(",")
+                    }
+                    
+                    // Update the investment
+                    val updatedInvestment = investment.copy(
+                        name = name,
+                        amount = amount,
+                        type = type,
+                        description = description,
+                        imageUri = imageUriString,
+                        isPast = isPast
+                    )
+                    
+                    viewModel.updateInvestment(updatedInvestment)
+                    
+                    // Explicitly refresh after update
+                    refreshInvestmentData()
+                    
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(requireContext(), "Investment updated", Toast.LENGTH_SHORT).show()
+                        dialog.dismiss()
+                    }
+                    
+                } catch (e: Exception) {
+                    Log.e("InvestmentsFragment", "Error updating investment", e)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Error updating investment: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
-            .setNegativeButton("Close", null)
-            .create()
+        }
 
         dialog.show()
     }
 
-    private fun showFullscreenImage(uri: Uri) {
-        Log.d("InvestmentsFragment", "Showing fullscreen image: $uri")
-        try {
-            val dialog = Dialog(requireContext(), android.R.style.Theme_Black_NoTitleBar_Fullscreen)
-            val imageView = PhotoView(requireContext()).apply {
-                try {
-                    // If it's a cloud URL, use Glide to load it
-                    val uriString = uri.toString()
-                    Log.d("InvestmentsFragment", "Loading image URI: $uriString")
-
-                    if (uriString.startsWith("http")) {
-                        Log.d("InvestmentsFragment", "Loading HTTP URL with Glide")
-                        com.bumptech.glide.Glide.with(requireContext())
-                            .load(uriString)
-                            .placeholder(android.R.drawable.ic_menu_gallery)
-                            .error(android.R.drawable.ic_menu_close_clear_cancel)
-                            .into(this)
-                    } else {
-                        // It's a content URI, load directly
-                        Log.d("InvestmentsFragment", "Loading local URI directly")
-                        setImageURI(uri)
-                    }
-
-                    // Set layout parameters
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                } catch (e: Exception) {
-                    Log.e("InvestmentsFragment", "Error loading image: ${e.message}", e)
-                    Toast.makeText(requireContext(), "Error loading image: ${e.message}", Toast.LENGTH_SHORT).show()
-                }
-            }
-
-            // Set content view and show dialog
-            dialog.setContentView(imageView)
-            dialog.show()
-
-            // Add click listener to dismiss on tap
-            imageView.setOnClickListener {
-                dialog.dismiss()
-            }
-        } catch (e: Exception) {
-            Log.e("InvestmentsFragment", "Error showing fullscreen image: ${e.message}", e)
-            Toast.makeText(requireContext(), "Error showing image: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun showDeleteConfirmation(investment: Investment) {
+    fun showDeleteConfirmation(investment: Investment) {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Delete Investment")
-            .setMessage("Are you sure you want to delete this investment?")
+            .setMessage("Are you sure you want to delete '${investment.name}'?")
             .setPositiveButton("Delete") { _, _ ->
-                viewModel.deleteInvestmentAndTransaction(investment)
+                viewModel.deleteInvestment(investment)
+                
+                // Show a toast confirming deletion
+                Toast.makeText(requireContext(), "${investment.name} deleted", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
 
-    private fun observeViewModel() {
-        viewModel.allInvestments.observe(viewLifecycleOwner) { investments ->
-            adapter.submitList(investments)
-            binding.emptyStateText.visibility = if (investments.isEmpty()) View.VISIBLE else View.GONE
-
-            // Update summary card
-            val totalAmount = investments.sumOf { it.amount }
-            binding.totalInvestmentsText.text = String.format("Total Investments: ₺%.2f", totalAmount)
-            binding.investmentCountText.text = "Number of Investments: ${investments.size}"
+    fun showFullscreenImage(uri: String?) {
+        if (uri == null) return
+        
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_fullscreen_image, null)
+        
+        // Find the image view in the dialog layout
+        val imageView: ShapeableImageView = dialogView.findViewById(R.id.fullscreenImageView)
+        
+        // Load the image using Glide which handles both local and remote URLs
+        try {
+            // Use Glide to load the image instead of setImageURI
+            Glide.with(requireContext())
+                .load(uri)
+                .into(imageView)
+            
+            // Log for debugging
+            Log.d("InvestmentsFragment", "Loading fullscreen image: $uri")
+        } catch (e: Exception) {
+            Log.e("InvestmentsFragment", "Error loading image: ${e.message}", e)
+            Toast.makeText(context, "Error loading image: ${e.message}", Toast.LENGTH_SHORT).show()
+            return
         }
+        
+        val dialog = Dialog(requireContext(), android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        dialog.setContentView(dialogView)
+        dialog.show()
+        
+        // Close on click
+        imageView.setOnClickListener { dialog.dismiss() }
     }
 
-    private fun uploadImageToFirebaseStorage(imageUri: Uri, callback: (Uri?) -> Unit) {
-        val storageRef = FirebaseStorage.getInstance().reference
-            .child("images")
-            .child("investment_${System.currentTimeMillis()}") // Use timestamp instead of UUID
-
-        // Start upload
-        storageRef.putFile(imageUri)
-            .addOnSuccessListener {
-                storageRef.downloadUrl.addOnSuccessListener { uri ->
-                    callback(uri)
-                }
-            }
-            .addOnFailureListener {
-                Toast.makeText(requireContext(), "Failed to upload image", Toast.LENGTH_SHORT).show()
-                callback(null)
-            }
-    }
-
-    // Helper method to show toast messages
-    private fun showToast(message: String) {
-        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+    private fun getFileUri(uri: Uri): Uri? {
+        return try {
+            uri
+        } catch (e: Exception) {
+            Log.e("InvestmentsFragment", "Error getting file URI", e)
+            null
+        }
     }
 
     override fun onDestroyView() {

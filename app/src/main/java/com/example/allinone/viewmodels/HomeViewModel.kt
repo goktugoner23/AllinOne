@@ -44,28 +44,43 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun updateCombinedBalance() {
-        val transactions = _allTransactions.value ?: emptyList()
-
-        // Calculate total income and expense from ALL transactions
-        val totalIncome = transactions.filter { it.isIncome }.sumOf { it.amount }
-        val totalExpense = transactions.filter { !it.isIncome }.sumOf { it.amount }
-
-        // Calculate balance
-        val balance = totalIncome - totalExpense
-
-        _combinedBalance.value = Triple(totalIncome, totalExpense, balance)
-
-        // Log detailed breakdown for debugging
-        val incomeByType = transactions.filter { it.isIncome }.groupBy { it.type }
-            .mapValues { it.value.sumOf { transaction -> transaction.amount } }
-
-        val expenseByType = transactions.filter { !it.isIncome }.groupBy { it.type }
-            .mapValues { it.value.sumOf { transaction -> transaction.amount } }
-
-        Log.d("HomeViewModel", "Balance calculation: Income=$totalIncome, Expense=$totalExpense, Balance=$balance")
-        Log.d("HomeViewModel", "Income by type: $incomeByType")
-        Log.d("HomeViewModel", "Expense by type: $expenseByType")
-        Log.d("HomeViewModel", "Total transactions count: ${transactions.size}")
+        viewModelScope.launch {
+            try {
+                // Force a refresh to ensure we have the latest data
+                repository.refreshTransactions()
+                
+                // Get all transactions from repository
+                val transactions = repository.transactions.value
+                
+                // Log transaction count for debugging
+                Log.d("HomeViewModel", "Calculating balance with ${transactions.size} transactions")
+                
+                // Calculate total income and expense from ALL transactions
+                val totalIncome = transactions.filter { it.isIncome }.sumOf { it.amount }
+                val totalExpense = transactions.filter { !it.isIncome }.sumOf { it.amount }
+                
+                // Calculate balance
+                val balance = totalIncome - totalExpense
+                
+                _combinedBalance.postValue(Triple(totalIncome, totalExpense, balance))
+                
+                // Log detailed breakdown for debugging
+                val incomeByType = transactions.filter { it.isIncome }
+                    .groupBy { it.type }
+                    .mapValues { it.value.sumOf { transaction -> transaction.amount } }
+                
+                val expenseByType = transactions.filter { !it.isIncome }
+                    .groupBy { it.type }
+                    .mapValues { it.value.sumOf { transaction -> transaction.amount } }
+                
+                Log.d("HomeViewModel", "Balance calculation: Income=$totalIncome, Expense=$totalExpense, Balance=$balance")
+                Log.d("HomeViewModel", "Income by type: $incomeByType")
+                Log.d("HomeViewModel", "Expense by type: $expenseByType")
+                Log.d("HomeViewModel", "Total transactions count: ${transactions.size}")
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "Error updating combined balance: ${e.message}", e)
+            }
+        }
     }
 
     fun addTransaction(

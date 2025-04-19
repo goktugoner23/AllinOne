@@ -38,12 +38,37 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
     private val _deleteStatus = MutableLiveData<DeleteStatus>()
     val deleteStatus: LiveData<DeleteStatus> = _deleteStatus
     
+    // Add enum classes for status
+    sealed class AddStatus {
+        object SUCCESS : AddStatus()
+        object ERROR : AddStatus()
+        object NONE : AddStatus()
+    }
+    
+    sealed class UpdateStatus {
+        object SUCCESS : UpdateStatus()
+        object ERROR : UpdateStatus()
+        object NONE : UpdateStatus()
+    }
+    
+    sealed class DeleteStatus {
+        object SUCCESS : DeleteStatus()
+        object ERROR : DeleteStatus()
+        object NONE : DeleteStatus()
+    }
+    
     init {
+        // Set initial status values
+        _addStatus.value = AddStatus.NONE
+        _updateStatus.value = UpdateStatus.NONE
+        _deleteStatus.value = DeleteStatus.NONE
+        
         // Collect investments from the repository flow
         viewModelScope.launch {
             repository.investments.collect { investments ->
                 _allInvestments.value = investments
                 _totalInvestment.value = investments.sumOf { it.amount }
+                Log.d("InvestmentsViewModel", "Collected ${investments.size} investments from repository")
             }
         }
     }
@@ -69,14 +94,36 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
                 // Save to Firebase
                 repository.insertInvestment(investment)
                 
+                // Also create a transaction for the investment (unless it's marked as past)
+                if (!isPast) {
+                    // Create a corresponding expense transaction
+                    val transaction = Transaction(
+                        id = 0, // Will be auto-generated
+                        amount = amount,
+                        type = "Investment",
+                        description = "Investment in $name",
+                        category = type,
+                        date = Date(),
+                        isIncome = false // Investments are expenses
+                    )
+                    
+                    repository.insertTransaction(transaction)
+                    Log.d("InvestmentsViewModel", "Created expense transaction for investment: $amount")
+                } else {
+                    Log.d("InvestmentsViewModel", "Past investment - no transaction created")
+                }
+                
                 // Notify about data change
                 DataChangeNotifier.notifyInvestmentsChanged()
+                DataChangeNotifier.notifyTransactionsChanged()
                 
                 // Update the local cache
                 _addStatus.value = AddStatus.SUCCESS
-                repository.refreshInvestments()
+                refreshData()
             } catch (e: Exception) {
+                Log.e("InvestmentsViewModel", "Error adding investment: ${e.message}", e)
                 _addStatus.value = AddStatus.ERROR
+                _errorMessage.value = "Error adding investment: ${e.message}"
             }
         }
     }
@@ -84,15 +131,26 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
     fun updateInvestment(investment: Investment) {
         viewModelScope.launch {
             try {
+                // First find the old investment to check if isPast status changed
+                val oldInvestment = repository.getInvestmentById(investment.id)
+                
                 repository.updateInvestment(investment)
+                
+                // Handle transactions based on isPast status changes
+                if (oldInvestment != null) {
+                    updateInvestmentAndTransaction(oldInvestment, investment)
+                }
                 
                 // Notify about data change
                 DataChangeNotifier.notifyInvestmentsChanged()
+                DataChangeNotifier.notifyTransactionsChanged()
                 
-                repository.refreshInvestments()
+                refreshData()
                 _updateStatus.value = UpdateStatus.SUCCESS
             } catch (e: Exception) {
+                Log.e("InvestmentsViewModel", "Error updating investment: ${e.message}", e)
                 _updateStatus.value = UpdateStatus.ERROR
+                _errorMessage.value = "Error updating investment: ${e.message}"
             }
         }
     }
@@ -100,116 +158,173 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
     fun deleteInvestment(investment: Investment) {
         viewModelScope.launch {
             try {
+                Log.d("InvestmentsViewModel", "Deleting investment: ${investment.name}, ID: ${investment.id}, Amount: ${investment.amount}")
+                
+                // First, find and delete related transactions
+                val transactions = repository.transactions.value
+                
+                // Look for any transaction that might be related to this investment, regardless of isPast flag
+                val relatedTransactions = transactions.filter { transaction ->
+                    (transaction.type == "Investment" || transaction.type.contains("Investment")) &&
+                    (
+                        transaction.description.contains(investment.name) || 
+                        transaction.description.contains("Investment in ${investment.name}") ||
+                        transaction.description.contains("Investment: ${investment.name}") ||
+                        transaction.description.contains("Additional investment in: ${investment.name}")
+                    )
+                }
+                
+                if (relatedTransactions.isNotEmpty()) {
+                    Log.d("InvestmentsViewModel", "Found ${relatedTransactions.size} related transactions to delete")
+                    
+                    // Delete each related transaction
+                    relatedTransactions.forEach { transaction ->
+                        Log.d("InvestmentsViewModel", "Deleting related transaction: ${transaction.description}, Amount: ${transaction.amount}")
+                        repository.deleteTransaction(transaction)
+                    }
+                } else {
+                    Log.d("InvestmentsViewModel", "No related transactions found for investment: ${investment.name}")
+                }
+                
+                // Then delete the investment
                 repository.deleteInvestment(investment)
                 
                 // Notify about data change
                 DataChangeNotifier.notifyInvestmentsChanged()
+                DataChangeNotifier.notifyTransactionsChanged()
                 
-                repository.refreshInvestments()
+                refreshData()
                 _deleteStatus.value = DeleteStatus.SUCCESS
             } catch (e: Exception) {
+                Log.e("InvestmentsViewModel", "Error deleting investment: ${e.message}", e)
                 _deleteStatus.value = DeleteStatus.ERROR
+                _errorMessage.value = "Error deleting investment: ${e.message}"
             }
         }
     }
 
     fun updateInvestmentAndTransaction(oldInvestment: Investment, newInvestment: Investment) {
         viewModelScope.launch {
-            // First update the investment including any image URIs
-            Log.d("InvestmentsViewModel", "Updating investment with images: ${newInvestment.imageUri}")
-            repository.updateInvestment(newInvestment)
-            
-            // Handle transactions differently based on past investment status
-            if (!oldInvestment.isPast && !newInvestment.isPast) {
-                // Case 1: Current investment remains current - update transaction
-                val transactions = repository.transactions.value
-                val matchingTransaction = transactions.find { 
-                    it.description.contains(oldInvestment.name) && 
-                    it.type == "Investment" &&
-                    !it.isIncome // Only look for expense transactions (the original investment)
-                }
-                
-                if (matchingTransaction != null) {
-                    // Update the existing transaction with the new amount
-                    // This prevents double-counting
-                    val updatedTransaction = matchingTransaction.copy(
+            try {
+                // Handle transactions differently based on past investment status
+                if (!oldInvestment.isPast && !newInvestment.isPast) {
+                    // Case 1: Current investment remains current - update transaction
+                    val transactions = repository.transactions.value
+                    val matchingTransaction = transactions.find { 
+                        it.description.contains(oldInvestment.name) && 
+                        it.type == "Investment" &&
+                        !it.isIncome // Only look for expense transactions (the original investment)
+                    }
+                    
+                    if (matchingTransaction != null) {
+                        // Update the existing transaction with the new amount
+                        // This prevents double-counting
+                        val updatedTransaction = matchingTransaction.copy(
+                            amount = newInvestment.amount,
+                            description = "Investment in ${newInvestment.name}",
+                            category = newInvestment.type
+                        )
+                        repository.updateTransaction(updatedTransaction)
+                        Log.d("InvestmentsViewModel", "Updated transaction: ${updatedTransaction.description} with ID: ${updatedTransaction.id}")
+                    } else {
+                        // Transaction not found - create a new one
+                        val transaction = Transaction(
+                            id = 0, // Will be auto-generated
+                            amount = newInvestment.amount,
+                            type = "Investment",
+                            description = "Investment in ${newInvestment.name}",
+                            category = newInvestment.type,
+                            date = Date(),
+                            isIncome = false // Investments are expenses
+                        )
+                        
+                        repository.insertTransaction(transaction)
+                        Log.d("InvestmentsViewModel", "Created new transaction for investment: ${newInvestment.name}")
+                    }
+                } else if (oldInvestment.isPast && !newInvestment.isPast) {
+                    // Case 2: Past investment changed to current - we need to create a transaction
+                    // Insert transaction using repository method
+                    val transaction = Transaction(
+                        id = 0, // Will be auto-generated
                         amount = newInvestment.amount,
+                        type = "Investment",
                         description = "Investment in ${newInvestment.name}",
-                        category = newInvestment.type
+                        category = newInvestment.type,
+                        date = Date(),
+                        isIncome = false // Investments are expenses
                     )
-                    repository.updateTransaction(updatedTransaction)
-                    Log.d("InvestmentsViewModel", "Updated transaction: ${updatedTransaction.description} with ID: ${updatedTransaction.id}")
+                    
+                    repository.insertTransaction(transaction)
+                    Log.d("InvestmentsViewModel", "Created new transaction for converted past investment: Investment in ${newInvestment.name}")
+                } else if (!oldInvestment.isPast && newInvestment.isPast) {
+                    // Case 3: Current investment changed to past - find and delete any matching transaction
+                    val transactions = repository.transactions.value
+                    val matchingTransaction = transactions.find { transaction ->
+                        transaction.type == "Investment" && 
+                        !transaction.isIncome && // Only look for expense transactions
+                        (transaction.description.contains(oldInvestment.name))
+                    }
+                    
+                    if (matchingTransaction != null) {
+                        repository.deleteTransaction(matchingTransaction)
+                        Log.d("InvestmentsViewModel", "Deleted transaction for investment converted to past: ${matchingTransaction.description}")
+                    }
                 }
-            } else if (oldInvestment.isPast && !newInvestment.isPast) {
-                // Case 2: Past investment changed to current - we need to create a transaction
-                // Insert transaction using repository method
-                repository.insertTransaction(
-                    amount = newInvestment.amount,
-                    type = "Investment",
-                    description = "Investment in ${newInvestment.name}",
-                    isIncome = false,
-                    category = newInvestment.type
-                )
+                // Case 4: Past investment remains past - nothing to do with transactions
                 
-                Log.d("InvestmentsViewModel", "Created new transaction for converted past investment: Investment in ${newInvestment.name}")
-            } else if (!oldInvestment.isPast && newInvestment.isPast) {
-                // Case 3: Current investment changed to past - find and delete any matching transaction
-                val transactions = repository.transactions.value
-                val matchingTransaction = transactions.find { transaction ->
-                    transaction.type == "Investment" && 
-                    !transaction.isIncome && // Only look for expense transactions
-                    (transaction.description.contains(oldInvestment.name))
-                }
-                
-                if (matchingTransaction != null) {
-                    repository.deleteTransaction(matchingTransaction)
-                    Log.d("InvestmentsViewModel", "Deleted transaction for investment converted to past: ${matchingTransaction.description}")
-                }
+                // Refresh data after all operations
+                refreshData()
+            } catch (e: Exception) {
+                Log.e("InvestmentsViewModel", "Error updating investment transaction: ${e.message}", e)
+                _errorMessage.value = "Error updating investment transaction: ${e.message}"
             }
-            // Case 4: Past investment remains past - nothing to do with transactions
-            
-            // Refresh data after all operations
-            refreshData()
         }
     }
     
     fun deleteInvestmentAndTransaction(investment: Investment) {
         viewModelScope.launch {
-            // First step: Delete the investment
-            repository.deleteInvestment(investment)
-            
-            // Only delete the transaction if it's not a past investment
-            if (!investment.isPast) {
-                // Second step: Find and delete the corresponding transaction with exact matching
-                // This handles investments created before the code change
+            try {
+                // Find and delete the corresponding transaction with exact matching
                 val transactions = repository.transactions.value
                 
-                // Find a transaction that exactly matches this investment (using exact ID or exact name)
+                // Find a transaction that matches this investment
                 val matchingTransaction = transactions.find { transaction ->
-                    transaction.type == "Investment" && 
-                    (transaction.description == "Investment in ${investment.name}" || 
+                    transaction.type == "Investment" &&
+                    (transaction.description.contains(investment.name) || 
+                     transaction.description == "Investment in ${investment.name}" || 
                      transaction.description == "Investment: ${investment.name}")
                 }
                 
-                // Only delete the transaction if we found an exact match
+                // Only delete the transaction if we found a match
                 if (matchingTransaction != null) {
                     repository.deleteTransaction(matchingTransaction)
                     
                     // Log the deletion to make troubleshooting easier
                     Log.d("InvestmentsViewModel", "Deleted matching transaction: ${matchingTransaction.description} with ID: ${matchingTransaction.id}")
+                } else {
+                    Log.d("InvestmentsViewModel", "No matching transaction found for investment: ${investment.name}")
                 }
+                
+                // Explicitly trigger data refresh
+                refreshData()
+            } catch (e: Exception) {
+                Log.e("InvestmentsViewModel", "Error deleting investment transaction: ${e.message}", e)
+                _errorMessage.value = "Error deleting investment transaction: ${e.message}"
             }
-            
-            // Explicitly trigger data refresh to ensure UI is updated correctly
-            refreshData()
         }
     }
     
     fun refreshData() {
         viewModelScope.launch {
             try {
+                Log.d("InvestmentsViewModel", "Refreshing all data...")
                 repository.refreshAllData()
+                // Reset status values after refresh
+                _addStatus.value = AddStatus.NONE
+                _updateStatus.value = UpdateStatus.NONE
+                _deleteStatus.value = DeleteStatus.NONE
             } catch (e: Exception) {
+                Log.e("InvestmentsViewModel", "Error refreshing data: ${e.message}", e)
                 _errorMessage.value = "Error refreshing data: ${e.message}"
             }
         }
@@ -221,9 +336,32 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
      */
     suspend fun addInvestmentAndGetId(investment: Investment): Long? {
         return try {
-            repository.insertInvestmentAndGetId(investment)
+            val id = repository.insertInvestmentAndGetId(investment)
+            
+            // Also create a transaction for the investment (unless it's marked as past)
+            if (!investment.isPast) {
+                // Create a corresponding expense transaction
+                val transaction = Transaction(
+                    id = 0, // Will be auto-generated
+                    amount = investment.amount,
+                    type = "Investment",
+                    description = "Investment in ${investment.name}",
+                    category = investment.type,
+                    date = Date(),
+                    isIncome = false // Investments are expenses
+                )
+                
+                repository.insertTransaction(transaction)
+                Log.d("InvestmentsViewModel", "Created expense transaction for investment: ${investment.amount}")
+                
+                // Notify about transaction data change
+                DataChangeNotifier.notifyTransactionsChanged()
+            }
+            
+            id
         } catch (e: Exception) {
             Log.e("InvestmentsViewModel", "Error adding investment: ${e.message}", e)
+            _errorMessage.value = "Error adding investment: ${e.message}"
             null
         }
     }
@@ -271,23 +409,4 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
     fun calculateTotalInvestments(): Double {
         return allInvestments.value?.sumOf { it.amount } ?: 0.0
     }
-}
-
-// Status enums for operations
-enum class AddStatus {
-    SUCCESS,
-    ERROR,
-    NONE
-}
-
-enum class UpdateStatus {
-    SUCCESS,
-    ERROR,
-    NONE
-}
-
-enum class DeleteStatus {
-    SUCCESS,
-    ERROR,
-    NONE
 } 

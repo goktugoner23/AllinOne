@@ -622,6 +622,34 @@ class FirebaseRepository(private val context: Context) {
     }
 
     /**
+     * Insert a new transaction directly with a Transaction object
+     */
+    suspend fun insertTransaction(transaction: Transaction) {
+        try {
+            // Update local cache immediately for responsiveness
+            val currentTransactions = _transactions.value.toMutableList()
+            currentTransactions.add(transaction)
+            _transactions.value = currentTransactions
+
+            // Then update Firebase if network is available
+            if (networkUtils.isActiveNetworkConnected()) {
+                firebaseManager.saveTransaction(transaction)
+            } else {
+                // Add to offline queue
+                offlineQueue.enqueue(
+                    OfflineQueue.DataType.TRANSACTION,
+                    OfflineQueue.Operation.INSERT,
+                    gson.toJson(transaction)
+                )
+                _errorMessage.postValue("Transaction saved locally. Will sync when network is available.")
+                updatePendingOperationsCount()
+            }
+        } catch (e: Exception) {
+            _errorMessage.postValue("Error saving transaction: ${e.message}")
+        }
+    }
+
+    /**
      * Insert a new transaction into Firebase
      */
     suspend fun insertTransaction(
