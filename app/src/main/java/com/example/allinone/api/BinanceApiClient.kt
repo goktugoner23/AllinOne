@@ -56,6 +56,48 @@ class BinanceApiClient(
     }
 
     /**
+     * Get latest prices for all USD-M Futures trading pairs
+     * Returns a map of symbol to price
+     */
+    suspend fun getLatestPrices(): Map<String, Double> = withContext(Dispatchers.IO) {
+        val priceMap = mutableMapOf<String, Double>()
+        try {
+            // This endpoint doesn't require authentication
+            val url = URL("$baseUrl/fapi/v1/ticker/price")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+
+            val responseCode = connection.responseCode
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                Log.d(TAG, "USD-M Prices Response: $response")
+
+                val jsonArray = JSONArray(response)
+                for (i in 0 until jsonArray.length()) {
+                    val jsonObject = jsonArray.getJSONObject(i)
+                    val symbol = jsonObject.getString("symbol")
+                    val price = jsonObject.getString("price").toDouble()
+                    priceMap[symbol] = price
+
+                    // Also add a simplified version of the symbol (without USDT suffix)
+                    // For example, for BTCUSDT, also add BTC=price
+                    val baseAsset = symbol.replace("USDT", "")
+                    if (baseAsset.isNotEmpty()) {
+                        priceMap[baseAsset] = price
+                    }
+                }
+                Log.d(TAG, "USD-M Prices parsed: ${priceMap.size} prices")
+            } else {
+                val errorResponse = connection.errorStream.bufferedReader().use { it.readText() }
+                Log.e(TAG, "Error fetching prices: $errorResponse")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception fetching prices", e)
+        }
+        return@withContext priceMap
+    }
+
+    /**
      * Get position information from Binance Futures API
      */
     suspend fun getPositionInformation(): List<BinanceFutures> = withContext(Dispatchers.IO) {
@@ -112,7 +154,8 @@ class BinanceApiClient(
                         availableBalance = availableBalance,
                         maxWithdrawAmount = maxWithdrawAmount,
                         marginAvailable = marginAvailable,
-                        updateTime = updateTime
+                        updateTime = updateTime,
+                        futuresType = "USD-M"
                     )
                 )
             }
@@ -163,7 +206,8 @@ class BinanceApiClient(
                         isolatedMargin = isolatedMargin,
                         isAutoAddMargin = isAutoAddMargin,
                         positionSide = positionSide,
-                        updateTime = updateTime
+                        updateTime = updateTime,
+                        futuresType = "USD-M"
                     )
                 )
             }

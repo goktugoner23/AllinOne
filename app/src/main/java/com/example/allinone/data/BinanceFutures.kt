@@ -19,5 +19,6 @@ data class BinanceFutures(
     val isAutoAddMargin: Boolean = false,
     val positionSide: String,
     val updateTime: Date = Date(),
-    val deviceId: String? = null
+    val deviceId: String? = null,
+    val futuresType: String = "USD-M" // Default to USD-M for backward compatibility
 )

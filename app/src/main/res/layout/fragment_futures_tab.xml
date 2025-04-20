@@ -33,7 +33,7 @@
                     android:id="@+id/balanceTitleText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Total Balance"
+                    android:text="Margin Balance"
                     android:textAppearance="?attr/textAppearanceSubtitle1"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
@@ -75,34 +75,17 @@
                     android:background="?android:attr/listDivider"
                     app:layout_constraintTop_toBottomOf="@id/balanceValueText" />
 
-                <TextView
-                    android:id="@+id/availableBalanceTitleText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="Available Balance"
-                    android:textAppearance="?attr/textAppearanceBody2"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/divider" />
 
-                <TextView
-                    android:id="@+id/availableBalanceValueText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="$0.00"
-                    android:textAppearance="?attr/textAppearanceBody1"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="@id/availableBalanceTitleText" />
 
                 <TextView
                     android:id="@+id/marginBalanceTitleText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="Margin Balance"
+                    android:layout_marginTop="16dp"
+                    android:text="Wallet Balance"
                     android:textAppearance="?attr/textAppearanceBody2"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/availableBalanceTitleText" />
+                    app:layout_constraintTop_toBottomOf="@id/divider" />
 
                 <TextView
                     android:id="@+id/marginBalanceValueText"

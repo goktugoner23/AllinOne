@@ -376,12 +376,16 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Recent Changes
 
-### Binance Futures Integration
-- **Futures Tab**: Added a dedicated "Futures" tab in the Investments section to display Binance Futures data
-- **Real-time Data**: Integrated with Binance Futures API to fetch account balance and position information
-- **Position Details**: Display detailed information about open positions including entry price, mark price, PNL, and leverage
-- **Account Summary**: Show account balance, available balance, and unrealized PNL
-- **Secure API Access**: API keys are stored securely in the .env file and accessed through BuildConfig
+### Binance Futures UI Improvements
+- **Enhanced Futures Tabs**: Added separate USD-M and COIN-M futures tabs for better organization
+- **Improved Margin Balance Calculation**: Fixed margin balance calculation to use the correct formula (Wallet Balance + Unrealized PNL)
+- **Streamlined UI**: Removed Available Balance display for cleaner interface
+- **Smart Price Formatting**: Implemented context-aware price formatting that shows:
+  - 2 decimal places for prices above 1 USDT (e.g., $4.69)
+  - 7 decimal places for prices below 1 USDT (e.g., $0.1234567)
+- **Position Display**: Improved position cards with better visual hierarchy and information organization
+- **Real-time Data**: Maintained integration with Binance Futures API to fetch account balance and position information
+- **Secure API Access**: API keys continue to be stored securely in the .env file and accessed through BuildConfig
 - **Responsive UI**: Clean, organized display of futures data with appropriate color coding for profit/loss
 - **Pull-to-Refresh**: Manual refresh capability to get the latest data from Binance
 
