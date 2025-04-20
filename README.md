@@ -27,6 +27,7 @@ AllInOne is an Android application designed to centralize various aspects of per
 - **Market Integration**: Optional connection to market data for real-time valuation (premium feature)
 - **Tax Lot Tracking**: Track tax lots for optimized tax planning
 - **Performance Charts**: Visual representation of growth using MPAndroidChart library
+- **Binance Futures Integration**: Real-time tracking of Binance Futures positions and account balance
 
 ### Note Taking
 - **Rich Text Editor**: Comprehensive formatting including bold, italic, underline, headings, and lists
@@ -234,6 +235,7 @@ The app uses the following collections in Firestore:
 
 - `transactions`: Financial transactions with categories, amounts, dates, and notes
 - `investments`: Investment records including name, value, returns, and history
+- `binance_futures`: Cached Binance Futures account data and position information
 - `notes`: Text notes with rich formatting and optional images
 - `students`: Wing Tzun student records with attendance and progress tracking
 - `programs`: Workout programs with exercises, sets, reps, and weight information
@@ -373,6 +375,15 @@ The project includes comprehensive tests:
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Recent Changes
+
+### Binance Futures Integration
+- **Futures Tab**: Added a dedicated "Futures" tab in the Investments section to display Binance Futures data
+- **Real-time Data**: Integrated with Binance Futures API to fetch account balance and position information
+- **Position Details**: Display detailed information about open positions including entry price, mark price, PNL, and leverage
+- **Account Summary**: Show account balance, available balance, and unrealized PNL
+- **Secure API Access**: API keys are stored securely in the .env file and accessed through BuildConfig
+- **Responsive UI**: Clean, organized display of futures data with appropriate color coding for profit/loss
+- **Pull-to-Refresh**: Manual refresh capability to get the latest data from Binance
 
 ### Data Model Updates
 

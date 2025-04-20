@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="2dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/symbolText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?attr/textAppearanceSubtitle1"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="BTCUSDT" />
+
+        <TextView
+            android:id="@+id/positionSideText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@android:color/holo_green_light"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            app:layout_constraintBottom_toBottomOf="@id/symbolText"
+            app:layout_constraintStart_toEndOf="@id/symbolText"
+            app:layout_constraintTop_toTopOf="@id/symbolText"
+            tools:text="LONG" />
+
+        <TextView
+            android:id="@+id/pnlText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?attr/textAppearanceSubtitle1"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="+$123.45" />
+
+        <TextView
+            android:id="@+id/positionAmtLabelText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Size:"
+            android:textAppearance="?attr/textAppearanceBody2"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/symbolText" />
+
+        <TextView
+            android:id="@+id/positionAmtText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textAppearance="?attr/textAppearanceBody1"
+            app:layout_constraintStart_toEndOf="@id/positionAmtLabelText"
+            app:layout_constraintTop_toTopOf="@id/positionAmtLabelText"
+            tools:text="0.01 BTC" />
+
+        <TextView
+            android:id="@+id/leverageLabelText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="Leverage:"
+            android:textAppearance="?attr/textAppearanceBody2"
+            app:layout_constraintStart_toEndOf="@id/positionAmtText"
+            app:layout_constraintTop_toTopOf="@id/positionAmtLabelText" />
+
+        <TextView
+            android:id="@+id/leverageText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textAppearance="?attr/textAppearanceBody1"
+            app:layout_constraintStart_toEndOf="@id/leverageLabelText"
+            app:layout_constraintTop_toTopOf="@id/leverageLabelText"
+            tools:text="10x" />
+
+        <TextView
+            android:id="@+id/entryPriceLabelText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Entry:"
+            android:textAppearance="?attr/textAppearanceBody2"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/positionAmtLabelText" />
+
+        <TextView
+            android:id="@+id/entryPriceText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textAppearance="?attr/textAppearanceBody1"
+            app:layout_constraintStart_toEndOf="@id/entryPriceLabelText"
+            app:layout_constraintTop_toTopOf="@id/entryPriceLabelText"
+            tools:text="$50,000.00" />
+
+        <TextView
+            android:id="@+id/markPriceLabelText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="Mark:"
+            android:textAppearance="?attr/textAppearanceBody2"
+            app:layout_constraintStart_toEndOf="@id/entryPriceText"
+            app:layout_constraintTop_toTopOf="@id/entryPriceLabelText" />
+
+        <TextView
+            android:id="@+id/markPriceText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textAppearance="?attr/textAppearanceBody1"
+            app:layout_constraintStart_toEndOf="@id/markPriceLabelText"
+            app:layout_constraintTop_toTopOf="@id/markPriceLabelText"
+            tools:text="$51,000.00" />
+
+        <TextView
+            android:id="@+id/liquidationPriceLabelText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Liquidation:"
+            android:textAppearance="?attr/textAppearanceBody2"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/entryPriceLabelText" />
+
+        <TextView
+            android:id="@+id/liquidationPriceText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textAppearance="?attr/textAppearanceBody1"
+            app:layout_constraintStart_toEndOf="@id/liquidationPriceLabelText"
+            app:layout_constraintTop_toTopOf="@id/liquidationPriceLabelText"
+            tools:text="$45,000.00" />
+
+        <TextView
+            android:id="@+id/marginTypeLabelText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="Margin:"
+            android:textAppearance="?attr/textAppearanceBody2"
+            app:layout_constraintStart_toEndOf="@id/liquidationPriceText"
+            app:layout_constraintTop_toTopOf="@id/liquidationPriceLabelText" />
+
+        <TextView
+            android:id="@+id/marginTypeText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textAppearance="?attr/textAppearanceBody1"
+            app:layout_constraintStart_toEndOf="@id/marginTypeLabelText"
+            app:layout_constraintTop_toTopOf="@id/marginTypeLabelText"
+            tools:text="Isolated" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.cardview.widget.CardView>
