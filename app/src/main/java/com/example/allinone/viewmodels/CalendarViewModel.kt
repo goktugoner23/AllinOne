@@ -421,8 +421,8 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             }
         }
         
-        // Update the LiveData
-        _events.value = eventsList.toList()
+        // Update the LiveData - Use postValue for thread safety
+        _events.postValue(eventsList.toList())
     }
     
     /**
@@ -470,8 +470,8 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
             }
         }
         
-        // Update the LiveData to show all events
-        _events.value = eventsList.toList()
+        // Update the LiveData - Use postValue for thread safety
+        _events.postValue(eventsList.toList())
     }
     
     /**

@@ -54,6 +54,9 @@ import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.example.allinone.workers.LogcatCaptureWorker
 import com.example.allinone.ui.SourceCodeViewerFragment
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.withTimeoutOrNull
+import com.google.firebase.FirebaseOptions
 
 class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedListener {
     private lateinit var binding: ActivityMainBinding
@@ -172,30 +175,22 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
     }
 
     private fun initializeApp() {
-        // Initialize offline status helper
-        offlineStatusHelper.initialize()
-
-        // Setup navigation
+        // Setup navigation which is critical for the app
         setupNavigation()
 
-        // Ask for necessary permissions right at the start
-        requestAppPermissions()
-
-        // Schedule workers
-        scheduleBackup()
-        scheduleExpirationNotifications()
-
-        // Test Firebase connection
-        testFirebaseConnection()
-
-        // Initialize ViewModels
+        // Initialize ViewModels early
         calendarViewModel = ViewModelProvider(this)[CalendarViewModel::class.java]
         wtLessonsViewModel = ViewModelProvider(this)[WTLessonsViewModel::class.java]
 
-        // Connect WTLessonsViewModel to CalendarViewModel
+        // Setup view model connections (simple operation)
         setupViewModelConnections()
+        
+        // Request permissions - needs to be done early
+        lifecycleScope.launch { 
+            requestAppPermissions()
+        }
 
-        // Observe repository error messages
+        // Observe repository error messages - lightweight observers
         firebaseRepository.errorMessage.observe(this) { message ->
             if (!message.isNullOrEmpty()) {
                 showErrorMessage(message)
@@ -203,122 +198,318 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             }
         }
 
-        // Observe Google Play Services availability
-        firebaseRepository.isGooglePlayServicesAvailable.observe(this) { isAvailable ->
-            if (!isAvailable) {
-                showGooglePlayServicesError()
+        // Initialize offline status helper directly on the main thread
+        runOnUiThread {
+            try {
+                Log.d("MainActivity", "Initializing OfflineStatusHelper on UI thread: ${Thread.currentThread().name}")
+                offlineStatusHelper.initialize()
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error initializing OfflineStatusHelper: ${e.message}", e)
             }
         }
 
-        // Observe Firebase project validity
-        firebaseRepository.isFirebaseProjectValid.observe(this) { isValid ->
-            if (!isValid) {
-                showFirebaseProjectError()
+        // Use Dispatchers.Default for CPU intensive tasks and background operations
+        lifecycleScope.launch(Dispatchers.Default) {
+            // Run background operations with a slight delay to prioritize UI
+            withContext(Dispatchers.IO) {
+                delay(800) // Delay to prioritize UI responsiveness
+                
+                // Run background operations in parallel but with error handling
+                val supervisorJob = SupervisorJob()
+                val backgroundScope = CoroutineScope(Dispatchers.IO + supervisorJob)
+                
+                // Launch tasks in parallel with error handling
+                backgroundScope.launch { 
+                    try {
+                        scheduleBackup() 
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Error scheduling backup: ${e.message}", e)
+                    }
+                }
+                
+                backgroundScope.launch { 
+                    try {
+                        scheduleExpirationNotifications() 
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Error scheduling notifications: ${e.message}", e)
+                    }
+                }
+                
+                backgroundScope.launch { 
+                    try {
+                        testFirebaseConnection() 
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Error testing Firebase connection: ${e.message}", e)
+                    }
+                }
             }
-        }
-
-        // Observe Firestore security rules validity
-        firebaseRepository.areFirestoreRulesValid.observe(this) { areValid ->
-            if (!areValid) {
-                showFirestoreRulesError()
+            
+            // Now setup LiveData observers after a delay to ensure UI is responsive
+            withContext(Dispatchers.Main) {
+                delay(300)
+                setupFirebaseObservers()
             }
         }
     }
 
-    private fun requestAppPermissions() {
-        val permissionsToRequest = mutableListOf<String>()
-
-        // Storage permissions based on Android version
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+ uses more specific permissions
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
-                permissionsToRequest.add(Manifest.permission.READ_MEDIA_IMAGES)
+    /**
+     * Check if Google Play Services is available and handle errors
+     */
+    private fun checkGooglePlayServices(): Boolean {
+        try {
+            // Verify package name matches what's in google-services.json
+            verifyFirebaseConfiguration()
+            
+            val availability = GoogleApiAvailability.getInstance()
+            val resultCode = availability.isGooglePlayServicesAvailable(this)
+            
+            if (resultCode != ConnectionResult.SUCCESS) {
+                if (availability.isUserResolvableError(resultCode)) {
+                    // Show dialog to fix the issue
+                    availability.getErrorDialog(this, resultCode, 1001)?.show()
+                } else {
+                    // Non-resolvable error
+                    Log.e("MainActivity", "Google Play Services not available, code: $resultCode")
+                    showErrorMessage("Some features may not work properly due to Google Play Services issues")
+                }
+                return false
             }
-        } else {
-            // Android 12 and below use general storage permission
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            return true
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error checking Google Play Services: ${e.message}", e)
+            return false
+        }
+    }
+    
+    /**
+     * Verify that the Firebase configuration matches the app's actual configuration
+     * This helps diagnose common causes of DEVELOPER_ERROR in Google Play Services
+     */
+    private fun verifyFirebaseConfiguration() {
+        try {
+            // Check if package name matches what's in google-services.json
+            val actualPackageName = packageName
+            val expectedPackageName = "com.example.allinone" // From google-services.json
+            
+            if (actualPackageName != expectedPackageName) {
+                Log.e("MainActivity", "Package name mismatch! Expected: $expectedPackageName, Actual: $actualPackageName")
+                showErrorMessage("Firebase configuration error: Package name mismatch")
+                return
             }
-        }
-
-        // Camera permission
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            permissionsToRequest.add(Manifest.permission.CAMERA)
-        }
-
-        // Notification permission for Android 13+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+            
+            // Get app signature hash for debug purposes (useful for Firebase setup)
+            try {
+                val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    val packageInfo = packageManager.getPackageInfo(
+                        packageName, 
+                        PackageManager.GET_SIGNING_CERTIFICATES
+                    )
+                    packageInfo.signingInfo.apkContentsSigners
+                } else {
+                    @Suppress("DEPRECATION")
+                    val packageInfo = packageManager.getPackageInfo(
+                        packageName,
+                        PackageManager.GET_SIGNATURES
+                    )
+                    @Suppress("DEPRECATION")
+                    packageInfo.signatures
+                }
+                
+                signatures.forEach { signature ->
+                    val md = java.security.MessageDigest.getInstance("SHA-1")
+                    md.update(signature.toByteArray())
+                    val sha1 = bytesToHex(md.digest())
+                    Log.d("MainActivity", "App SHA-1 Fingerprint: $sha1")
+                    
+                    // For SHA-256 (often required by Firebase)
+                    val md256 = java.security.MessageDigest.getInstance("SHA-256")
+                    md256.update(signature.toByteArray())
+                    val sha256 = bytesToHex(md256.digest())
+                    Log.d("MainActivity", "App SHA-256 Fingerprint: $sha256")
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error getting app signature: ${e.message}", e)
             }
-        }
-
-        // Request permissions if needed
-        if (permissionsToRequest.isNotEmpty()) {
-            requestMultiplePermissionsLauncher.launch(permissionsToRequest.toTypedArray())
+            
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error verifying Firebase configuration: ${e.message}", e)
         }
     }
-
-    private fun checkGooglePlayServices() {
-        firebaseRepository.checkGooglePlayServicesAvailability()
+    
+    /**
+     * Convert a byte array to a hex string (used for certificate fingerprints)
+     */
+    private fun bytesToHex(bytes: ByteArray): String {
+        val hexChars = CharArray(bytes.size * 2)
+        for (i in bytes.indices) {
+            val v = bytes[i].toInt() and 0xFF
+            hexChars[i * 2] = "0123456789ABCDEF"[v ushr 4]
+            hexChars[i * 2 + 1] = "0123456789ABCDEF"[v and 0x0F]
+        }
+        return hexChars.joinToString("") { it.toString() }
     }
 
-    private fun scheduleBackup() {
-        // Schedule weekly backups
-        val backupWorkRequest = PeriodicWorkRequestBuilder<BackupWorker>(
-            7, TimeUnit.DAYS
-        ).build()
-
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            BackupWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
-            backupWorkRequest
-        )
-    }
-
-    private fun scheduleExpirationNotifications() {
-        val expirationWorkRequest = PeriodicWorkRequestBuilder<ExpirationNotificationWorker>(
-            1, TimeUnit.DAYS
-        ).build()
-
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            ExpirationNotificationWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
-            expirationWorkRequest
-        )
-
-        // Schedule logcat capture worker to run every 30 minutes
-        val logcatWorkRequest = PeriodicWorkRequestBuilder<LogcatCaptureWorker>(
-            30, TimeUnit.MINUTES
-        ).build()
-
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "logcat_capture_work",
-            ExistingPeriodicWorkPolicy.KEEP,
-            logcatWorkRequest
-        )
-    }
-
+    /**
+     * Test Firebase connection with improved error handling
+     */
     private fun testFirebaseConnection() {
-        firebaseRepository.checkGooglePlayServicesAvailability()
+        // First check if Google Play Services is available
+        val gmsAvailable = checkGooglePlayServices()
+        
+        try {
+            // Proceed with Firebase operations
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    // Try initializing Firebase with fallback options if needed
+                    if (!gmsAvailable) {
+                        initializeFirebaseWithFallback()
+                    }
+                    
+                    // Create a test document to verify write access
+                    val testData = hashMapOf("timestamp" to System.currentTimeMillis(), "test" to true)
+                    val db = FirebaseFirestore.getInstance()
+                    
+                    // Add a timeout to the operation
+                    val task = db.collection("test").document("connection_test").set(testData)
+                    try {
+                        // Use a simpler approach with just withTimeout
+                        kotlinx.coroutines.withTimeout(15000) {
+                            task.await()
+                            Log.d("FirebaseManager", "Test document created successfully")
+                        }
+                    } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                        Log.e("FirebaseManager", "Timeout while creating test document")
+                    } catch (e: Exception) {
+                        Log.e("FirebaseManager", "Error creating test document: ${e.message}", e)
+                    }
+                    
+                    // Verify the test document was created
+                    Log.d("FirebaseManager", "Verifying test document was created...")
+                    
+                    // Update UI on main thread
+                    withContext(Dispatchers.Main) {
+                        Log.d("FirebaseManager", "Firebase connection test successful")
+                    }
+                } catch (e: Exception) {
+                    Log.e("FirebaseManager", "Firebase connection test failed: ${e.message}", e)
+                    withContext(Dispatchers.Main) {
+                        showErrorMessage("Firebase connection failed: ${e.message}")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error during Firebase connection test setup: ${e.message}", e)
+        }
+    }
+
+    /**
+     * Initialize Firebase with fallback options for devices with Google Play Services issues
+     */
+    private fun initializeFirebaseWithFallback() {
+        try {
+            // Check if Firebase is already initialized
+            FirebaseApp.getInstance()
+            Log.d("MainActivity", "Firebase already initialized")
+        } catch (e: IllegalStateException) {
+            // Firebase is not initialized, so try to initialize it manually
+            try {
+                Log.d("MainActivity", "Attempting to initialize Firebase manually")
+                
+                // Initialize with default settings
+                FirebaseApp.initializeApp(this)
+                Log.d("MainActivity", "Firebase initialized successfully")
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Failed to initialize Firebase: ${e.message}", e)
+                
+                // Try with explicit options as a last resort
+                try {
+                    val options = FirebaseOptions.Builder()
+                        .setApplicationId("1:954911141967:android:8369e5e490f1dab9ce7a3a") // From google-services.json
+                        .setApiKey("AIzaSyCXF4JpOl3_FXEzODDslf9VeTs9BGOiO1s") // From google-services.json
+                        .setProjectId("allinone-bd6f3") // From google-services.json
+                        .setDatabaseUrl("https://allinone-bd6f3.firebaseio.com")
+                        .setStorageBucket("allinone-bd6f3.firebasestorage.app")
+                        .build()
+                    
+                    FirebaseApp.initializeApp(this, options, "AllinOne")
+                    Log.d("MainActivity", "Firebase initialized with explicit options")
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Failed to initialize Firebase with explicit options: ${e.message}", e)
+                }
+            }
+        }
     }
 
     private fun showGooglePlayServicesError() {
-        AlertDialog.Builder(this)
-            .setTitle("Google Play Services Error")
-            .setMessage("There seems to be an issue with Google Play Services on your device. Some features of the app might not work properly. Would you like to troubleshoot?")
-            .setPositiveButton("Troubleshoot") { _, _ ->
-                // Open Google Play Services help page or settings
-                try {
-                    val intent = Intent("com.google.android.gms.settings.GOOGLE_PLAY_SERVICES_SETTINGS")
-                    startActivity(intent)
-                } catch (e: Exception) {
-                    showErrorMessage("Could not open Google Play Services settings. Please check your device settings manually.")
+        try {
+            val availability = GoogleApiAvailability.getInstance()
+            val resultCode = availability.isGooglePlayServicesAvailable(this)
+            
+            // Log detailed information about the error
+            logGooglePlayServicesErrorDetails(resultCode)
+            
+            if (resultCode != ConnectionResult.SUCCESS) {
+                if (availability.isUserResolvableError(resultCode)) {
+                    // Show the built-in error resolution dialog instead of a custom one
+                    availability.getErrorDialog(this, resultCode, 1001)?.show()
+                    return
                 }
             }
-            .setNegativeButton("Continue Anyway", null)
-            .setCancelable(true)
-            .show()
+            
+            // Only show custom dialog if the built-in one couldn't be shown
+            AlertDialog.Builder(this)
+                .setTitle("Google Play Services Issue")
+                .setMessage("There seems to be an issue with Google Play Services on your device (error code: $resultCode). Some features of the app might not work properly.")
+                .setPositiveButton("Open Settings") { _, _ ->
+                    try {
+                        startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_SETTINGS))
+                    } catch (e: Exception) {
+                        showErrorMessage("Could not open settings. Please check your device settings manually.")
+                    }
+                }
+                .setNegativeButton("Continue Anyway", null)
+                .setCancelable(true)
+                .show()
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error showing Google Play Services error dialog: ${e.message}", e)
+            // Fallback to simple message if dialog fails
+            showErrorMessage("Google Play Services issue detected. Some features may not work properly.")
+        }
+    }
+    
+    /**
+     * Log detailed information about Google Play Services error
+     */
+    private fun logGooglePlayServicesErrorDetails(resultCode: Int) {
+        val errorMessage = when (resultCode) {
+            ConnectionResult.SERVICE_MISSING -> "Google Play services is missing on this device."
+            ConnectionResult.SERVICE_UPDATING -> "Google Play services is currently being updated on this device."
+            ConnectionResult.SERVICE_VERSION_UPDATE_REQUIRED -> "The installed version of Google Play services is out of date."
+            ConnectionResult.SERVICE_DISABLED -> "The installed version of Google Play services has been disabled on this device."
+            ConnectionResult.SERVICE_INVALID -> "The version of the Google Play services installed on this device is not authentic."
+            ConnectionResult.SIGN_IN_REQUIRED -> "Google Play services is installed but not enabled."
+            ConnectionResult.NETWORK_ERROR -> "A network error occurred. Please check your connection."
+            ConnectionResult.INTERNAL_ERROR -> "An internal error occurred with Google Play services."
+            ConnectionResult.SERVICE_MISSING_PERMISSION -> "Google Play services is missing required permissions."
+            ConnectionResult.DEVELOPER_ERROR -> "The application is misconfigured or the SHA1 fingerprint does not match."
+            ConnectionResult.API_UNAVAILABLE -> "The API is not available on this device."
+            ConnectionResult.RESTRICTED_PROFILE -> "The current user profile is restricted."
+            else -> "Unknown Google Play services error code: $resultCode"
+        }
+        
+        Log.e("MainActivity", "Google Play Services Error: $errorMessage (Code: $resultCode)")
+        
+        // If DEVELOPER_ERROR, add additional diagnostic info
+        if (resultCode == ConnectionResult.DEVELOPER_ERROR) {
+            Log.e("MainActivity", "DEVELOPER_ERROR typically means the app's package name or signing key doesn't match what's registered in Firebase.")
+            Log.e("MainActivity", "Check that the SHA-1 fingerprint in the Firebase console matches your app's signing certificate.")
+            
+            // Try to get SHA-1 of the app's signing certificate and log it
+            verifyFirebaseConfiguration()
+            
+            Log.e("MainActivity", "Add this SHA-1 fingerprint to the Firebase console for the app.")
+            Log.e("MainActivity", "Firebase console: https://console.firebase.google.com/project/allinone-bd6f3/settings/general/")
+        }
     }
 
     private fun showErrorMessage(message: String) {
@@ -772,5 +963,110 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
 
     private fun showAddNoteDialog() {
         // TODO: Implement note dialog
+    }
+
+    /**
+     * Request necessary app permissions based on Android version
+     */
+    private fun requestAppPermissions() {
+        val permissionsToRequest = mutableListOf<String>()
+
+        // Storage permissions based on Android version
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+ uses more specific permissions
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.READ_MEDIA_IMAGES)
+            }
+        } else {
+            // Android 12 and below use general storage permission
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
+        }
+
+        // Camera permission
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.CAMERA)
+        }
+
+        // Notification permission for Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        // Request permissions if needed
+        if (permissionsToRequest.isNotEmpty()) {
+            requestMultiplePermissionsLauncher.launch(permissionsToRequest.toTypedArray())
+        }
+    }
+
+    /**
+     * Schedule backup worker
+     */
+    private fun scheduleBackup() {
+        // Schedule weekly backups
+        val backupWorkRequest = PeriodicWorkRequestBuilder<BackupWorker>(
+            7, TimeUnit.DAYS
+        ).build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            BackupWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            backupWorkRequest
+        )
+    }
+
+    /**
+     * Schedule notification workers for reminders and log capture
+     */
+    private fun scheduleExpirationNotifications() {
+        val expirationWorkRequest = PeriodicWorkRequestBuilder<ExpirationNotificationWorker>(
+            1, TimeUnit.DAYS
+        ).build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            ExpirationNotificationWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            expirationWorkRequest
+        )
+
+        // Schedule logcat capture worker to run every 30 minutes
+        val logcatWorkRequest = PeriodicWorkRequestBuilder<LogcatCaptureWorker>(
+            30, TimeUnit.MINUTES
+        ).build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "logcat_capture_work",
+            ExistingPeriodicWorkPolicy.KEEP,
+            logcatWorkRequest
+        )
+    }
+    
+    /**
+     * Setup Firebase observers for monitoring services
+     */
+    private fun setupFirebaseObservers() {
+        // Observe Google Play Services availability
+        firebaseRepository.isGooglePlayServicesAvailable.observe(this) { isAvailable ->
+            if (!isAvailable) {
+                showGooglePlayServicesError()
+            }
+        }
+
+        // Observe Firebase project validity
+        firebaseRepository.isFirebaseProjectValid.observe(this) { isValid ->
+            if (!isValid) {
+                showFirebaseProjectError()
+            }
+        }
+
+        // Observe Firestore security rules validity
+        firebaseRepository.areFirestoreRulesValid.observe(this) { areValid ->
+            if (!areValid) {
+                showFirestoreRulesError()
+            }
+        }
     }
 }

@@ -45,6 +45,18 @@
         tools:layout="@layout/fragment_transaction_report" />
 
     <fragment
+        android:id="@+id/nav_workout"
+        android:name="com.example.allinone.ui.WorkoutFragment"
+        android:label="Workout"
+        tools:layout="@layout/fragment_workout" />
+
+    <fragment
+        android:id="@+id/nav_instagram_business"
+        android:name="com.example.allinone.ui.InstagramBusinessFragment"
+        android:label="Instagram Business"
+        tools:layout="@layout/fragment_instagram_business" />
+
+    <fragment
         android:id="@+id/nav_error_logs"
         android:name="com.example.allinone.ui.LogErrorsFragment"
         android:label="Error Logs"
