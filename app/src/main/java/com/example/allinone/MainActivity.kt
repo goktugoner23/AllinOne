@@ -415,26 +415,15 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             try {
                 Log.d("MainActivity", "Attempting to initialize Firebase manually")
                 
-                // Initialize with default settings
+                // Initialize with default settings instead of hardcoded credentials
                 FirebaseApp.initializeApp(this)
                 Log.d("MainActivity", "Firebase initialized successfully")
             } catch (e: Exception) {
                 Log.e("MainActivity", "Failed to initialize Firebase: ${e.message}", e)
                 
-                // Try with explicit options as a last resort
-                try {
-                    val options = FirebaseOptions.Builder()
-                        .setApplicationId("1:954911141967:android:8369e5e490f1dab9ce7a3a") // From google-services.json
-                        .setApiKey("AIzaSyCXF4JpOl3_FXEzODDslf9VeTs9BGOiO1s") // From google-services.json
-                        .setProjectId("allinone-bd6f3") // From google-services.json
-                        .setDatabaseUrl("https://allinone-bd6f3.firebaseio.com")
-                        .setStorageBucket("allinone-bd6f3.firebasestorage.app")
-                        .build()
-                    
-                    FirebaseApp.initializeApp(this, options, "AllinOne")
-                    Log.d("MainActivity", "Firebase initialized with explicit options")
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Failed to initialize Firebase with explicit options: ${e.message}", e)
+                // Use runOnUiThread instead of withContext since this is not a suspend function
+                runOnUiThread {
+                    showErrorMessage("Unable to initialize Firebase. Please check your internet connection and try again.")
                 }
             }
         }
