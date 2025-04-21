@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="8dp"
+    android:layout_marginVertical="4dp"
+    app:cardBackgroundColor="#FFFFFF"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="2dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="12dp">
+
+        <!-- Row 1: Symbol and Leverage -->
+        <TextView
+            android:id="@+id/symbolText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#000000"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="ETHUSDT" />
+
+        <TextView
+            android:id="@+id/leverageText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textColor="#9E9E9E"
+            android:textSize="12sp"
+            app:layout_constraintBottom_toBottomOf="@id/symbolText"
+            app:layout_constraintStart_toEndOf="@id/symbolText"
+            app:layout_constraintTop_toTopOf="@id/symbolText"
+            tools:text="Perp Cross 100x" />
+
+        <!-- Row 2: PNL and ROI -->
+        <TextView
+            android:id="@+id/pnlLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Unrealized PNL:"
+            android:textColor="#9E9E9E"
+            android:textSize="12sp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/symbolText" />
+
+        <TextView
+            android:id="@+id/pnlValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textColor="#FF5252"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="@id/pnlLabel"
+            app:layout_constraintStart_toEndOf="@id/pnlLabel"
+            app:layout_constraintTop_toTopOf="@id/pnlLabel"
+            tools:text="-89.32" />
+
+        <TextView
+            android:id="@+id/roiLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ROI:"
+            android:textColor="#9E9E9E"
+            android:textSize="12sp"
+            app:layout_constraintBottom_toBottomOf="@id/pnlLabel"
+            app:layout_constraintEnd_toStartOf="@id/roiValue"
+            app:layout_constraintTop_toTopOf="@id/pnlLabel" />
+
+        <TextView
+            android:id="@+id/roiValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textColor="#FF5252"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="@id/roiLabel"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/roiLabel"
+            tools:text="-550.47%" />
+
+        <!-- Row 3: Size and Margin -->
+        <TextView
+            android:id="@+id/sizeLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Size:"
+            android:textColor="#9E9E9E"
+            android:textSize="12sp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/pnlLabel" />
+
+        <TextView
+            android:id="@+id/sizeValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textColor="#000000"
+            android:textSize="14sp"
+            app:layout_constraintBottom_toBottomOf="@id/sizeLabel"
+            app:layout_constraintStart_toEndOf="@id/sizeLabel"
+            app:layout_constraintTop_toTopOf="@id/sizeLabel"
+            tools:text="1.030 ETH" />
+
+        <TextView
+            android:id="@+id/marginLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Margin:"
+            android:textColor="#9E9E9E"
+            android:textSize="12sp"
+            app:layout_constraintBottom_toBottomOf="@id/sizeLabel"
+            app:layout_constraintEnd_toStartOf="@id/marginValue"
+            app:layout_constraintTop_toTopOf="@id/sizeLabel" />
+
+        <TextView
+            android:id="@+id/marginValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textColor="#000000"
+            android:textSize="14sp"
+            app:layout_constraintBottom_toBottomOf="@id/marginLabel"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/marginLabel"
+            tools:text="16.22 USDT" />
+
+        <!-- Row 4: Prices -->
+        <TextView
+            android:id="@+id/entryPriceLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Entry:"
+            android:textColor="#9E9E9E"
+            android:textSize="12sp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/sizeLabel" />
+
+        <TextView
+            android:id="@+id/entryPriceValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textColor="#000000"
+            android:textSize="14sp"
+            app:layout_constraintBottom_toBottomOf="@id/entryPriceLabel"
+            app:layout_constraintStart_toEndOf="@id/entryPriceLabel"
+            app:layout_constraintTop_toTopOf="@id/entryPriceLabel"
+            tools:text="1662.15" />
+
+        <TextView
+            android:id="@+id/markPriceLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="Mark:"
+            android:textColor="#9E9E9E"
+            android:textSize="12sp"
+            app:layout_constraintBottom_toBottomOf="@id/entryPriceLabel"
+            app:layout_constraintStart_toEndOf="@id/entryPriceValue"
+            app:layout_constraintTop_toTopOf="@id/entryPriceLabel" />
+
+        <TextView
+            android:id="@+id/markPriceValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textColor="#000000"
+            android:textSize="14sp"
+            app:layout_constraintBottom_toBottomOf="@id/markPriceLabel"
+            app:layout_constraintStart_toEndOf="@id/markPriceLabel"
+            app:layout_constraintTop_toTopOf="@id/markPriceLabel"
+            tools:text="1575.43" />
+
+        <TextView
+            android:id="@+id/liqPriceLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="Liq:"
+            android:textColor="#9E9E9E"
+            android:textSize="12sp"
+            app:layout_constraintBottom_toBottomOf="@id/markPriceLabel"
+            app:layout_constraintStart_toEndOf="@id/markPriceValue"
+            app:layout_constraintTop_toTopOf="@id/markPriceLabel" />
+
+        <TextView
+            android:id="@+id/liqPriceValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textColor="#000000"
+            android:textSize="14sp"
+            app:layout_constraintBottom_toBottomOf="@id/liqPriceLabel"
+            app:layout_constraintStart_toEndOf="@id/liqPriceLabel"
+            app:layout_constraintTop_toTopOf="@id/liqPriceLabel"
+            tools:text="1275.41" />
+
+        <!-- Row 5: TP/SL -->
+        <TextView
+            android:id="@+id/tpslLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="TP/SL:"
+            android:textColor="#9E9E9E"
+            android:textSize="12sp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/entryPriceLabel" />
+
+        <TextView
+            android:id="@+id/tpslValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textColor="#000000"
+            android:textSize="12sp"
+            app:layout_constraintBottom_toBottomOf="@id/tpslLabel"
+            app:layout_constraintStart_toEndOf="@id/tpslLabel"
+            app:layout_constraintTop_toTopOf="@id/tpslLabel"
+            tools:text="2200.00 / --" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.cardview.widget.CardView>

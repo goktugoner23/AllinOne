@@ -16,6 +16,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.allinone.R
 import com.example.allinone.adapters.BinanceFuturesAdapter
+import com.example.allinone.adapters.BinancePositionAdapter
+import com.example.allinone.data.BinancePosition
 import com.example.allinone.api.BinanceApiClient
 import com.example.allinone.data.BinanceBalance
 import com.example.allinone.data.BinanceFutures
@@ -37,7 +39,7 @@ class UsdmFuturesFragment : Fragment() {
     private val viewModel: InvestmentsViewModel by viewModels({ requireParentFragment().requireParentFragment() })
 
     private lateinit var binanceApiClient: BinanceApiClient
-    private lateinit var futuresAdapter: BinanceFuturesAdapter
+    private lateinit var futuresAdapter: BinancePositionAdapter
     private var openOrders: List<BinanceOrder> = emptyList()
 
     private val currencyFormatter = NumberFormat.getCurrencyInstance(Locale.US).apply {
@@ -83,13 +85,15 @@ class UsdmFuturesFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        futuresAdapter = BinanceFuturesAdapter(
+        futuresAdapter = BinancePositionAdapter(
             onItemClick = { position ->
                 // Show TP/SL dialog when position card is clicked
                 showTpSlDialog(position)
             },
-            // We'll update the prices later when they're fetched
-            prices = emptyMap()
+            onTpSlClick = { position ->
+                // Show TP/SL dialog when TP/SL section is clicked
+                showTpSlDialog(position)
+            }
         )
 
         binding.positionsRecyclerView.apply {
@@ -98,7 +102,23 @@ class UsdmFuturesFragment : Fragment() {
         }
     }
 
-    private fun showTpSlDialog(position: BinanceFutures) {
+    private fun showTpSlDialog(position: BinancePosition) {
+        // Convert BinancePosition to BinanceFutures for compatibility with existing dialog
+        val binanceFutures = BinanceFutures(
+            symbol = position.symbol,
+            positionAmt = position.positionAmt,
+            entryPrice = position.entryPrice,
+            markPrice = position.markPrice,
+            unRealizedProfit = position.unrealizedProfit,
+            liquidationPrice = position.liquidationPrice,
+            leverage = position.leverage,
+            marginType = position.marginType,
+            isolatedMargin = position.isolatedMargin,
+            isAutoAddMargin = false,
+            positionSide = if (position.positionAmt >= 0) "LONG" else "SHORT",
+            futuresType = "USD-M"
+        )
+
         val dialogBinding = DialogFuturesTpSlBinding.inflate(layoutInflater)
         val dialog = MaterialAlertDialogBuilder(requireContext())
             .setView(dialogBinding.root)
@@ -106,20 +126,20 @@ class UsdmFuturesFragment : Fragment() {
             .create()
 
         // Set position details
-        dialogBinding.positionSymbolText.text = position.symbol
+        dialogBinding.positionSymbolText.text = binanceFutures.symbol
 
         // Format position details text
-        val positionSide = if (position.positionAmt > 0) "LONG" else "SHORT"
-        val formattedEntryPrice = formatPrice(position.entryPrice)
-        val formattedMarkPrice = formatPrice(position.markPrice)
-        dialogBinding.positionDetailsText.text = "$positionSide | Size: ${Math.abs(position.positionAmt)} | Entry: $formattedEntryPrice | Mark: $formattedMarkPrice"
+        val positionSide = if (binanceFutures.positionAmt > 0) "LONG" else "SHORT"
+        val formattedEntryPrice = formatPrice(binanceFutures.entryPrice)
+        val formattedMarkPrice = formatPrice(binanceFutures.markPrice)
+        dialogBinding.positionDetailsText.text = "$positionSide | Size: ${Math.abs(binanceFutures.positionAmt)} | Entry: $formattedEntryPrice | Mark: $formattedMarkPrice"
 
         // Find existing TP/SL orders for this position
-        val isLong = position.positionAmt > 0
+        val isLong = binanceFutures.positionAmt > 0
         val expectedSide = if (isLong) "SELL" else "BUY" // TP/SL orders are opposite to position side
 
         // Filter orders for this symbol and side
-        val positionOrders = openOrders.filter { it.symbol == position.symbol && it.side == expectedSide }
+        val positionOrders = openOrders.filter { it.symbol == binanceFutures.symbol && it.side == expectedSide }
 
         // Find TP order (TAKE_PROFIT_MARKET)
         val tpOrder = positionOrders.find { it.type == "TAKE_PROFIT_MARKET" }
@@ -127,7 +147,7 @@ class UsdmFuturesFragment : Fragment() {
         // Find SL order (STOP_MARKET)
         val slOrder = positionOrders.find { it.type == "STOP_MARKET" }
 
-        Log.d("UsdmFuturesFragment", "Found TP order: $tpOrder, SL order: $slOrder for ${position.symbol}")
+        Log.d("UsdmFuturesFragment", "Found TP order: $tpOrder, SL order: $slOrder for ${binanceFutures.symbol}")
 
         // Only set values from existing orders, don't set defaults
         if (tpOrder != null && tpOrder.stopPrice > 0) {
@@ -185,7 +205,7 @@ class UsdmFuturesFragment : Fragment() {
                 dialogBinding.confirmButton.text = "Setting TP/SL..."
 
                 // Place TP/SL orders
-                placeTpSlOrders(position, if (hasTp) tpPrice!! else null, if (hasSl) slPrice!! else null, dialog)
+                placeTpSlOrders(binanceFutures, if (hasTp) tpPrice!! else null, if (hasSl) slPrice!! else null, dialog)
             } else {
                 Toast.makeText(context, "Please enter at least one valid price or clear a field to delete an existing order", Toast.LENGTH_SHORT).show()
             }
@@ -195,7 +215,7 @@ class UsdmFuturesFragment : Fragment() {
             // Show confirmation dialog for closing position
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle("Close Position")
-                .setMessage("Are you sure you want to close your ${position.symbol} position?")
+                .setMessage("Are you sure you want to close your ${binanceFutures.symbol} position?")
                 .setPositiveButton("Yes") { _, _ ->
                     // Show loading state
                     dialogBinding.closePositionButton.isEnabled = false
@@ -216,7 +236,7 @@ class UsdmFuturesFragment : Fragment() {
         dialog.show()
     }
 
-    private fun validateTpSlInputs(position: BinanceFutures, dialogBinding: DialogFuturesTpSlBinding) {
+    private fun validateTpSlInputs(position: BinancePosition, dialogBinding: DialogFuturesTpSlBinding) {
         val tpPriceStr = dialogBinding.takeProfitInput.text.toString().replace(',', '.')
         val slPriceStr = dialogBinding.stopLossInput.text.toString().replace(',', '.')
         val tpPrice = tpPriceStr.toDoubleOrNull()
@@ -405,7 +425,7 @@ class UsdmFuturesFragment : Fragment() {
         }
     }
 
-    private fun closePosition(position: BinanceFutures, dialog: Dialog) {
+    private fun closePosition(position: BinancePosition, dialog: Dialog) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val result = binanceApiClient.closePosition(
@@ -445,6 +465,42 @@ class UsdmFuturesFragment : Fragment() {
             // For prices < 1, show up to 7 decimal places
             String.format(Locale.US, "%.7f", price)
         }
+    }
+
+    private fun calculateRoe(position: BinanceFutures): Double {
+        // Calculate isolated margin if needed
+        val isolatedMargin = calculateIsolatedMargin(position)
+
+        // If we have valid margin, use the PNL/margin formula
+        if (isolatedMargin > 0.0) {
+            return position.unRealizedProfit / isolatedMargin
+        }
+
+        // Otherwise, use the formula (entry price - mark price)/100 x leverage
+        // For long positions: (mark price - entry price)/entry price * leverage
+        // For short positions: (entry price - mark price)/entry price * leverage
+        val isLong = position.positionAmt > 0
+        val entryPrice = position.entryPrice
+        val markPrice = position.markPrice
+
+        if (entryPrice <= 0) return 0.0 // Avoid division by zero
+
+        return if (isLong) {
+            (markPrice - entryPrice) / entryPrice * position.leverage
+        } else {
+            (entryPrice - markPrice) / entryPrice * position.leverage
+        }
+    }
+
+    private fun calculateIsolatedMargin(position: BinanceFutures): Double {
+        // If isolatedMargin is already set correctly, use it
+        if (position.isolatedMargin > 0.0) {
+            return position.isolatedMargin
+        }
+
+        // Otherwise, calculate it based on position size, entry price, and leverage
+        val positionValue = Math.abs(position.positionAmt) * position.entryPrice
+        return positionValue / position.leverage
     }
 
     private fun setupSwipeRefresh() {
@@ -537,25 +593,44 @@ class UsdmFuturesFragment : Fragment() {
             // Filter for USD-M futures only
             val usdmPositions = positions.filter { it.futuresType == "USD-M" }
 
-            // Create a new adapter with the latest prices and open orders
-            futuresAdapter = BinanceFuturesAdapter(
-                onItemClick = { position ->
-                    // Show TP/SL dialog when position card is clicked
-                    showTpSlDialog(position)
-                },
-                prices = prices,
-                openOrders = openOrders
-            )
+            // Convert BinanceFutures to BinancePosition objects
+            val positionList = usdmPositions.map { position ->
+                // Find TP/SL orders for this position
+                val isLong = position.positionAmt > 0
+                val expectedSide = if (isLong) "SELL" else "BUY" // TP/SL orders are opposite to position side
 
-            // Set the new adapter
-            binding.positionsRecyclerView.adapter = futuresAdapter
+                // Filter orders for this symbol and side
+                val positionOrders = openOrders.filter { it.symbol == position.symbol && it.side == expectedSide }
+
+                // Find TP order (TAKE_PROFIT_MARKET)
+                val tpOrder = positionOrders.find { it.type == "TAKE_PROFIT_MARKET" }
+
+                // Find SL order (STOP_MARKET)
+                val slOrder = positionOrders.find { it.type == "STOP_MARKET" }
+
+                // Create BinancePosition object
+                BinancePosition(
+                    symbol = position.symbol,
+                    positionAmt = position.positionAmt,
+                    entryPrice = position.entryPrice,
+                    markPrice = position.markPrice,
+                    unrealizedProfit = position.unRealizedProfit,
+                    liquidationPrice = position.liquidationPrice,
+                    leverage = position.leverage,
+                    marginType = position.marginType,
+                    isolatedMargin = calculateIsolatedMargin(position),
+                    roe = calculateRoe(position), // Calculate ROE
+                    takeProfitPrice = tpOrder?.stopPrice ?: 0.0,
+                    stopLossPrice = slOrder?.stopPrice ?: 0.0
+                )
+            }
 
             // Update positions list
-            futuresAdapter.submitList(usdmPositions)
+            futuresAdapter.submitList(positionList)
 
             // Show empty state if no positions
-            binding.emptyStateText.visibility = if (usdmPositions.isEmpty()) View.VISIBLE else View.GONE
-            if (usdmPositions.isEmpty()) {
+            binding.emptyStateText.visibility = if (positionList.isEmpty()) View.VISIBLE else View.GONE
+            if (positionList.isEmpty()) {
                 binding.emptyStateText.text = "No open USD-M futures positions"
             }
 
