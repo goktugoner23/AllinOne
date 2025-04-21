@@ -376,6 +376,15 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Recent Changes
 
+### Binance Futures TP/SL Functionality
+- **Take Profit/Stop Loss Management**: Added ability to set, update, and delete TP/SL orders for futures positions
+- **Simplified TP/SL Display**: Position cards now show TP/SL values in a clean format (e.g., "TP/SL: $170.00 / -")
+- **Order Cancellation**: Users can delete existing TP/SL orders by clearing the corresponding field in the dialog
+- **Improved Order Parameters**: Updated order parameters to use GTE_GTC time in force to ensure orders appear correctly in Binance interface
+- **Smart Validation**: Added validation to ensure TP/SL prices are appropriate for position direction (long/short)
+- **Detailed Feedback**: Added informative success/error messages for all TP/SL operations
+- **Decimal Handling**: Fixed decimal separator issues to support both dot and comma formats
+
 ### Binance Futures UI Improvements
 - **Enhanced Futures Tabs**: Added separate USD-M and COIN-M futures tabs for better organization
 - **Improved Margin Balance Calculation**: Fixed margin balance calculation to use the correct formula (Wallet Balance + Unrealized PNL)

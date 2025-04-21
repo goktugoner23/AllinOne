@@ -171,5 +171,16 @@
             app:layout_constraintTop_toTopOf="@id/marginTypeLabelText"
             tools:text="Isolated" />
 
+        <TextView
+            android:id="@+id/tpSlText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textAppearance="?attr/textAppearanceBody1"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/liquidationPriceLabelText"
+            tools:text="TP/SL: $55,000.00 / -" />
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.cardview.widget.CardView>

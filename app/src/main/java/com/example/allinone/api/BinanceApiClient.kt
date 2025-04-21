@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.allinone.data.BinanceBalance
 import com.example.allinone.BuildConfig
 import com.example.allinone.data.BinanceFutures
+import com.example.allinone.data.BinanceOrder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -15,6 +16,7 @@ import java.net.URL
 import java.net.HttpURLConnection
 import java.security.InvalidKeyException
 import java.security.NoSuchAlgorithmException
+import java.io.OutputStreamWriter
 
 /**
  * Client for interacting with the Binance Futures API
@@ -122,6 +124,37 @@ class BinanceApiClient(
             }
         } catch (e: Exception) {
             Log.e(TAG, "Exception fetching position information", e)
+            emptyList()
+        }
+    }
+
+    /**
+     * Get all open orders from Binance Futures API
+     * @return List of open orders
+     */
+    suspend fun getOpenOrders(): List<BinanceOrder> = withContext(Dispatchers.IO) {
+        try {
+            val timestamp = System.currentTimeMillis().toString()
+            val queryString = "timestamp=$timestamp"
+            val signature = generateSignature(queryString)
+
+            val url = URL("$baseUrl/fapi/v1/openOrders?$queryString&signature=$signature")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("X-MBX-APIKEY", apiKey)
+
+            val responseCode = connection.responseCode
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                Log.d(TAG, "Open Orders Response: $response")
+                parseOpenOrdersResponse(response)
+            } else {
+                val errorResponse = connection.errorStream.bufferedReader().use { it.readText() }
+                Log.e(TAG, "Error fetching open orders: $errorResponse")
+                emptyList()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception fetching open orders", e)
             emptyList()
         }
     }
@@ -248,5 +281,208 @@ class BinanceApiClient(
             result.append(hexChars[i and 0x0f])
         }
         return result.toString()
+    }
+
+    /**
+     * Place a Take Profit Market order
+     * @param symbol The trading pair symbol (e.g., BTCUSDT)
+     * @param side BUY or SELL
+     * @param quantity The quantity to trade
+     * @param stopPrice The price at which the order will be triggered
+     * @return The response from the API as a JSON string
+     */
+    suspend fun placeTakeProfitMarketOrder(
+        symbol: String,
+        side: String,
+        quantity: Double,
+        stopPrice: Double
+    ): String = withContext(Dispatchers.IO) {
+        try {
+            val timestamp = System.currentTimeMillis().toString()
+            val queryString = "symbol=$symbol&side=$side&type=TAKE_PROFIT_MARKET&quantity=$quantity&stopPrice=$stopPrice&closePosition=true&workingType=CONTRACT_PRICE&timeInForce=GTE_GTC&timestamp=$timestamp"
+            val signature = generateSignature(queryString)
+
+            val url = URL("$baseUrl/fapi/v1/order?$queryString&signature=$signature")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("X-MBX-APIKEY", apiKey)
+            connection.doOutput = true
+
+            val responseCode = connection.responseCode
+            if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_CREATED) {
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                Log.d(TAG, "Take Profit Market Order Response: $response")
+                response
+            } else {
+                val errorResponse = connection.errorStream.bufferedReader().use { it.readText() }
+                Log.e(TAG, "Error placing Take Profit Market order: $errorResponse")
+                "{\"error\":\"$errorResponse\"}"
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception placing Take Profit Market order", e)
+            "{\"error\":\"${e.message}\"}"
+        }
+    }
+
+    /**
+     * Place a Stop Loss Market order
+     * @param symbol The trading pair symbol (e.g., BTCUSDT)
+     * @param side BUY or SELL
+     * @param quantity The quantity to trade
+     * @param stopPrice The price at which the order will be triggered
+     * @return The response from the API as a JSON string
+     */
+    suspend fun placeStopLossMarketOrder(
+        symbol: String,
+        side: String,
+        quantity: Double,
+        stopPrice: Double
+    ): String = withContext(Dispatchers.IO) {
+        try {
+            val timestamp = System.currentTimeMillis().toString()
+            val queryString = "symbol=$symbol&side=$side&type=STOP_MARKET&quantity=$quantity&stopPrice=$stopPrice&closePosition=true&workingType=MARK_PRICE&timeInForce=GTE_GTC&timestamp=$timestamp"
+            val signature = generateSignature(queryString)
+
+            val url = URL("$baseUrl/fapi/v1/order?$queryString&signature=$signature")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("X-MBX-APIKEY", apiKey)
+            connection.doOutput = true
+
+            val responseCode = connection.responseCode
+            if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_CREATED) {
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                Log.d(TAG, "Stop Loss Market Order Response: $response")
+                response
+            } else {
+                val errorResponse = connection.errorStream.bufferedReader().use { it.readText() }
+                Log.e(TAG, "Error placing Stop Loss Market order: $errorResponse")
+                "{\"error\":\"$errorResponse\"}"
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception placing Stop Loss Market order", e)
+            "{\"error\":\"${e.message}\"}"
+        }
+    }
+
+    /**
+     * Parse the open orders response from Binance API
+     */
+    private fun parseOpenOrdersResponse(response: String): List<BinanceOrder> {
+        val orders = mutableListOf<BinanceOrder>()
+        try {
+            val jsonArray = JSONArray(response)
+            for (i in 0 until jsonArray.length()) {
+                val jsonObject = jsonArray.getJSONObject(i)
+                val symbol = jsonObject.getString("symbol")
+                val orderId = jsonObject.getLong("orderId")
+                val type = jsonObject.getString("type")
+                val side = jsonObject.getString("side")
+                val price = jsonObject.optDouble("price", 0.0)
+                val stopPrice = jsonObject.optDouble("stopPrice", 0.0)
+                val origQty = jsonObject.optDouble("origQty", 0.0)
+                val positionSide = jsonObject.optString("positionSide", "BOTH")
+
+                // Only include TP/SL orders
+                if (type == "TAKE_PROFIT_MARKET" || type == "STOP_MARKET") {
+                    orders.add(
+                        BinanceOrder(
+                            symbol = symbol,
+                            orderId = orderId,
+                            type = type,
+                            side = side,
+                            price = price,
+                            stopPrice = stopPrice,
+                            origQty = origQty,
+                            positionSide = positionSide
+                        )
+                    )
+                }
+            }
+            Log.d(TAG, "Parsed ${orders.size} TP/SL orders")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing open orders response", e)
+        }
+        return orders
+    }
+
+    /**
+     * Close a position by placing a market order in the opposite direction
+     * @param symbol The trading pair symbol (e.g., BTCUSDT)
+     * @param positionAmt The current position amount (positive for long, negative for short)
+     * @return The response from the API as a JSON string
+     */
+    suspend fun closePosition(
+        symbol: String,
+        positionAmt: Double
+    ): String = withContext(Dispatchers.IO) {
+        try {
+            // Determine the side based on the position amount
+            // If positionAmt is positive (long), we need to SELL to close
+            // If positionAmt is negative (short), we need to BUY to close
+            val side = if (positionAmt > 0) "SELL" else "BUY"
+            // Use absolute value of position amount for the quantity
+            val quantity = Math.abs(positionAmt)
+
+            val timestamp = System.currentTimeMillis().toString()
+            val queryString = "symbol=$symbol&side=$side&type=MARKET&quantity=$quantity&timestamp=$timestamp"
+            val signature = generateSignature(queryString)
+
+            val url = URL("$baseUrl/fapi/v1/order?$queryString&signature=$signature")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("X-MBX-APIKEY", apiKey)
+            connection.doOutput = true
+
+            val responseCode = connection.responseCode
+            if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_CREATED) {
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                Log.d(TAG, "Close Position Response: $response")
+                response
+            } else {
+                val errorResponse = connection.errorStream.bufferedReader().use { it.readText() }
+                Log.e(TAG, "Error closing position: $errorResponse")
+                "{\"error\":\"$errorResponse\"}"
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception closing position", e)
+            "{\"error\":\"${e.message}\"}"
+        }
+    }
+
+    /**
+     * Cancel an order by its ID
+     * @param symbol The trading pair symbol (e.g., BTCUSDT)
+     * @param orderId The ID of the order to cancel
+     * @return The response from the API as a JSON string
+     */
+    suspend fun cancelOrder(
+        symbol: String,
+        orderId: Long
+    ): String = withContext(Dispatchers.IO) {
+        try {
+            val timestamp = System.currentTimeMillis().toString()
+            val queryString = "symbol=$symbol&orderId=$orderId&timestamp=$timestamp"
+            val signature = generateSignature(queryString)
+
+            val url = URL("$baseUrl/fapi/v1/order?$queryString&signature=$signature")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "DELETE"
+            connection.setRequestProperty("X-MBX-APIKEY", apiKey)
+
+            val responseCode = connection.responseCode
+            if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_CREATED) {
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                Log.d(TAG, "Cancel Order Response: $response")
+                response
+            } else {
+                val errorResponse = connection.errorStream.bufferedReader().use { it.readText() }
+                Log.e(TAG, "Error canceling order: $errorResponse")
+                "{\"error\":\"$errorResponse\"}"
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception canceling order", e)
+            "{\"error\":\"${e.message}\"}"
+        }
     }
 }

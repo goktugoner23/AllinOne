@@ -10,18 +10,20 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.allinone.R
 import com.example.allinone.data.BinanceFutures
+import com.example.allinone.data.BinanceOrder
 import java.text.NumberFormat
 import java.util.Locale
 
 class BinanceFuturesAdapter(
     private val onItemClick: (BinanceFutures) -> Unit,
-    private val prices: Map<String, Double> = emptyMap() // Optional prices map for COIN-M futures
+    private val prices: Map<String, Double> = emptyMap(), // Optional prices map for COIN-M futures
+    private val openOrders: List<BinanceOrder> = emptyList() // TP/SL orders
 ) : ListAdapter<BinanceFutures, BinanceFuturesAdapter.FuturesViewHolder>(FuturesDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): FuturesViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_futures_position, parent, false)
-        return FuturesViewHolder(view, onItemClick, prices)
+        return FuturesViewHolder(view, onItemClick, prices, openOrders)
     }
 
     override fun onBindViewHolder(holder: FuturesViewHolder, position: Int) {
@@ -31,7 +33,8 @@ class BinanceFuturesAdapter(
     class FuturesViewHolder(
         itemView: View,
         private val onItemClick: (BinanceFutures) -> Unit,
-        private val prices: Map<String, Double> = emptyMap() // Optional prices map for COIN-M futures
+        private val prices: Map<String, Double> = emptyMap(), // Optional prices map for COIN-M futures
+        private val openOrders: List<BinanceOrder> = emptyList() // TP/SL orders
     ) : RecyclerView.ViewHolder(itemView) {
         private val symbolText: TextView = itemView.findViewById(R.id.symbolText)
         private val positionSideText: TextView = itemView.findViewById(R.id.positionSideText)
@@ -42,6 +45,7 @@ class BinanceFuturesAdapter(
         private val markPriceText: TextView = itemView.findViewById(R.id.markPriceText)
         private val liquidationPriceText: TextView = itemView.findViewById(R.id.liquidationPriceText)
         private val marginTypeText: TextView = itemView.findViewById(R.id.marginTypeText)
+        private val tpSlText: TextView = itemView.findViewById(R.id.tpSlText)
 
         private val currencyFormatter = NumberFormat.getCurrencyInstance(Locale.US).apply {
             minimumFractionDigits = 2
@@ -115,6 +119,25 @@ class BinanceFuturesAdapter(
 
             // Set margin type
             marginTypeText.text = position.marginType.capitalize()
+
+            // Find TP/SL orders for this position
+            val tpOrder = openOrders.find { it.symbol == position.symbol && it.type == "TAKE_PROFIT_MARKET" }
+            val slOrder = openOrders.find { it.symbol == position.symbol && it.type == "STOP_MARKET" }
+
+            // Format TP/SL text
+            val tpText = if (tpOrder != null) {
+                "$" + (if (tpOrder.stopPrice > 1.0) highPriceFormatter.format(tpOrder.stopPrice) else lowPriceFormatter.format(tpOrder.stopPrice))
+            } else {
+                "-"
+            }
+
+            val slText = if (slOrder != null) {
+                "$" + (if (slOrder.stopPrice > 1.0) highPriceFormatter.format(slOrder.stopPrice) else lowPriceFormatter.format(slOrder.stopPrice))
+            } else {
+                "-"
+            }
+
+            tpSlText.text = "TP/SL: $tpText / $slText"
         }
 
         private fun String.capitalize(): String {

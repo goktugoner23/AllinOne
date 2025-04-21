@@ -1,7 +1,10 @@
 package com.example.allinone.ui
 
+import android.app.Dialog
 import android.graphics.Color
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -16,8 +19,11 @@ import com.example.allinone.adapters.BinanceFuturesAdapter
 import com.example.allinone.api.BinanceApiClient
 import com.example.allinone.data.BinanceBalance
 import com.example.allinone.data.BinanceFutures
+import com.example.allinone.data.BinanceOrder
+import com.example.allinone.databinding.DialogFuturesTpSlBinding
 import com.example.allinone.databinding.FragmentFuturesTabBinding
 import com.example.allinone.viewmodels.InvestmentsViewModel
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -32,6 +38,7 @@ class UsdmFuturesFragment : Fragment() {
 
     private lateinit var binanceApiClient: BinanceApiClient
     private lateinit var futuresAdapter: BinanceFuturesAdapter
+    private var openOrders: List<BinanceOrder> = emptyList()
 
     private val currencyFormatter = NumberFormat.getCurrencyInstance(Locale.US).apply {
         minimumFractionDigits = 2
@@ -78,8 +85,8 @@ class UsdmFuturesFragment : Fragment() {
     private fun setupRecyclerView() {
         futuresAdapter = BinanceFuturesAdapter(
             onItemClick = { position ->
-                // Handle position click
-                Toast.makeText(context, "Position: ${position.symbol}", Toast.LENGTH_SHORT).show()
+                // Show TP/SL dialog when position card is clicked
+                showTpSlDialog(position)
             },
             // We'll update the prices later when they're fetched
             prices = emptyMap()
@@ -88,6 +95,355 @@ class UsdmFuturesFragment : Fragment() {
         binding.positionsRecyclerView.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = futuresAdapter
+        }
+    }
+
+    private fun showTpSlDialog(position: BinanceFutures) {
+        val dialogBinding = DialogFuturesTpSlBinding.inflate(layoutInflater)
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setView(dialogBinding.root)
+            .setCancelable(true)
+            .create()
+
+        // Set position details
+        dialogBinding.positionSymbolText.text = position.symbol
+
+        // Format position details text
+        val positionSide = if (position.positionAmt > 0) "LONG" else "SHORT"
+        val formattedEntryPrice = formatPrice(position.entryPrice)
+        val formattedMarkPrice = formatPrice(position.markPrice)
+        dialogBinding.positionDetailsText.text = "$positionSide | Size: ${Math.abs(position.positionAmt)} | Entry: $formattedEntryPrice | Mark: $formattedMarkPrice"
+
+        // Find existing TP/SL orders for this position
+        val isLong = position.positionAmt > 0
+        val expectedSide = if (isLong) "SELL" else "BUY" // TP/SL orders are opposite to position side
+
+        // Filter orders for this symbol and side
+        val positionOrders = openOrders.filter { it.symbol == position.symbol && it.side == expectedSide }
+
+        // Find TP order (TAKE_PROFIT_MARKET)
+        val tpOrder = positionOrders.find { it.type == "TAKE_PROFIT_MARKET" }
+
+        // Find SL order (STOP_MARKET)
+        val slOrder = positionOrders.find { it.type == "STOP_MARKET" }
+
+        Log.d("UsdmFuturesFragment", "Found TP order: $tpOrder, SL order: $slOrder for ${position.symbol}")
+
+        // Only set values from existing orders, don't set defaults
+        if (tpOrder != null && tpOrder.stopPrice > 0) {
+            dialogBinding.takeProfitInput.setText(formatPrice(tpOrder.stopPrice))
+        } else {
+            // Leave empty if no existing TP order
+            dialogBinding.takeProfitInput.setText("")
+        }
+
+        if (slOrder != null && slOrder.stopPrice > 0) {
+            dialogBinding.stopLossInput.setText(formatPrice(slOrder.stopPrice))
+        } else {
+            // Leave empty if no existing SL order
+            dialogBinding.stopLossInput.setText("")
+        }
+
+        // Add validation for TP/SL inputs
+        dialogBinding.takeProfitInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                validateTpSlInputs(position, dialogBinding)
+            }
+        })
+
+        dialogBinding.stopLossInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                validateTpSlInputs(position, dialogBinding)
+            }
+        })
+
+        // Set up button click listeners
+        dialogBinding.confirmButton.setOnClickListener {
+            // Get TP/SL values
+            val tpPriceStr = dialogBinding.takeProfitInput.text.toString().replace(',', '.')
+            val slPriceStr = dialogBinding.stopLossInput.text.toString().replace(',', '.')
+            val tpPrice = tpPriceStr.toDoubleOrNull()
+            val slPrice = slPriceStr.toDoubleOrNull()
+
+            // Find existing TP/SL orders for this position
+            val existingTpOrder = openOrders.find { it.symbol == position.symbol && it.type == "TAKE_PROFIT_MARKET" }
+            val existingSlOrder = openOrders.find { it.symbol == position.symbol && it.type == "STOP_MARKET" }
+
+            // Check if at least one valid price is provided or if we're deleting an existing order
+            val hasTp = tpPriceStr.isNotEmpty() && tpPrice != null
+            val hasSl = slPriceStr.isNotEmpty() && slPrice != null
+            val deletingTp = tpPriceStr.isEmpty() && existingTpOrder != null
+            val deletingSl = slPriceStr.isEmpty() && existingSlOrder != null
+
+            if (hasTp || hasSl || deletingTp || deletingSl) {
+                // Show loading state
+                dialogBinding.confirmButton.isEnabled = false
+                dialogBinding.confirmButton.text = "Setting TP/SL..."
+
+                // Place TP/SL orders
+                placeTpSlOrders(position, if (hasTp) tpPrice!! else null, if (hasSl) slPrice!! else null, dialog)
+            } else {
+                Toast.makeText(context, "Please enter at least one valid price or clear a field to delete an existing order", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        dialogBinding.closePositionButton.setOnClickListener {
+            // Show confirmation dialog for closing position
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Close Position")
+                .setMessage("Are you sure you want to close your ${position.symbol} position?")
+                .setPositiveButton("Yes") { _, _ ->
+                    // Show loading state
+                    dialogBinding.closePositionButton.isEnabled = false
+                    dialogBinding.closePositionButton.text = "Closing..."
+
+                    // Close the position
+                    closePosition(position, dialog)
+                }
+                .setNegativeButton("No", null)
+                .show()
+        }
+
+        dialogBinding.cancelButton.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        // Show the dialog
+        dialog.show()
+    }
+
+    private fun validateTpSlInputs(position: BinanceFutures, dialogBinding: DialogFuturesTpSlBinding) {
+        val tpPriceStr = dialogBinding.takeProfitInput.text.toString().replace(',', '.')
+        val slPriceStr = dialogBinding.stopLossInput.text.toString().replace(',', '.')
+        val tpPrice = tpPriceStr.toDoubleOrNull()
+        val slPrice = slPriceStr.toDoubleOrNull()
+
+        // Find existing TP/SL orders for this position
+        val existingTpOrder = openOrders.find { it.symbol == position.symbol && it.type == "TAKE_PROFIT_MARKET" }
+        val existingSlOrder = openOrders.find { it.symbol == position.symbol && it.type == "STOP_MARKET" }
+
+        // Allow empty fields - only validate if values are provided
+        val isLong = position.positionAmt > 0
+        var isTpValid = true
+        var isSlValid = true
+
+        // Clear previous errors
+        dialogBinding.takeProfitLayout.error = null
+        dialogBinding.stopLossLayout.error = null
+
+        // Validate TP if provided
+        if (tpPriceStr.isNotEmpty()) {
+            if (tpPrice == null) {
+                dialogBinding.takeProfitLayout.error = "Invalid price format"
+                isTpValid = false
+            } else {
+                // For LONG positions: TP should be above current price
+                // For SHORT positions: TP should be below current price
+                isTpValid = if (isLong) tpPrice > position.markPrice else tpPrice < position.markPrice
+                if (!isTpValid) {
+                    dialogBinding.takeProfitLayout.error = if (isLong) "TP must be above current price" else "TP must be below current price"
+                }
+            }
+        }
+
+        // Validate SL if provided
+        if (slPriceStr.isNotEmpty()) {
+            if (slPrice == null) {
+                dialogBinding.stopLossLayout.error = "Invalid price format"
+                isSlValid = false
+            } else {
+                // For LONG positions: SL should be below current price
+                // For SHORT positions: SL should be above current price
+                isSlValid = if (isLong) slPrice < position.markPrice else slPrice > position.markPrice
+                if (!isSlValid) {
+                    dialogBinding.stopLossLayout.error = if (isLong) "SL must be below current price" else "SL must be above current price"
+                }
+            }
+        }
+
+        // Enable confirm button if at least one valid value is provided or if we're deleting an existing order
+        val hasValidInput = (tpPriceStr.isNotEmpty() && isTpValid) || (slPriceStr.isNotEmpty() && isSlValid) ||
+                           (tpPriceStr.isEmpty() && existingTpOrder != null) || (slPriceStr.isEmpty() && existingSlOrder != null)
+        dialogBinding.confirmButton.isEnabled = hasValidInput
+    }
+
+    private fun placeTpSlOrders(position: BinanceFutures, tpPrice: Double?, slPrice: Double?, dialog: Dialog) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                // Determine the side for TP/SL orders (opposite of position side)
+                val side = if (position.positionAmt > 0) "SELL" else "BUY"
+                val quantity = Math.abs(position.positionAmt)
+
+                var tpResult = ""
+                var slResult = ""
+                var hasError = false
+
+                // Find existing TP/SL orders for this position
+                val existingTpOrder = openOrders.find { it.symbol == position.symbol && it.type == "TAKE_PROFIT_MARKET" }
+                val existingSlOrder = openOrders.find { it.symbol == position.symbol && it.type == "STOP_MARKET" }
+
+                // Handle Take Profit order
+                if (tpPrice != null) {
+                    // If there's an existing TP order, cancel it first
+                    if (existingTpOrder != null) {
+                        val cancelResult = binanceApiClient.cancelOrder(position.symbol, existingTpOrder.orderId)
+                        Log.d("UsdmFuturesFragment", "Cancel TP Order Result: $cancelResult")
+                        if (cancelResult.contains("error")) {
+                            hasError = true
+                            tpResult = cancelResult
+                        }
+                    }
+
+                    // Place new TP order if no error occurred during cancellation
+                    if (!hasError) {
+                        tpResult = binanceApiClient.placeTakeProfitMarketOrder(
+                            symbol = position.symbol,
+                            side = side,
+                            quantity = quantity,
+                            stopPrice = tpPrice
+                        )
+                        Log.d("UsdmFuturesFragment", "TP Order Result: $tpResult")
+                        Log.d("UsdmFuturesFragment", "TP Order Query: symbol=${position.symbol}&side=$side&type=TAKE_PROFIT_MARKET&quantity=$quantity&stopPrice=$tpPrice&closePosition=true&workingType=CONTRACT_PRICE&timeInForce=GTE_GTC")
+                        hasError = hasError || tpResult.contains("error")
+                    }
+                } else if (existingTpOrder != null) {
+                    // If TP price is not provided but there's an existing TP order, cancel it
+                    val cancelResult = binanceApiClient.cancelOrder(position.symbol, existingTpOrder.orderId)
+                    Log.d("UsdmFuturesFragment", "Cancel TP Order Result: $cancelResult")
+                    if (cancelResult.contains("error")) {
+                        hasError = true
+                        tpResult = cancelResult
+                    }
+                }
+
+                // Handle Stop Loss order
+                if (slPrice != null && !hasError) {
+                    // If there's an existing SL order, cancel it first
+                    if (existingSlOrder != null) {
+                        val cancelResult = binanceApiClient.cancelOrder(position.symbol, existingSlOrder.orderId)
+                        Log.d("UsdmFuturesFragment", "Cancel SL Order Result: $cancelResult")
+                        if (cancelResult.contains("error")) {
+                            hasError = true
+                            slResult = cancelResult
+                        }
+                    }
+
+                    // Place new SL order if no error occurred during cancellation
+                    if (!hasError) {
+                        slResult = binanceApiClient.placeStopLossMarketOrder(
+                            symbol = position.symbol,
+                            side = side,
+                            quantity = quantity,
+                            stopPrice = slPrice
+                        )
+                        Log.d("UsdmFuturesFragment", "SL Order Result: $slResult")
+                        Log.d("UsdmFuturesFragment", "SL Order Query: symbol=${position.symbol}&side=$side&type=STOP_MARKET&quantity=$quantity&stopPrice=$slPrice&closePosition=true&workingType=MARK_PRICE&timeInForce=GTE_GTC")
+                        hasError = hasError || slResult.contains("error")
+                    }
+                } else if (existingSlOrder != null && !hasError) {
+                    // If SL price is not provided but there's an existing SL order, cancel it
+                    val cancelResult = binanceApiClient.cancelOrder(position.symbol, existingSlOrder.orderId)
+                    Log.d("UsdmFuturesFragment", "Cancel SL Order Result: $cancelResult")
+                    if (cancelResult.contains("error")) {
+                        hasError = true
+                        slResult = cancelResult
+                    }
+                }
+
+                // Check for errors
+                if (hasError) {
+                    withContext(Dispatchers.Main) {
+                        val errorMsg = when {
+                            tpResult.contains("error") -> tpResult
+                            slResult.contains("error") -> slResult
+                            else -> "Unknown error"
+                        }
+                        Toast.makeText(context, "Error setting TP/SL: $errorMsg", Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        // Use the existing TP/SL order flags from before the operation
+                        val hadTpOrder = existingTpOrder != null
+                        val hadSlOrder = existingSlOrder != null
+
+                        val message = when {
+                            // Setting both TP and SL
+                            tpPrice != null && slPrice != null -> "TP/SL orders placed successfully"
+                            // Setting TP only
+                            tpPrice != null && !hadSlOrder -> "Take Profit order placed successfully"
+                            // Setting TP and deleting SL
+                            tpPrice != null && hadSlOrder -> "Take Profit set, Stop Loss removed"
+                            // Setting SL only
+                            slPrice != null && !hadTpOrder -> "Stop Loss order placed successfully"
+                            // Setting SL and deleting TP
+                            slPrice != null && hadTpOrder -> "Stop Loss set, Take Profit removed"
+                            // Deleting TP only
+                            tpPrice == null && slPrice == null && hadTpOrder && !hadSlOrder -> "Take Profit order removed"
+                            // Deleting SL only
+                            tpPrice == null && slPrice == null && !hadTpOrder && hadSlOrder -> "Stop Loss order removed"
+                            // Deleting both TP and SL
+                            tpPrice == null && slPrice == null && hadTpOrder && hadSlOrder -> "TP/SL orders removed"
+                            // No changes
+                            else -> "No changes made"
+                        }
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                        dialog.dismiss()
+                        // Refresh data to show updated positions
+                        refreshData()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("UsdmFuturesFragment", "Error placing TP/SL orders", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun closePosition(position: BinanceFutures, dialog: Dialog) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val result = binanceApiClient.closePosition(
+                    symbol = position.symbol,
+                    positionAmt = position.positionAmt
+                )
+                Log.d("UsdmFuturesFragment", "Close Position Result: $result")
+
+                // Check for errors
+                if (result.contains("error")) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Error closing position: $result", Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Position closed successfully", Toast.LENGTH_SHORT).show()
+                        dialog.dismiss()
+                        // Refresh data to show updated positions
+                        refreshData()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("UsdmFuturesFragment", "Error closing position", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun formatPrice(price: Double): String {
+        // Use Locale.US to ensure decimal point is a dot, not a comma
+        return if (price >= 1.0) {
+            // For prices >= 1, show 2 decimal places
+            String.format(Locale.US, "%.2f", price)
+        } else {
+            // For prices < 1, show up to 7 decimal places
+            String.format(Locale.US, "%.7f", price)
         }
     }
 
@@ -138,6 +494,11 @@ class UsdmFuturesFragment : Fragment() {
                 val prices = binanceApiClient.getLatestPrices()
                 Log.d("UsdmFuturesFragment", "Fetched ${prices.size} prices")
 
+                // Fetch open orders
+                Log.d("UsdmFuturesFragment", "Fetching USD-M open orders...")
+                openOrders = binanceApiClient.getOpenOrders()
+                Log.d("UsdmFuturesFragment", "Fetched ${openOrders.size} open orders")
+
                 // Update UI with the fetched data
                 updateUI(balances, positions, prices)
 
@@ -176,13 +537,14 @@ class UsdmFuturesFragment : Fragment() {
             // Filter for USD-M futures only
             val usdmPositions = positions.filter { it.futuresType == "USD-M" }
 
-            // Create a new adapter with the latest prices
+            // Create a new adapter with the latest prices and open orders
             futuresAdapter = BinanceFuturesAdapter(
                 onItemClick = { position ->
-                    // Handle position click
-                    Toast.makeText(context, "Position: ${position.symbol}", Toast.LENGTH_SHORT).show()
+                    // Show TP/SL dialog when position card is clicked
+                    showTpSlDialog(position)
                 },
-                prices = prices
+                prices = prices,
+                openOrders = openOrders
             )
 
             // Set the new adapter
