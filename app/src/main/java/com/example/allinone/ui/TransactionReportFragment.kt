@@ -51,8 +51,6 @@ class TransactionReportFragment : BaseFragment() {
     private val binding get() = _binding!!
 
     private val firebaseRepository by lazy { FirebaseRepository(requireContext()) }
-    private val transactionAdapter by lazy { TransactionReportAdapter() }
-    private val recentTransactionsAdapter by lazy { TransactionReportAdapter() }
     private val categorySpendingAdapter by lazy { CategorySpendingAdapter() }
 
     private val currencyFormatter = NumberFormat.getCurrencyInstance().apply {
@@ -68,11 +66,6 @@ class TransactionReportFragment : BaseFragment() {
     // Filtered transactions
     private var allTransactions: List<Transaction> = emptyList()
     private var filteredTransactions: List<Transaction> = emptyList()
-
-    // Pagination
-    private val PAGE_SIZE = 5
-    private var currentPage = 0
-    private var totalPages = 0
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -91,25 +84,11 @@ class TransactionReportFragment : BaseFragment() {
         setupRecyclerViews()
         setupFilterOptions()
         setupApplyButton()
-        setupPaginationButtons()
-        setupViewAllButton()
         setupCharts()
         observeTransactions()
     }
 
     private fun setupRecyclerViews() {
-        // Main transactions list
-        binding.transactionsRecyclerView.apply {
-            layoutManager = LinearLayoutManager(context)
-            adapter = transactionAdapter
-        }
-
-        // Recent transactions list
-        binding.recentTransactionsRecyclerView.apply {
-            layoutManager = LinearLayoutManager(context)
-            adapter = recentTransactionsAdapter
-        }
-
         // Category spending list
         binding.topCategoriesRecyclerView.apply {
             layoutManager = LinearLayoutManager(context)
@@ -142,26 +121,6 @@ class TransactionReportFragment : BaseFragment() {
             xAxis.granularity = 1f
             xAxis.textSize = 10f
             axisLeft.textSize = 10f
-        }
-    }
-
-    private fun setupViewAllButton() {
-        binding.viewAllRecentButton.setOnClickListener {
-            // Set date range to "Last 30 Days" and category to "All Categories"
-            selectedDateRange = "Last 30 Days"
-            selectedCategory = "All Categories"
-
-            // Update the dropdown UI
-            (binding.dateRangeLayout.editText as? AutoCompleteTextView)?.setText(selectedDateRange, false)
-            (binding.categoryLayout.editText as? AutoCompleteTextView)?.setText(selectedCategory, false)
-
-            // Apply filters
-            applyFilters()
-
-            // Scroll to the transactions section
-            binding.root.post {
-                binding.root.smoothScrollTo(0, binding.transactionsCard.top)
-            }
         }
     }
 
@@ -200,53 +159,17 @@ class TransactionReportFragment : BaseFragment() {
         }
     }
 
-    private fun setupPaginationButtons() {
-        binding.prevPageButton.setOnClickListener {
-            if (currentPage > 0) {
-                currentPage--
-                updateTransactionsList()
-            }
-        }
-
-        binding.nextPageButton.setOnClickListener {
-            if (currentPage < totalPages - 1) {
-                currentPage++
-                updateTransactionsList()
-            }
-        }
-    }
+    // Pagination buttons removed
 
     private fun observeTransactions() {
         lifecycleScope.launch {
             firebaseRepository.transactions.collectLatest { transactions ->
                 allTransactions = transactions
 
-                // Update recent transactions immediately (not affected by filters)
-                updateRecentTransactions()
-
                 // Apply filters for the main transaction list
                 applyFilters()
             }
         }
-    }
-
-    private fun updateRecentTransactions() {
-        if (allTransactions.isEmpty()) {
-            binding.recentTransactionsRecyclerView.visibility = View.GONE
-            binding.emptyRecentTransactionsText.visibility = View.VISIBLE
-            return
-        }
-
-        binding.recentTransactionsRecyclerView.visibility = View.VISIBLE
-        binding.emptyRecentTransactionsText.visibility = View.GONE
-
-        // Get the 3 most recent transactions
-        val recentTransactions = allTransactions
-            .sortedByDescending { it.date }
-            .take(3)
-
-        // Update adapter
-        recentTransactionsAdapter.updateTransactions(recentTransactions)
     }
 
     private fun applyFilters() {
@@ -271,10 +194,7 @@ class TransactionReportFragment : BaseFragment() {
             passesDateFilter && passesCategoryFilter
         }.sortedByDescending { it.date }
 
-        currentPage = 0 // Reset to first page
-
         // Update UI with filtered transactions
-        updateTransactionsList()
         updateSummarySection()
         updateChart()
         updateCategorySpending()
@@ -298,45 +218,7 @@ class TransactionReportFragment : BaseFragment() {
         return calendar.time
     }
 
-    private fun updateTransactionsList() {
-        if (filteredTransactions.isEmpty()) {
-            binding.transactionsRecyclerView.visibility = View.GONE
-            binding.emptyTransactionsText.visibility = View.VISIBLE
-            binding.paginationControls.visibility = View.GONE
-        } else {
-            binding.transactionsRecyclerView.visibility = View.VISIBLE
-            binding.emptyTransactionsText.visibility = View.GONE
-
-            // Calculate pagination
-            totalPages = Math.ceil(filteredTransactions.size.toDouble() / PAGE_SIZE).toInt()
-
-            // Make sure current page is valid
-            if (currentPage >= totalPages) {
-                currentPage = totalPages - 1
-            }
-            if (currentPage < 0) {
-                currentPage = 0
-            }
-
-            // Update page indicator
-            binding.pageIndicator.text = "Page ${currentPage + 1} of $totalPages"
-
-            // Enable/disable pagination buttons
-            binding.prevPageButton.isEnabled = currentPage > 0
-            binding.nextPageButton.isEnabled = currentPage < totalPages - 1
-
-            // Show pagination controls if there's more than one page
-            binding.paginationControls.visibility = if (totalPages > 1) View.VISIBLE else View.GONE
-
-            // Get current page of transactions
-            val startIndex = currentPage * PAGE_SIZE
-            val endIndex = minOf(startIndex + PAGE_SIZE, filteredTransactions.size)
-            val pagedTransactions = filteredTransactions.subList(startIndex, endIndex)
-
-            // Update adapter with current page
-            transactionAdapter.updateTransactions(pagedTransactions)
-        }
-    }
+    // Transaction list removed
 
     private fun updateSummarySection() {
         val totalIncome = filteredTransactions.filter { it.isIncome }.sumOf { it.amount }

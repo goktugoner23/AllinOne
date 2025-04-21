@@ -57,7 +57,7 @@
                     android:textAppearance="?attr/textAppearanceBody1" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
-        
+
         <!-- Pie Chart Card -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
@@ -175,5 +175,83 @@
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+
+        <!-- Transactions Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/transactionsCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="?attr/colorSurface">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Transactions"
+                    android:textAppearance="?attr/textAppearanceHeadline6"
+                    android:layout_marginBottom="12dp"/>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/transactionsRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="150dp"
+                    android:nestedScrollingEnabled="false"/>
+
+                <TextView
+                    android:id="@+id/emptyTransactionsText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:padding="16dp"
+                    android:text="No transactions found"
+                    android:textColor="@color/gray"
+                    android:visibility="gone"/>
+
+                <!-- Pagination Controls -->
+                <LinearLayout
+                    android:id="@+id/paginationControls"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center"
+                    android:layout_marginTop="8dp">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/prevPageButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:text="Prev"
+                        android:textAllCaps="false"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_marginEnd="8dp"/>
+
+                    <TextView
+                        android:id="@+id/pageIndicator"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Page 1"
+                        android:textSize="12sp"
+                        android:layout_marginHorizontal="8dp"/>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/nextPageButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:text="Next"
+                        android:textAllCaps="false"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_marginStart="8dp"/>
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
     </LinearLayout>
-</ScrollView> 
+</ScrollView>
