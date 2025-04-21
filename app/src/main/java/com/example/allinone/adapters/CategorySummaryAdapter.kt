@@ -10,6 +10,8 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.allinone.R
 import com.example.allinone.data.CategorySummary
+import com.example.allinone.utils.NumberFormatUtils
+import java.util.Locale
 
 class CategorySummaryAdapter : ListAdapter<CategorySummary, CategorySummaryAdapter.ViewHolder>(DiffCallback()) {
 
@@ -30,8 +32,8 @@ class CategorySummaryAdapter : ListAdapter<CategorySummary, CategorySummaryAdapt
 
         fun bind(item: CategorySummary) {
             categoryText.text = item.category
-            amountText.text = String.format("₺%.2f", item.amount)
-            
+            amountText.text = NumberFormatUtils.formatAmount(item.amount)
+
             // Set color based on income/expense
             val textColor = if (item.isIncome) {
                 ContextCompat.getColor(itemView.context, android.R.color.holo_green_dark)
@@ -51,4 +53,4 @@ class CategorySummaryAdapter : ListAdapter<CategorySummary, CategorySummaryAdapt
             return oldItem == newItem
         }
     }
-} 
+}

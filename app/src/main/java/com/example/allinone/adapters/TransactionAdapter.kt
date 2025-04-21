@@ -13,6 +13,7 @@ import com.example.allinone.data.Transaction
 import com.example.allinone.databinding.ItemTransactionBinding
 import java.text.SimpleDateFormat
 import java.util.Locale
+import com.example.allinone.utils.NumberFormatUtils
 
 class TransactionAdapter(
     private val onItemClick: (Transaction) -> Unit,
@@ -64,7 +65,7 @@ class TransactionAdapter(
             binding.apply {
                 typeText.text = transaction.type
                 dateText.text = dateFormat.format(transaction.date)
-                amountText.text = String.format("₺%.2f", transaction.amount)
+                amountText.text = NumberFormatUtils.formatAmount(transaction.amount)
                 amountText.typeface = ResourcesCompat.getFont(root.context, R.font.opensans)
 
                 // Show description if available
@@ -94,4 +95,4 @@ class TransactionAdapter(
             return oldItem == newItem
         }
     }
-} 
+}

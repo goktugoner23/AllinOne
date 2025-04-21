@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
+import com.example.allinone.adapters.CategoryDropdownAdapter
 import android.widget.AutoCompleteTextView
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.core.content.ContextCompat
@@ -34,11 +35,11 @@ import com.github.mikephil.charting.utils.ColorTemplate
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import com.example.allinone.utils.NumberFormatUtils
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
@@ -53,10 +54,7 @@ class TransactionReportFragment : BaseFragment() {
     private val firebaseRepository by lazy { FirebaseRepository(requireContext()) }
     private val categorySpendingAdapter by lazy { CategorySpendingAdapter() }
 
-    private val currencyFormatter = NumberFormat.getCurrencyInstance().apply {
-        maximumFractionDigits = 2
-        minimumFractionDigits = 2
-    }
+    // Using NumberFormatUtils for consistent formatting
 
     // Filter options
     private val dateRangeOptions = arrayOf("Last 7 Days", "Last 30 Days", "Last 90 Days", "This Year", "All Time")
@@ -141,10 +139,9 @@ class TransactionReportFragment : BaseFragment() {
         val allCategories = mutableListOf("All Categories")
         allCategories.addAll(TransactionCategories.CATEGORIES)
 
-        val categoryAdapter = ArrayAdapter(
+        val categoryAdapter = CategoryDropdownAdapter(
             requireContext(),
-            android.R.layout.simple_dropdown_item_1line,
-            allCategories
+            allCategories.toTypedArray()
         )
         (binding.categoryLayout.editText as? AutoCompleteTextView)?.setAdapter(categoryAdapter)
         (binding.categoryLayout.editText as? AutoCompleteTextView)?.setText(selectedCategory, false)
@@ -225,9 +222,9 @@ class TransactionReportFragment : BaseFragment() {
         val totalExpense = filteredTransactions.filter { !it.isIncome }.sumOf { it.amount }
         val balance = totalIncome - totalExpense
 
-        binding.totalIncomeText.text = currencyFormatter.format(totalIncome)
-        binding.totalExpenseText.text = currencyFormatter.format(totalExpense)
-        binding.balanceText.text = currencyFormatter.format(balance)
+        binding.totalIncomeText.text = NumberFormatUtils.formatAmount(totalIncome)
+        binding.totalExpenseText.text = NumberFormatUtils.formatAmount(totalExpense)
+        binding.balanceText.text = NumberFormatUtils.formatAmount(balance)
 
         // Set balance text color based on positive/negative
         if (balance < 0) {
@@ -486,9 +483,9 @@ class TransactionReportFragment : BaseFragment() {
 
     private fun updateTransactionInsights() {
         if (filteredTransactions.isEmpty()) {
-            binding.largestExpenseText.text = currencyFormatter.format(0)
+            binding.largestExpenseText.text = NumberFormatUtils.formatAmount(0.0)
             binding.mostSpentCategoryText.text = "N/A"
-            binding.averageTransactionText.text = currencyFormatter.format(0)
+            binding.averageTransactionText.text = NumberFormatUtils.formatAmount(0.0)
             binding.transactionCountText.text = "0 transactions"
             return
         }
@@ -499,9 +496,9 @@ class TransactionReportFragment : BaseFragment() {
             .maxByOrNull { it.amount }
 
         binding.largestExpenseText.text = if (largestExpense != null) {
-            currencyFormatter.format(largestExpense.amount)
+            NumberFormatUtils.formatAmount(largestExpense.amount)
         } else {
-            currencyFormatter.format(0)
+            NumberFormatUtils.formatAmount(0.0)
         }
 
         // Most spent category
@@ -514,7 +511,7 @@ class TransactionReportFragment : BaseFragment() {
         } else null
 
         binding.mostSpentCategoryText.text = if (mostSpentCategory != null) {
-            "${mostSpentCategory.key} (${currencyFormatter.format(mostSpentCategory.value)})"
+            "${mostSpentCategory.key} (${NumberFormatUtils.formatAmount(mostSpentCategory.value)})"
         } else {
             "N/A"
         }
@@ -525,7 +522,7 @@ class TransactionReportFragment : BaseFragment() {
             abs(totalAmount) / filteredTransactions.size
         } else 0.0
 
-        binding.averageTransactionText.text = currencyFormatter.format(averageAmount)
+        binding.averageTransactionText.text = NumberFormatUtils.formatAmount(averageAmount)
 
         // Transaction count
         val count = filteredTransactions.size

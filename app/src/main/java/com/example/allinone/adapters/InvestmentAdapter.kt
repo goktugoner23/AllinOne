@@ -13,6 +13,7 @@ import com.example.allinone.data.Investment
 import com.example.allinone.databinding.ItemInvestmentBinding
 import java.text.SimpleDateFormat
 import java.util.Locale
+import com.example.allinone.utils.NumberFormatUtils
 import android.graphics.ImageDecoder
 import com.bumptech.glide.Glide
 
@@ -61,13 +62,13 @@ class InvestmentAdapter(
             binding.apply {
                 investmentName.text = investment.name
                 investmentType.text = investment.type
-                investmentAmount.text = String.format("₺%.2f", investment.amount)
+                investmentAmount.text = NumberFormatUtils.formatAmount(investment.amount)
                 investmentDate.text = dateFormat.format(investment.date)
                 investmentDescription.text = investment.description
-                
+
                 // Clear previous images
                 imageContainer.removeAllViews()
-                
+
                 // Safely load images
                 investment.imageUri?.split(",")?.forEach { uriString ->
                     try {
@@ -78,11 +79,11 @@ class InvestmentAdapter(
                             setPadding(4, 4, 4, 4)
                             setOnClickListener { onImageClick(uri) }
                         }
-                        
+
                         Glide.with(itemView.context)
                             .load(uri)
                             .into(imageView)
-                            
+
                         imageContainer.addView(imageView)
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -101,4 +102,4 @@ class InvestmentAdapter(
             return oldItem == newItem
         }
     }
-} 
+}

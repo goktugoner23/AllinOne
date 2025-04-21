@@ -7,8 +7,8 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.allinone.data.Investment
 import com.example.allinone.databinding.ItemInvestmentSelectionBinding
-import java.text.NumberFormat
 import java.util.Locale
+import com.example.allinone.utils.NumberFormatUtils
 
 class InvestmentSelectionAdapter(
     private val onItemClick: (Investment) -> Unit
@@ -41,11 +41,9 @@ class InvestmentSelectionAdapter(
         }
 
         fun bind(investment: Investment) {
-            val currencyFormat = NumberFormat.getCurrencyInstance(Locale("tr", "TR"))
-            
             binding.investmentName.text = investment.name
             binding.investmentType.text = investment.type
-            binding.investmentAmount.text = currencyFormat.format(investment.amount)
+            binding.investmentAmount.text = NumberFormatUtils.formatAmount(investment.amount)
         }
     }
 
@@ -58,4 +56,4 @@ class InvestmentSelectionAdapter(
             return oldItem == newItem
         }
     }
-} 
+}

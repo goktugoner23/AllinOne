@@ -7,6 +7,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
+import com.example.allinone.adapters.CategoryDropdownAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.TextView
@@ -36,6 +37,8 @@ import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.util.Random
+import java.util.Locale
+import com.example.allinone.utils.NumberFormatUtils
 
 class TransactionsOverviewFragment : Fragment() {
     private var _binding: FragmentTransactionsOverviewBinding? = null
@@ -214,7 +217,7 @@ class TransactionsOverviewFragment : Fragment() {
             val expenseColor = Color.rgb(183, 28, 28) // Dark red
 
             // Update balance text
-            binding.balanceText.text = String.format("₺%.2f", balance)
+            binding.balanceText.text = NumberFormatUtils.formatAmount(balance)
             binding.balanceText.setTextColor(
                 if (balance >= 0) {
                     incomeColor // Use green from pie chart
@@ -224,10 +227,10 @@ class TransactionsOverviewFragment : Fragment() {
             )
 
             // Update income and expense text with matched colors
-            binding.incomeText.text = String.format("Income: ₺%.2f", totalIncome)
+            binding.incomeText.text = "Income: ${NumberFormatUtils.formatAmount(totalIncome)}"
             binding.incomeText.setTextColor(incomeColor)
 
-            binding.expenseText.text = String.format("Expense: ₺%.2f", totalExpense)
+            binding.expenseText.text = "Expense: ${NumberFormatUtils.formatAmount(totalExpense)}"
             binding.expenseText.setTextColor(expenseColor)
         }
     }
@@ -366,10 +369,9 @@ class TransactionsOverviewFragment : Fragment() {
     }
 
     private fun setupTypeDropdowns() {
-        // Set up adapter for regular transaction categories
-        val adapter = ArrayAdapter(
+        // Set up custom adapter for transaction categories with icons
+        val adapter = CategoryDropdownAdapter(
             requireContext(),
-            android.R.layout.simple_dropdown_item_1line,
             TransactionCategories.CATEGORIES
         )
         (binding.typeLayout.editText as? AutoCompleteTextView)?.setAdapter(adapter)

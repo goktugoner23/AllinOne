@@ -5,8 +5,8 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.example.allinone.databinding.ItemCategorySpendingBinding
-import java.text.NumberFormat
 import java.util.Locale
+import com.example.allinone.utils.NumberFormatUtils
 
 data class CategorySpending(
     val category: String,
@@ -18,18 +18,14 @@ data class CategorySpending(
 class CategorySpendingAdapter : RecyclerView.Adapter<CategorySpendingAdapter.CategoryViewHolder>() {
 
     private var categories: List<CategorySpending> = emptyList()
-    private val currencyFormatter = NumberFormat.getCurrencyInstance().apply {
-        maximumFractionDigits = 2
-        minimumFractionDigits = 2
-    }
 
     inner class CategoryViewHolder(private val binding: ItemCategorySpendingBinding) : RecyclerView.ViewHolder(binding.root) {
-        
+
         fun bind(categorySpending: CategorySpending) {
             binding.categoryNameText.text = categorySpending.category
-            binding.categoryAmountText.text = currencyFormatter.format(categorySpending.amount)
-            binding.categoryPercentText.text = String.format("%.1f%%", categorySpending.percentage)
-            
+            binding.categoryAmountText.text = NumberFormatUtils.formatAmount(categorySpending.amount)
+            binding.categoryPercentText.text = String.format(Locale.US, "%.1f%%", categorySpending.percentage)
+
             // Set the color indicator
             binding.categoryColorIndicator.setBackgroundColor(categorySpending.color)
         }
