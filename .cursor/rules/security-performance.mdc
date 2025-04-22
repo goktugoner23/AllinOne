@@ -1,0 +1,49 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Security & Performance Guidelines
+Best practices for secure and performant Android applications.
+
+## Performance & Security
+
+[UseProguardOrR8]
+description = "Enable code shrinking (R8/ProGuard) for release builds."
+rationale = "Decreases app size and may obfuscate code to hinder reverse-engineering."
+enforce = recommended
+
+[MinimizeUseOfReflection]
+description = "Reflection can be expensive; avoid it except where absolutely necessary."
+rationale = "Reduces runtime overhead and potential security vulnerabilities."
+enforce = recommended
+
+[AvoidStoringSensitiveDataPlaintext]
+description = "Never store API keys or user credentials in plaintext within the app."
+rationale = "Protects sensitive information from reverse-engineering and misuse."
+enforce = true
+
+[SecureNetworkCommunications]
+description = "Use HTTPS/TLS for all network traffic. Validate certificates and server configurations when appropriate."
+rationale = "Protects user data and ensures app security."
+enforce = true
+
+[LimitMemoryUsage]
+description = "Be mindful of memory usage, especially when handling images and large data sets."
+rationale = "Prevents OutOfMemoryError crashes and improves overall app performance."
+enforce = recommended
+
+[OptimizeLayoutHierarchy]
+description = "Keep view hierarchies flat and optimize layouts for performance."
+rationale = "Improves UI rendering performance, especially on lower-end devices."
+enforce = recommended
+
+[SecureDataStorage]
+description = "Use EncryptedSharedPreferences or other secure storage for sensitive data."
+rationale = "Protects user data from unauthorized access."
+enforce = true
+
+[ProperPermissionUsage]
+description = "Request minimal necessary permissions and explain why they're needed to users."
+rationale = "Improves user trust and follows Android best practices for permissions."
+enforce = true

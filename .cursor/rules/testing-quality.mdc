@@ -1,0 +1,55 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Testing & Code Quality Guidelines
+Best practices for testing and maintaining high-quality code.
+
+## Testing & Code Quality
+
+[UseJUnitAndInstrumentedTests]
+description = "Write both local (JVM/JUnit) and instrumented (Espresso/UI) tests for features."
+rationale = "Ensures components work as intended and fosters robust code."
+enforce = recommended
+
+[FollowArrangeActAssertInTests]
+description = "Structure test cases with clear arrange, act, and assert steps."
+rationale = "Improves readability and maintainability of test code."
+example_ok = """
+@Test
+fun `validate user input`() {
+    // Arrange
+    val userInput = "sample"
+    // Act
+    val result = someValidator.validate(userInput)
+    // Assert
+    assertTrue(result)
+}
+"""
+enforce = recommended
+
+[UseMockingFrameworksJudiciously]
+description = "Use frameworks like Mockito or MockK sparingly, focusing on real or well-structured test doubles."
+rationale = "Encourages better architecture and testable code with fewer brittle mocks."
+enforce = recommended
+
+[StaticAnalysisTools]
+description = "Integrate static analysis (e.g., ktlint, Detekt) and run them with CI."
+rationale = "Prevents style or common error regressions and enforces consistent coding standards."
+enforce = true
+
+[TestCoverage]
+description = "Aim for meaningful test coverage, focusing on business logic and edge cases."
+rationale = "Ensures code behaves as expected and prevents regressions."
+enforce = recommended
+
+[WriteTestableCode]
+description = "Design code with testability in mind (dependency injection, small methods, clear responsibilities)."
+rationale = "Makes testing easier and generally leads to better architecture."
+enforce = true
+
+[AvoidDuplicateCode]
+description = "Don't repeat yourself (DRY) - extract common functionality into reusable components."
+rationale = "Makes maintenance easier by centralizing changes to common functionality."
+enforce = recommended

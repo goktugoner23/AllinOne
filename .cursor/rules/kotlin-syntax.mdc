@@ -1,0 +1,46 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Kotlin Syntax Guidelines
+Recommended practices for using Kotlin language features effectively.
+
+## Language Features & Syntax
+
+[UseExplicitTypesForPublicAPIs]
+description = "Public and protected members (functions, properties) should explicitly declare types."
+rationale = "Makes code self-documenting, helps with refactoring, and clarifies the intended use."
+enforce = true
+
+[UseExpressionBodiesForSimpleFunctions]
+description = "Favor expression bodies when a function consists of a single expression."
+rationale = "Keeps the code concise and aligns with idiomatic Kotlin style."
+example_ok = "fun sum(a: Int, b: Int) = a + b"
+example_violation = "fun sum(a: Int, b: Int): Int { return a + b }"
+enforce = true
+
+[UseImmutableValOverVarWherePossible]
+description = "Use `val` instead of `var` wherever possible."
+rationale = "Immutable references reduce side effects and improve maintainability."
+enforce = true
+
+[UseDataClassForSimpleDTOs]
+description = "Use data classes for objects that contain only data or are pure model objects."
+rationale = "Reduces boilerplate (equals, hashCode, toString) and clarifies intent."
+enforce = true
+
+[UseNamedArgumentsAndDefaultParams]
+description = "Leverage named arguments and default parameter values to improve clarity."
+rationale = "Makes function calls more readable, especially when multiple parameters have similar types."
+enforce = recommended
+
+[UseStringTemplates]
+description = "Use string templates (e.g., \"Hello, $name!\") instead of concatenation."
+rationale = "Leads to cleaner, more readable string construction and reduces risk of errors."
+enforce = true
+
+[AvoidPlatformTypes]
+description = "Avoid using platform types (?) without explicit null checks or types."
+rationale = "Prevents runtime `NullPointerException` by ensuring null-safety remains explicit."
+enforce = recommended

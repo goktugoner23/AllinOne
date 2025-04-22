@@ -1,0 +1,44 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Project Structure Guide
+Guidelines for organizing and navigating the Android project.
+
+## Main Project Structure
+
+The project follows standard Android project structure with the following key components:
+
+- `app/src/main/java/` - Contains all Kotlin source code organized by packages
+- `app/src/main/res/` - Contains all Android resources (layouts, drawables, strings, etc.)
+- `app/src/main/AndroidManifest.xml` - Defines app components and permissions
+- `app/build.gradle` - App-level build configuration and dependencies
+- `build.gradle` - Project-level build configuration
+
+## Package Organization
+
+The codebase follows a feature-based package structure with the following main components:
+
+[OrganizedByFeature]
+description = "Code is organized into packages by feature rather than by type."
+rationale = "Makes it easier to navigate related code and modularize the codebase."
+enforce = recommended
+
+[SeparateDataAndDomainLayers]
+description = "Maintain clear separation between UI, domain logic, and data sources."
+rationale = "Follows clean architecture principles for better maintainability."
+enforce = recommended
+
+## Resource Organization
+
+[ConsistentResourceNaming]
+description = "Follow a consistent naming convention for all resources."
+example_ok = "activity_main.xml, fragment_profile.xml, ic_user.xml"
+example_violation = "main.xml, ProfileScreen.xml, userIcon.xml"
+enforce = recommended
+
+[ResourceModularization]
+description = "Group related resources together, using appropriate resource types."
+rationale = "Improves organization and makes resources easier to find and maintain."
+enforce = recommended

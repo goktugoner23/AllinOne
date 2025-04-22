@@ -1,0 +1,44 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Error Handling & Logging Guidelines
+Best practices for robust error handling and appropriate logging.
+
+## Logging & Error Handling
+
+[AvoidVerboseLogsInProduction]
+description = "Do not leave excessive debug logs in production code."
+rationale = "Prevents potential information leaks, reduces log noise."
+enforce = recommended
+
+[GracefulErrorHandling]
+description = "Handle exceptions gracefully, providing user-friendly messages and robust fallback paths."
+rationale = "Improves user experience and prevents app crashes."
+enforce = true
+
+[UseTryCatchAppropriately]
+description = "Use try-catch blocks to handle expected exceptions, not to control normal program flow."
+rationale = "Makes code more readable and maintainable."
+enforce = recommended
+
+[LogMeaningfulInformation]
+description = "Include relevant context in log messages to aid debugging."
+rationale = "Makes logs more useful for troubleshooting issues."
+enforce = recommended
+
+[ImplementCrashReporting]
+description = "Use crash reporting tools (e.g., Firebase Crashlytics) to monitor app stability."
+rationale = "Helps identify and fix issues affecting users in production."
+enforce = recommended
+
+[UseUncaughtExceptionHandler]
+description = "Implement a global uncaught exception handler for gracefully handling unexpected crashes."
+rationale = "Provides better user experience even in failure cases and potentially saves user data."
+enforce = recommended
+
+[AvoidSuppressingExceptions]
+description = "Don't catch exceptions without handling them appropriately or at least logging them."
+rationale = "Prevents silent failures that are difficult to debug."
+enforce = true

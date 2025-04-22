@@ -18,5 +18,4 @@ local.properties
 my-release-key.jks
 my-release-key.keystore
 google-services.json
-.cursor/rules/customrules.mdc
 source_code.json

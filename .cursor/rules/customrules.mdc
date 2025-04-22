@@ -1,0 +1,213 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# .cursorrules
+#
+# Kotlin + Android Mobile Apps
+# Comprehensive coding and architecture guidelines for robust and best-practice usage.
+
+################################################################################
+# 1. Language Features & Syntax
+################################################################################
+
+[UseExplicitTypesForPublicAPIs]
+description = "Public and protected members (functions, properties) should explicitly declare types."
+rationale = "Makes code self-documenting, helps with refactoring, and clarifies the intended use."
+enforce = true
+
+[UseExpressionBodiesForSimpleFunctions]
+description = "Favor expression bodies when a function consists of a single expression."
+rationale = "Keeps the code concise and aligns with idiomatic Kotlin style."
+example_ok = "fun sum(a: Int, b: Int) = a + b"
+example_violation = "fun sum(a: Int, b: Int): Int { return a + b }"
+enforce = true
+
+[UseImmutableValOverVarWherePossible]
+description = "Use `val` instead of `var` wherever possible."
+rationale = "Immutable references reduce side effects and improve maintainability."
+enforce = true
+
+[UseDataClassForSimpleDTOs]
+description = "Use data classes for objects that contain only data or are pure model objects."
+rationale = "Reduces boilerplate (equals, hashCode, toString) and clarifies intent."
+enforce = true
+
+[UseNamedArgumentsAndDefaultParams]
+description = "Leverage named arguments and default parameter values to improve clarity."
+rationale = "Makes function calls more readable, especially when multiple parameters have similar types."
+enforce = recommended
+
+[UseStringTemplates]
+description = "Use string templates (e.g., \"Hello, $name!\") instead of concatenation."
+rationale = "Leads to cleaner, more readable string construction and reduces risk of errors."
+enforce = true
+
+[AvoidPlatformTypes]
+description = "Avoid using platform types (?) without explicit null checks or types."
+rationale = "Prevents runtime `NullPointerException` by ensuring null-safety remains explicit."
+enforce = recommended
+
+################################################################################
+# 2. Naming Conventions
+################################################################################
+
+[ClassNamesUpperCamelCase]
+description = "Classes and objects should use UpperCamelCase."
+example_ok = "MyAwesomeClass"
+example_violation = "my_awesome_class"
+enforce = true
+
+[FunctionNamesLowerCamelCase]
+description = "Functions should start with a lowercase letter, using lowerCamelCase."
+example_ok = "calculateTotal()"
+example_violation = "Calculate_total()"
+enforce = true
+
+[ConstantsUpperCase]
+description = "Constants (in companion objects or top-level) should be upper snake case."
+example_ok = "const val MAX_COUNT = 50"
+example_violation = "const val maxCount = 50"
+enforce = true
+
+################################################################################
+# 3. Android-Specific Guidelines
+################################################################################
+
+[UseAndroidXDependencies]
+description = "Always use AndroidX libraries instead of legacy support libraries."
+rationale = "AndroidX is actively maintained and future-proof."
+enforce = true
+
+[UseViewBindingOrJetpackCompose]
+description = "Use View Binding or Jetpack Compose for UI to reduce boilerplate and runtime errors."
+rationale = "Increases type safety, reduces the risk of NullPointerExceptions, and is more maintainable."
+enforce = recommended
+
+[AvoidBlockingMainThread]
+description = "Long-running tasks or I/O operations should never block the main thread."
+rationale = "Ensures the app remains responsive. Offload heavy work using coroutines, WorkManager, or background threads."
+enforce = true
+
+[UseCoroutinesForAsync]
+description = "Use `kotlinx.coroutines` to handle asynchronous tasks."
+rationale = "Structured concurrency is more readable and maintains lifecycle awareness using `CoroutineScope` and `SupervisorJob`."
+example_ok = "viewModelScope.launch { ... }"
+enforce = true
+
+[UseViewModelForStateHandling]
+description = "Leverage Android Architecture Components (ViewModel) for managing UI-related data."
+rationale = "Ensures data survives configuration changes and provides clear separation of concerns."
+enforce = recommended
+
+[UseDependencyInjection]
+description = "Utilize dependency injection frameworks (e.g., Hilt, Koin) to manage app dependencies."
+rationale = "Improves testability and decouples business logic from platform/framework code."
+enforce = recommended
+
+[UseResourceFilesAppropriately]
+description = "All strings, dimensions, and colors should be defined in resource files."
+rationale = "Enables localization, improves consistency across the app."
+enforce = true
+
+################################################################################
+# 4. Project Structure & Architecture
+################################################################################
+
+[PackageByFeatureOrLayer]
+description = "Organize packages by feature (recommended) or by layer (e.g. ui, data, domain)."
+rationale = "Increases clarity of module responsibilities. Helps scale codebases over time."
+enforce = recommended
+
+[SeparateConcernsUsingMVVMOrMVI]
+description = "Use MVVM or MVI architecture to separate UI, business logic, and data layers."
+rationale = "Improves testability, maintainability, and clarity of responsibilities."
+enforce = recommended
+
+[KeepActivitiesAndFragmentsLight]
+description = "Activities and Fragments should only contain minimal UI logic; business logic belongs in ViewModels or UseCases."
+rationale = "Prevents lifecycle issues and promotes separation of concerns."
+enforce = true
+
+[FavorUseCasesOrInteractorsForBusinessLogic]
+description = "Define business logic within use case (interactor) classes to clarify domain logic and keep ViewModels clean."
+rationale = "Provides a centralized, reusable domain layer that’s easier to test."
+enforce = recommended
+
+################################################################################
+# 5. Testing & Code Quality
+################################################################################
+
+[UseJUnitAndInstrumentedTests]
+description = "Write both local (JVM/JUnit) and instrumented (Espresso/UI) tests for features."
+rationale = "Ensures components work as intended and fosters robust code."
+enforce = recommended
+
+[FollowArrangeActAssertInTests]
+description = "Structure test cases with clear arrange, act, and assert steps."
+rationale = "Improves readability and maintainability of test code."
+example_ok = """
+@Test
+fun `validate user input`() {
+    // Arrange
+    val userInput = "sample"
+    // Act
+    val result = someValidator.validate(userInput)
+    // Assert
+    assertTrue(result)
+}
+"""
+enforce = recommended
+
+[UseMockingFrameworksJudiciously]
+description = "Use frameworks like Mockito or MockK sparingly, focusing on real or well-structured test doubles."
+rationale = "Encourages better architecture and testable code with fewer brittle mocks."
+enforce = recommended
+
+[StaticAnalysisTools]
+description = "Integrate static analysis (e.g., ktlint, Detekt) and run them with CI."
+rationale = "Prevents style or common error regressions and enforces consistent coding standards."
+enforce = true
+
+################################################################################
+# 6. Performance & Security
+################################################################################
+
+[UseProguardOrR8]
+description = "Enable code shrinking (R8/ProGuard) for release builds."
+rationale = "Decreases app size and may obfuscate code to hinder reverse-engineering."
+enforce = recommended
+
+[MinimizeUseOfReflection]
+description = "Reflection can be expensive; avoid it except where absolutely necessary."
+rationale = "Reduces runtime overhead and potential security vulnerabilities."
+enforce = recommended
+
+[AvoidStoringSensitiveDataPlaintext]
+description = "Never store API keys or user credentials in plaintext within the app."
+rationale = "Protects sensitive information from reverse-engineering and misuse."
+enforce = true
+
+[SecureNetworkCommunications]
+description = "Use HTTPS/TLS for all network traffic. Validate certificates and server configurations when appropriate."
+rationale = "Protects user data and ensures app security."
+enforce = true
+
+################################################################################
+# 7. Logging & Error Handling
+################################################################################
+
+[AvoidVerboseLogsInProduction]
+description = "Do not leave excessive debug logs in production code."
+rationale = "Prevents potential information leaks, reduces log noise."
+enforce = recommended
+
+[GracefulErrorHandling]
+description = "Handle exceptions gracefully, providing user-friendly messages and robust fallback paths."
+rationale = "Improves user experience and prevents app crashes."
+enforce = true
+
+################################################################################
+# END OF .cursorrules
+################################################################################

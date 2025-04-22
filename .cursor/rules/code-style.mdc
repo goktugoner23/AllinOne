@@ -1,0 +1,45 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Code Style Guidelines
+Consistent naming conventions and code formatting practices.
+
+## Naming Conventions
+
+[ClassNamesUpperCamelCase]
+description = "Classes and objects should use UpperCamelCase."
+example_ok = "MyAwesomeClass"
+example_violation = "my_awesome_class"
+enforce = true
+
+[FunctionNamesLowerCamelCase]
+description = "Functions should start with a lowercase letter, using lowerCamelCase."
+example_ok = "calculateTotal()"
+example_violation = "Calculate_total()"
+enforce = true
+
+[ConstantsUpperCase]
+description = "Constants (in companion objects or top-level) should be upper snake case."
+example_ok = "const val MAX_COUNT = 50"
+example_violation = "const val maxCount = 50"
+enforce = true
+
+## Code Formatting
+
+[ConsistentIndentation]
+description = "Use consistent indentation (4 spaces) throughout the codebase."
+rationale = "Improves readability and follows Kotlin coding conventions."
+enforce = true
+
+[MaximumLineLength]
+description = "Keep lines under 100 characters in length."
+rationale = "Improves readability, especially in side-by-side views."
+enforce = recommended
+
+[BracketSpacing]
+description = "Use consistent spacing in brackets and parentheses."
+example_ok = "if (condition) { doSomething() }"
+example_violation = "if(condition){doSomething()}"
+enforce = recommended

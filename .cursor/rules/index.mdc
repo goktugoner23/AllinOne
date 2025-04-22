@@ -1,0 +1,32 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Android Development Guidelines
+
+This is the main index of our Android development guidelines. These rules cover all aspects of Android development using Kotlin and follow modern best practices.
+
+## Language & Syntax
+
+- [Kotlin Syntax Guidelines](mdc:kotlin-syntax.mdc) - Best practices for using Kotlin language features
+
+## Code Quality & Style
+
+- [Code Style Guidelines](mdc:code-style.mdc) - Naming conventions and formatting standards
+- [Testing & Code Quality Guidelines](mdc:testing-quality.mdc) - Testing practices and code quality assurance
+
+## Architecture & Structure
+
+- [Architecture Guidelines](mdc:architecture.mdc) - Architectural patterns like MVVM, MVI, and Clean Architecture
+- [Project Structure Guide](mdc:project-structure.mdc) - Organization of project files and resources
+
+## Android Development
+
+- [Android Best Practices](mdc:android-best-practices.mdc) - Android-specific development guidelines
+- [Security & Performance Guidelines](mdc:security-performance.mdc) - Making apps secure and performant
+- [Error Handling & Logging Guidelines](mdc:error-handling.mdc) - Managing errors and logging
+
+## Original Comprehensive Rules
+
+- [Complete Custom Rules](mdc:customrules.mdc) - Original comprehensive rule set

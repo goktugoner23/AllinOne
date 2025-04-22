@@ -1,0 +1,44 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Architecture Guidelines
+Project structure and architectural patterns for maintainable Android applications.
+
+## Project Structure & Architecture
+
+[PackageByFeatureOrLayer]
+description = "Organize packages by feature (recommended) or by layer (e.g. ui, data, domain)."
+rationale = "Increases clarity of module responsibilities. Helps scale codebases over time."
+enforce = recommended
+
+[SeparateConcernsUsingMVVMOrMVI]
+description = "Use MVVM or MVI architecture to separate UI, business logic, and data layers."
+rationale = "Improves testability, maintainability, and clarity of responsibilities."
+enforce = recommended
+
+[KeepActivitiesAndFragmentsLight]
+description = "Activities and Fragments should only contain minimal UI logic; business logic belongs in ViewModels or UseCases."
+rationale = "Prevents lifecycle issues and promotes separation of concerns."
+enforce = true
+
+[FavorUseCasesOrInteractorsForBusinessLogic]
+description = "Define business logic within use case (interactor) classes to clarify domain logic and keep ViewModels clean."
+rationale = "Provides a centralized, reusable domain layer that's easier to test."
+enforce = recommended
+
+[ImplementRepositoryPattern]
+description = "Use Repository pattern to abstract data sources (network, database, etc.)."
+rationale = "Decouples data sources from business logic, making the code more testable and maintainable."
+enforce = recommended
+
+[SingleSourceOfTruth]
+description = "Maintain a single source of truth for data, typically in a local database."
+rationale = "Simplifies data flow and state management, reduces inconsistencies."
+enforce = recommended
+
+[ModularizeFeatures]
+description = "Consider breaking large apps into modules by feature."
+rationale = "Improves build times, enables better team collaboration, and enforces architectural boundaries."
+enforce = recommended

@@ -1,0 +1,55 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Android Best Practices
+Guidelines for effective Android development including UI, threading, and components.
+
+## Android-Specific Guidelines
+
+[UseAndroidXDependencies]
+description = "Always use AndroidX libraries instead of legacy support libraries."
+rationale = "AndroidX is actively maintained and future-proof."
+enforce = true
+
+[UseViewBindingOrJetpackCompose]
+description = "Use View Binding or Jetpack Compose for UI to reduce boilerplate and runtime errors."
+rationale = "Increases type safety, reduces the risk of NullPointerExceptions, and is more maintainable."
+enforce = recommended
+
+[AvoidBlockingMainThread]
+description = "Long-running tasks or I/O operations should never block the main thread."
+rationale = "Ensures the app remains responsive. Offload heavy work using coroutines, WorkManager, or background threads."
+enforce = true
+
+[UseCoroutinesForAsync]
+description = "Use `kotlinx.coroutines` to handle asynchronous tasks."
+rationale = "Structured concurrency is more readable and maintains lifecycle awareness using `CoroutineScope` and `SupervisorJob`."
+example_ok = "viewModelScope.launch { ... }"
+enforce = true
+
+[UseViewModelForStateHandling]
+description = "Leverage Android Architecture Components (ViewModel) for managing UI-related data."
+rationale = "Ensures data survives configuration changes and provides clear separation of concerns."
+enforce = recommended
+
+[UseDependencyInjection]
+description = "Utilize dependency injection frameworks (e.g., Hilt, Koin) to manage app dependencies."
+rationale = "Improves testability and decouples business logic from platform/framework code."
+enforce = recommended
+
+[UseResourceFilesAppropriately]
+description = "All strings, dimensions, and colors should be defined in resource files."
+rationale = "Enables localization, improves consistency across the app."
+enforce = true
+
+[UseFragmentFactory]
+description = "Use FragmentFactory for creating fragments with non-empty constructors."
+rationale = "Allows dependency injection into Fragments and avoids using newInstance() static methods."
+enforce = recommended
+
+[LifecycleAwareness]
+description = "Be mindful of Android lifecycle when performing operations in components."
+rationale = "Prevents memory leaks and crashes due to operations on destroyed components."
+enforce = true
