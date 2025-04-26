@@ -284,4 +284,7 @@
     <string name="total_time">Total Time</string>
     <string name="favorite_muscle">Favorite Muscle</string>
     <string name="workout_history">Workout History</string>
+
+    <!-- Image Viewer -->
+    <string name="image_counter">%1$d/%2$d</string>
 </resources>

@@ -28,7 +28,9 @@ import io.github.mthli.knife.KnifeText
 import java.util.Date
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.app.Dialog
-import com.github.chrisbanes.photoview.PhotoView
+import android.view.LayoutInflater
+import android.widget.TextView
+import androidx.viewpager2.widget.ViewPager2
 import com.bumptech.glide.Glide
 import com.example.allinone.ui.drawing.DrawingActivity
 import android.content.pm.PackageManager
@@ -1170,37 +1172,61 @@ class EditNoteActivity : AppCompatActivity() {
 
     private fun showFullscreenImage(uri: Uri) {
         try {
-            val dialog = Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
-            val photoView = PhotoView(this).apply {
-                try {
-                    // Use Glide to load the image
-                    Glide.with(this@EditNoteActivity)
-                        .load(uri)
-                        .placeholder(R.drawable.ic_image)
-                        .error(android.R.drawable.ic_menu_close_clear_cancel)
-                        .into(this)
+            // Get all images from the current note
+            val allImages = mutableListOf<String>()
+            var initialPosition = 0
 
-                    // Set layout parameters
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                } catch (e: Exception) {
-                    Log.e("EditNoteActivity", "Error loading image: ${e.message}", e)
-                    Toast.makeText(this@EditNoteActivity, "Error loading image: ${e.message}", Toast.LENGTH_SHORT).show()
+            // Add all selected images to the list
+            if (selectedImages.isNotEmpty()) {
+                selectedImages.forEach { imageUri ->
+                    allImages.add(imageUri.toString())
                 }
+                // Find the position of the clicked image
+                initialPosition = selectedImages.indexOf(uri).coerceAtLeast(0)
+            } else {
+                // Just show this single image
+                allImages.add(uri.toString())
             }
 
-            // Set content view and show dialog
-            dialog.setContentView(photoView)
+            // Create and show the fullscreen dialog
+            val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_fullscreen_image, null)
+            val dialog = Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+            dialog.setContentView(dialogView as View)
+
+            // Setup ViewPager
+            val viewPager = dialogView.findViewById<ViewPager2>(R.id.fullscreenViewPager)
+            val imageCounter = dialogView.findViewById<TextView>(R.id.imageCounterText)
+
+            // Setup adapter for the ViewPager
+            val adapter = com.example.allinone.adapters.FullscreenImageAdapter(this, allImages)
+            viewPager.adapter = adapter
+
+            // Set initial position
+            viewPager.setCurrentItem(initialPosition, false)
+
+            // Update counter text
+            if (allImages.size > 1) {
+                imageCounter.visibility = View.VISIBLE
+                imageCounter.text = getString(R.string.image_counter, initialPosition + 1, allImages.size)
+
+                // Add page change listener to update counter
+                viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+                    override fun onPageSelected(position: Int) {
+                        imageCounter.text = getString(R.string.image_counter, position + 1, allImages.size)
+                    }
+                })
+            } else {
+                imageCounter.visibility = View.GONE
+            }
+
             dialog.show()
 
-            // Add click listener to dismiss on tap
-            photoView.setOnClickListener {
+            // Close on tap
+            dialogView.setOnClickListener {
                 dialog.dismiss()
             }
         } catch (e: Exception) {
-            Log.e("EditNoteActivity", "Error showing fullscreen image: ${e.message}", e)
+            Log.e(TAG, "Error showing fullscreen image: ${e.message}", e)
             Toast.makeText(this, "Error showing image: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }

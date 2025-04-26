@@ -1,6 +1,7 @@
 package com.example.allinone.adapters
 
 import android.net.Uri
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -20,12 +21,18 @@ class WTRegistrationAdapter(
     private val onLongPress: (WTRegistration, View) -> Unit,
     private val onPaymentStatusClick: (WTRegistration) -> Unit,
     private val onShareClick: (WTRegistration) -> Unit,
-    private val getStudentName: (Long) -> String = { _ -> "Unknown Student" } // Function to get student name from ID
+    private val getStudentName: (Long) -> String = { _ -> "Unknown Student" }, // Function to get student name from ID
+    private val getStudentPhotoUri: (Long) -> String? = { _ -> null } // Function to get student photo URI from ID
 ) : ListAdapter<WTRegistration, WTRegistrationAdapter.ViewHolder>(RegistrationDiffCallback()) {
 
     // Extension function to get the student name for a registration
     private fun WTRegistration.getStudentName(): String {
         return getStudentName(this.studentId)
+    }
+
+    // Extension function to get the student photo URI for a registration
+    private fun WTRegistration.getStudentPhotoUri(): String? {
+        return getStudentPhotoUri(this.studentId)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -83,18 +90,52 @@ class WTRegistrationAdapter(
             binding.startDate.text = "Start: " + (registration.startDate?.let { dateFormat.format(it) } ?: "N/A")
             binding.endDate.text = "End: " + (registration.endDate?.let { dateFormat.format(it) } ?: "N/A")
             binding.amount.text = String.format("₺%.2f", registration.amount)
-            
+
             // Use the actual isPaid field from the registration object
             val isPaid = registration.isPaid
-            
+
             binding.paymentStatusChip.apply {
                 text = if (isPaid) "Paid" else "Unpaid"
                 setChipBackgroundColorResource(
-                    if (isPaid) 
+                    if (isPaid)
                         com.example.allinone.R.color.colorSuccess
-                    else 
+                    else
                         com.example.allinone.R.color.colorWarning
                 )
+            }
+
+            // Load student photo if available
+            val photoUri = registration.getStudentPhotoUri()
+            if (!photoUri.isNullOrEmpty()) {
+                Log.d("WTRegistrationAdapter", "Loading student photo from URI: $photoUri")
+                if (photoUri.startsWith("https://")) {
+                    // Load remote image with Glide
+                    com.bumptech.glide.Glide.with(binding.studentPhoto.context)
+                        .load(photoUri)
+                        .placeholder(R.drawable.default_profile)
+                        .error(R.drawable.default_profile)
+                        .centerCrop()
+                        .into(binding.studentPhoto)
+                } else {
+                    // Load local image
+                    try {
+                        // Use Glide for local images too for better caching and error handling
+                        com.bumptech.glide.Glide.with(binding.studentPhoto.context)
+                            .load(Uri.parse(photoUri))
+                            .placeholder(R.drawable.default_profile)
+                            .error(R.drawable.default_profile)
+                            .centerCrop()
+                            .into(binding.studentPhoto)
+                    } catch (e: Exception) {
+                        Log.e("WTRegistrationAdapter", "Error loading local image: ${e.message}")
+                        binding.studentPhoto.setImageResource(R.drawable.default_profile)
+                    }
+                }
+                // Make sure the photo is visible
+                binding.studentPhoto.visibility = View.VISIBLE
+            } else {
+                // Set default profile image
+                binding.studentPhoto.setImageResource(R.drawable.default_profile)
             }
         }
     }
@@ -108,4 +149,4 @@ class WTRegistrationAdapter(
             return oldItem == newItem
         }
     }
-} 
+}

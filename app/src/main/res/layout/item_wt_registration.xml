@@ -13,14 +13,30 @@
         android:layout_height="wrap_content"
         android:padding="10dp">
 
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/studentPhoto"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:contentDescription="@string/profile_image"
+            android:scaleType="centerCrop"
+            android:src="@drawable/default_profile"
+            android:elevation="2dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="@id/amount"
+            app:strokeColor="@color/colorPrimaryLight"
+            app:strokeWidth="1dp"
+            app:shapeAppearanceOverlay="@style/circleImageView" />
+
         <TextView
             android:id="@+id/studentName"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:textAppearance="?attr/textAppearanceSubtitle1"
             android:textStyle="bold"
+            android:layout_marginStart="12dp"
             app:layout_constraintEnd_toStartOf="@+id/shareButton"
-            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/studentPhoto"
             app:layout_constraintTop_toTopOf="parent"
             tools:text="Student Name" />
 
@@ -43,7 +59,8 @@
             android:layout_marginEnd="8dp"
             android:textAppearance="?attr/textAppearanceCaption"
             app:layout_constraintEnd_toStartOf="@+id/endDate"
-            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/studentPhoto"
+            app:layout_constraintStart_toStartOf="@+id/studentName"
             app:layout_constraintTop_toBottomOf="@id/studentName"
             tools:text="Start: Jan 1, 2024" />
 
@@ -65,7 +82,7 @@
             android:textAppearance="?attr/textAppearanceBody2"
             android:textStyle="bold"
             app:layout_constraintEnd_toStartOf="@+id/paymentStatusChip"
-            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintStart_toStartOf="@+id/studentName"
             app:layout_constraintTop_toBottomOf="@id/startDate"
             tools:text="₺1000.00" />
 
@@ -82,4 +99,4 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-</com.google.android.material.card.MaterialCardView> 
+</com.google.android.material.card.MaterialCardView>

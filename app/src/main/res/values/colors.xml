@@ -7,25 +7,26 @@
     <color name="gray">#999999</color>
     <color name="colorPrimary">#2196F3</color>
     <color name="colorPrimaryDark">#1976D2</color>
+    <color name="colorPrimaryLight">#BBDEFB</color>
     <color name="colorAccent">#FF4081</color>
     <color name="expiration_color">#FFEBEE</color>
     <color name="start_color">#E8F5E9</color>
     <color name="default_event_color">#FFFFFF</color>
     <color name="lesson_event_color">#E3F2FD</color>
-    
+
     <!-- Text colors -->
     <color name="textPrimary">#212121</color>
-    
+
     <!-- History page colors -->
     <color name="red">#F44336</color>
     <color name="dark_gray">#555555</color>
     <color name="medium_gray">#888888</color>
-    
+
     <!-- Network status color -->
     <color name="colorError">#F44336</color>
     <color name="colorSuccess">#4CAF50</color>
     <color name="colorWarning">#FFC107</color>
-    
+
     <!-- Dark theme colors - Professional Navy Blue theme -->
     <color name="navy_primary">#003566</color>         <!-- Deep navy blue (primary) -->
     <color name="navy_background">#001D3D</color>      <!-- Midnight blue (background) -->
@@ -33,35 +34,35 @@
     <color name="navy_variant">#004E92</color>         <!-- Lighter navy variant -->
     <color name="navy_accent">#4DA8DA</color>          <!-- Blue accent that complements navy -->
     <color name="navy_text_secondary">#A5C5E1</color>  <!-- Light blue for secondary text -->
-    
+
     <!-- Bright tab color for better visibility in dark theme -->
     <color name="bright_tab_selected">#0466C8</color>  <!-- Bright blue for selected tabs -->
     <color name="bright_tab_unselected">#7FB5DE</color> <!-- Light blue for unselected tabs -->
-    
+
     <color name="error_light">#FFCDD2</color>
     <color name="warning_light">#FFF9C4</color>
-    
+
     <!-- Add green color for chips -->
     <color name="green">#4CAF50</color>
     <color name="purple">#9C27B0</color>
-    
+
     <!-- Registration event colors -->
     <color name="registration_start">#4CAF50</color>  <!-- Green -->
     <color name="registration_end">@color/red</color>  <!-- Red -->
-    
+
     <!-- Tag colors -->
     <color name="bg_tag_blue">#2196F3</color>  <!-- Blue color for tags and indicators -->
-    
+
     <!-- Instagram card colors -->
     <color name="feedCard">#FFFFFF</color>
     <color name="reelsCard">#F0F8FF</color>
     <color name="storyCard">#F0FFF0</color>
     <color name="albumCard">#F5F5F5</color>
     <color name="cardStroke">#E0E0E0</color>
-    
+
     <!-- New color for bold text that adapts to dark/light mode -->
     <color name="boldTextColor">@color/black</color>
-    
+
     <!-- Instagram Post Type Background Colors -->
     <color name="reels_background">@color/reelsCard</color>
     <color name="video_background">@color/storyCard</color>

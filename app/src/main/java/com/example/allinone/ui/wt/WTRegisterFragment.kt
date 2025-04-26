@@ -50,7 +50,7 @@ class WTRegisterFragment : Fragment() {
     private var selectedStudent: WTStudent? = null
     private var selectedRegistration: WTRegistration? = null
     private var isEditMode = false
-    
+
     private val getContent = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
             try {
@@ -64,15 +64,15 @@ class WTRegisterFragment : Fragment() {
                         e.printStackTrace()
                     }
                 }
-                
+
                 // Save the URI to your student object
                 selectedAttachmentUri = uri
-                
+
                 // Update UI to show the selected file
                 currentDialogBinding?.let { binding ->
                     binding.attachmentNameText.text = getFileName(uri)
                     binding.attachmentNameText.visibility = View.VISIBLE
-                    
+
                     // Check if it's an image
                     val mimeType = context?.contentResolver?.getType(uri)
                     if (mimeType?.startsWith("image/") == true) {
@@ -91,7 +91,7 @@ class WTRegisterFragment : Fragment() {
                     } else {
                         binding.attachmentPreview.visibility = View.GONE
                     }
-                    
+
                     // Add long press listener to remove attachment
                     binding.attachmentNameText.setOnLongClickListener {
                         selectedAttachmentUri = null
@@ -99,7 +99,7 @@ class WTRegisterFragment : Fragment() {
                         binding.attachmentPreview.visibility = View.GONE
                         true
                     }
-                    
+
                     // Add tooltip to inform user about removal option
                     binding.attachmentNameText.setOnClickListener {
                         Toast.makeText(context, "Long press to remove attachment", Toast.LENGTH_SHORT).show()
@@ -129,7 +129,7 @@ class WTRegisterFragment : Fragment() {
         observeStudents()
         observeRegistrations()
         observeNetworkStatus()
-        
+
         // Force data refresh
         viewModel.refreshData()
     }
@@ -143,21 +143,24 @@ class WTRegisterFragment : Fragment() {
     private fun setupRecyclerView() {
         // Add log to track setup
         Log.d("WTRegisterFragment", "Setting up RecyclerView")
-        
+
         adapter = WTRegistrationAdapter(
             onItemClick = { registration -> showEditDialog(registration) },
             onLongPress = { registration, view -> showContextMenu(registration, view) },
-            onPaymentStatusClick = { registration -> 
+            onPaymentStatusClick = { registration ->
                 // No need for payment status handling as all registrations are paid
                 // Could add ability to delete registration here
                 showDeleteConfirmation(registration)
             },
             onShareClick = { registration -> shareRegistrationInfo(registration) },
-            getStudentName = { studentId -> 
+            getStudentName = { studentId ->
                 students.find { it.id == studentId }?.name ?: "Unknown Student"
+            },
+            getStudentPhotoUri = { studentId ->
+                students.find { it.id == studentId }?.photoUri
             }
         )
-        
+
         binding.studentsRecyclerView.apply {
             layoutManager = LinearLayoutManager(context)
             adapter = this@WTRegisterFragment.adapter
@@ -181,11 +184,11 @@ class WTRegisterFragment : Fragment() {
     private fun observeRegistrations() {
         viewModel.registrations.observe(viewLifecycleOwner) { registrationsList ->
             registrations = registrationsList
-            
+
             // Sort registrations by start date, with most recent first
             val sortedRegistrations = registrationsList.sortedByDescending { it.startDate }
             adapter.submitList(sortedRegistrations)
-            
+
             // Show empty state if there are no registrations
             if (sortedRegistrations.isEmpty()) {
                 binding.emptyState.visibility = View.VISIBLE
@@ -194,7 +197,7 @@ class WTRegisterFragment : Fragment() {
                 binding.emptyState.visibility = View.GONE
                 binding.studentsRecyclerView.visibility = View.VISIBLE
             }
-            
+
             // Force adapter to refresh
             adapter.notifyDataSetChanged()
         }
@@ -215,19 +218,19 @@ class WTRegisterFragment : Fragment() {
             .setPositiveButton(R.string.save, null) // Set action later
             .setNegativeButton(R.string.cancel, null)
             .create()
-        
+
         // Configure dialog window for better keyboard handling
         dialog.window?.apply {
             // Set soft input mode to adjust nothing and let scrollview handle scrolling
             setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING)
-            
+
             // Set window size to match screen width and wrap content for height
             setLayout(
                 android.view.WindowManager.LayoutParams.MATCH_PARENT,
                 android.view.WindowManager.LayoutParams.WRAP_CONTENT
             )
         }
-            
+
         dialog.setOnShowListener {
             val positiveButton = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
             positiveButton.setOnClickListener {
@@ -238,7 +241,7 @@ class WTRegisterFragment : Fragment() {
                     val endDate = dialogBinding.endDateInput.tag as Date
                     val amount = dialogBinding.amountInput.text.toString().toDoubleOrNull() ?: 0.0
                     val isPaid = dialogBinding.paidSwitch.isChecked
-                    
+
                     // Create a new registration record
                     viewModel.addRegistration(
                         studentId = student.id,
@@ -249,29 +252,29 @@ class WTRegisterFragment : Fragment() {
                         notes = dialogBinding.notesEditText.text.toString(),
                         isPaid = isPaid
                     )
-                    
+
                     // Refresh calendar to show the new registration
                     calendarViewModel.forceRefresh()
-                    
+
                     dialog.dismiss()
                     showSnackbar(getString(R.string.registration_success))
                 }
                 // If validation fails, dialog stays open with errors shown
             }
         }
-        
+
         dialog.show()
     }
 
     private fun validateRegistrationForm(dialogBinding: DialogEditWtStudentBinding): Boolean {
         var isValid = true
-        
+
         // Get required values
         val student = selectedStudent
         val startDate = dialogBinding.startDateInput.tag as? Date
         val endDate = dialogBinding.endDateInput.tag as? Date
         val amountText = dialogBinding.amountInput.text.toString().trim()
-        
+
         // Validate student selection
         if (student == null) {
             // Show error on student dropdown
@@ -280,43 +283,43 @@ class WTRegisterFragment : Fragment() {
         } else {
             dialogBinding.studentDropdown.error = null
         }
-        
+
         // Validate start date
         if (startDate == null) {
             dialogBinding.startDateInput.error = getString(R.string.please_select_start_date)
             isValid = false
         } else {
             dialogBinding.startDateInput.error = null
-            
+
             // Check for duplicate registration
             if (student != null) {
-                val existingRegistration = registrations.find { 
-                    it.studentId == student.id && 
+                val existingRegistration = registrations.find {
+                    it.studentId == student.id &&
                     it.startDate?.time == startDate.time &&
                     it.id != selectedRegistration?.id  // Skip current registration if editing
                 }
-                
+
                 if (existingRegistration != null) {
                     dialogBinding.startDateInput.error = "This student already has a registration with this date"
                     isValid = false
                 }
             }
         }
-        
+
         // Validate end date
         if (endDate == null) {
             dialogBinding.endDateInput.error = getString(R.string.please_select_end_date)
             isValid = false
         } else {
             dialogBinding.endDateInput.error = null
-            
+
             // Check that end date is after start date
             if (startDate != null && endDate.before(startDate)) {
                 dialogBinding.endDateInput.error = "End date must be after start date"
                 isValid = false
             }
         }
-        
+
         // Validate amount
         if (amountText.isEmpty() || amountText.toDoubleOrNull() == null) {
             dialogBinding.amountInput.error = getString(R.string.please_enter_valid_amount)
@@ -324,7 +327,7 @@ class WTRegisterFragment : Fragment() {
         } else {
             dialogBinding.amountInput.error = null
         }
-        
+
         return isValid
     }
 
@@ -333,7 +336,7 @@ class WTRegisterFragment : Fragment() {
         val studentNames = students.map { it.name }
         val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, studentNames)
         dialogBinding.studentDropdown.setAdapter(adapter)
-        
+
         // Set listener for selection
         dialogBinding.studentDropdown.setOnItemClickListener { _, _, position, _ ->
             selectedStudent = students[position]
@@ -343,15 +346,15 @@ class WTRegisterFragment : Fragment() {
     private fun showEditDialog(registration: WTRegistration) {
         val dialogBinding = DialogEditWtStudentBinding.inflate(layoutInflater)
         currentDialogBinding = dialogBinding
-        
+
         // Pre-fill form with registration details
         setupDatePickers(dialogBinding)
         setupStudentDropdown(dialogBinding)
-        
+
         // Store resources for attachment handling
         selectedAttachmentUri = registration.attachmentUri?.let { Uri.parse(it) }
         selectedRegistration = registration
-        
+
         // Fill in form fields
         dialogBinding.apply {
             // Set student dropdown
@@ -367,26 +370,26 @@ class WTRegisterFragment : Fragment() {
                 startDateInput.setText(dateFormat.format(registration.startDate))
                 startDateInput.tag = registration.startDate
             }
-            
+
             if (registration.endDate != null) {
                 endDateInput.setText(dateFormat.format(registration.endDate))
                 endDateInput.tag = registration.endDate
             }
-            
+
             // Set amount and notes
             amountInput.setText(registration.amount.toString())
             notesEditText.setText(registration.notes ?: "")
-            
+
             // Set payment status
             paidSwitch.isChecked = registration.isPaid
-            
+
             // Set attachment if available
             if (registration.attachmentUri != null) {
                 try {
                     val uri = Uri.parse(registration.attachmentUri)
                     val fileName = getFileName(uri)
                     attachmentNameText.text = fileName
-                    
+
                     attachmentPreview.visibility = View.VISIBLE
                 } catch (e: Exception) {
                     Toast.makeText(
@@ -398,7 +401,7 @@ class WTRegisterFragment : Fragment() {
                     attachmentPreview.visibility = View.GONE
                 }
             }
-            
+
             addAttachmentButton.setOnClickListener {
                 getContent.launch("*/*")
             }
@@ -424,10 +427,10 @@ class WTRegisterFragment : Fragment() {
                         isPaid = dialogBinding.paidSwitch.isChecked
                     )
                     viewModel.updateRegistration(updatedRegistration)
-                    
+
                     // Refresh calendar to show the updated registration
                     calendarViewModel.forceRefresh()
-                    
+
                     dialog.dismiss()
                     showSnackbar(getString(R.string.registration_updated))
                 }
@@ -440,30 +443,30 @@ class WTRegisterFragment : Fragment() {
 
     private fun setupDatePickers(dialogBinding: DialogEditWtStudentBinding) {
         val calendar = Calendar.getInstance()
-        
+
         // For start date
         dialogBinding.startDateInput.setOnClickListener {
             val year = calendar.get(Calendar.YEAR)
             val month = calendar.get(Calendar.MONTH)
             val day = calendar.get(Calendar.DAY_OF_MONTH)
-            
+
             DatePickerDialog(requireContext(), { _, selectedYear, selectedMonth, selectedDay ->
                 calendar.set(selectedYear, selectedMonth, selectedDay)
                 val selectedDate = calendar.time
                 dialogBinding.startDateInput.setText(dateFormat.format(selectedDate))
                 dialogBinding.startDateInput.tag = selectedDate
-                
+
                 // Get lessons from parent fragment
                 val lessons = when (val parentFragment = parentFragment) {
                     is WTRegistryFragment -> parentFragment.getLessons()
                     else -> emptyList()
                 }
-                
+
                 // Calculate end date after 8 lessons from the start date
                 val startCalendar = Calendar.getInstance()
                 startCalendar.time = selectedDate
                 val endDate = calendarViewModel.calculateDateAfterNLessons(startCalendar, lessons, 8)
-                
+
                 // Set end time to 22:00 (10pm)
                 val endCalendar = Calendar.getInstance()
                 endCalendar.time = endDate
@@ -471,28 +474,28 @@ class WTRegisterFragment : Fragment() {
                 endCalendar.set(Calendar.MINUTE, 0)
                 endCalendar.set(Calendar.SECOND, 0)
                 endCalendar.set(Calendar.MILLISECOND, 0)
-                
+
                 // Update the end date field
                 dialogBinding.endDateInput.setText(dateFormat.format(endCalendar.time))
                 dialogBinding.endDateInput.tag = endCalendar.time
             }, year, month, day).show()
         }
-        
+
         // For end date
         dialogBinding.endDateInput.setOnClickListener {
             val year = calendar.get(Calendar.YEAR)
             val month = calendar.get(Calendar.MONTH)
             val day = calendar.get(Calendar.DAY_OF_MONTH)
-            
+
             DatePickerDialog(requireContext(), { _, selectedYear, selectedMonth, selectedDay ->
                 calendar.set(selectedYear, selectedMonth, selectedDay)
-                
+
                 // Set time to 22:00 (10pm)
                 calendar.set(Calendar.HOUR_OF_DAY, 22)
                 calendar.set(Calendar.MINUTE, 0)
                 calendar.set(Calendar.SECOND, 0)
                 calendar.set(Calendar.MILLISECOND, 0)
-                
+
                 val selectedDate = calendar.time
                 dialogBinding.endDateInput.setText(dateFormat.format(selectedDate))
                 dialogBinding.endDateInput.tag = selectedDate
@@ -503,7 +506,7 @@ class WTRegisterFragment : Fragment() {
     private fun updateAttachmentPreview(dialogBinding: DialogEditWtStudentBinding, uri: Uri) {
         dialogBinding.attachmentNameText.text = getFileName(uri)
         dialogBinding.attachmentNameText.visibility = View.VISIBLE
-        
+
         val mimeType = context?.contentResolver?.getType(uri)
         if (mimeType?.startsWith("image/") == true) {
             try {
@@ -519,7 +522,7 @@ class WTRegisterFragment : Fragment() {
 
     private fun getFileName(uri: Uri): String {
         val contentResolver = context?.contentResolver ?: return "File"
-        
+
         // First try with query
         val cursor = contentResolver.query(uri, null, null, null, null)
         cursor?.use {
@@ -530,14 +533,14 @@ class WTRegisterFragment : Fragment() {
                 }
             }
         }
-        
+
         // If query failed, try to extract from URI path
         val result = uri.path?.let { path ->
             path.lastIndexOf('/').let { lastSlash ->
                 if (lastSlash != -1) path.substring(lastSlash + 1) else path
             }
         } ?: "File"
-        
+
         return result
     }
 
@@ -548,24 +551,24 @@ class WTRegisterFragment : Fragment() {
     private fun shareRegistrationInfo(registration: WTRegistration) {
         // Get student name from the students list
         val studentName = students.find { it.id == registration.studentId }?.name ?: "Unknown Student"
-        
+
         // Format dates with null check
         val startDateFormatted = registration.startDate?.let { dateFormat.format(it) } ?: "N/A"
         val endDateFormatted = registration.endDate?.let { dateFormat.format(it) } ?: "N/A"
-        
+
         val message = """
             Student: $studentName
             Course Period: $startDateFormatted - $endDateFormatted
             Amount: ₺${registration.amount}
             Payment Status: Paid
         """.trimIndent()
-        
+
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_SUBJECT, "Registration Information: $studentName")
             putExtra(Intent.EXTRA_TEXT, message)
         }
-        
+
         startActivity(Intent.createChooser(intent, "Share via"))
     }
 
@@ -582,7 +585,7 @@ class WTRegisterFragment : Fragment() {
     private fun showContextMenu(registration: WTRegistration, view: View) {
         val popup = PopupMenu(requireContext(), view)
         popup.menuInflater.inflate(R.menu.wt_registration_context_menu, popup.menu)
-        
+
         popup.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 R.id.action_edit -> {
@@ -602,7 +605,7 @@ class WTRegisterFragment : Fragment() {
     private fun showDeleteConfirmation(registration: WTRegistration) {
         // Get student name from the students list
         val studentName = students.find { it.id == registration.studentId }?.name ?: "Unknown Student"
-        
+
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.delete_registration)
             .setMessage(getString(R.string.delete_registration_confirmation, studentName))
@@ -621,13 +624,13 @@ class WTRegisterFragment : Fragment() {
             Snackbar.LENGTH_INDEFINITE
         )
         loadingSnackbar.show()
-        
+
         viewModel.deleteRegistration(registration)
-        
+
         // Observe changes to registrations to update UI
         viewModel.registrations.observe(viewLifecycleOwner) { registrations ->
             loadingSnackbar.dismiss()
-            
+
             // Check if registration was successfully removed
             val stillExists = registrations.any { it.id == registration.id && it.startDate != null }
             if (!stillExists) {
@@ -637,10 +640,10 @@ class WTRegisterFragment : Fragment() {
                     getString(R.string.registration_deleted),
                     Snackbar.LENGTH_LONG
                 ).show()
-                
+
                 // Update adapter
                 adapter.submitList(registrations)
-                
+
                 // Refresh calendar to remove the deleted registration
                 calendarViewModel.forceRefresh()
             } else {
@@ -654,7 +657,7 @@ class WTRegisterFragment : Fragment() {
                     deleteFromHistory(registration)
                 }.show()
             }
-            
+
             // Remove the observer to prevent multiple callbacks
             viewModel.registrations.removeObservers(viewLifecycleOwner)
         }
@@ -665,4 +668,4 @@ class WTRegisterFragment : Fragment() {
         _binding = null
         currentDialogBinding = null
     }
-} 
+}

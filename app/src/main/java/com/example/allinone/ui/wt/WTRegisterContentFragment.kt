@@ -186,6 +186,9 @@ class WTRegisterContentFragment : Fragment() {
             onShareClick = { registration -> shareRegistrationInfo(registration) },
             getStudentName = { studentId ->
                 students.find { it.id == studentId }?.name ?: "Unknown Student"
+            },
+            getStudentPhotoUri = { studentId ->
+                students.find { it.id == studentId }?.photoUri
             }
         )
 
