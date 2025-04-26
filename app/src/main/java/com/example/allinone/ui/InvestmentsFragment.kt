@@ -123,7 +123,7 @@ class InvestmentsFragment : Fragment() {
             }
         }
     }
-    
+
     private fun setupObservers() {
         // Observe add status
         viewModel.addStatus.observe(viewLifecycleOwner) { status ->
@@ -140,7 +140,7 @@ class InvestmentsFragment : Fragment() {
                 else -> { /* Do nothing */ }
             }
         }
-        
+
         // Observe update status
         viewModel.updateStatus.observe(viewLifecycleOwner) { status ->
             when (status) {
@@ -155,7 +155,7 @@ class InvestmentsFragment : Fragment() {
                 else -> { /* Do nothing */ }
             }
         }
-        
+
         // Observe delete status
         viewModel.deleteStatus.observe(viewLifecycleOwner) { status ->
             when (status) {
@@ -171,7 +171,7 @@ class InvestmentsFragment : Fragment() {
             }
         }
     }
-    
+
     private fun refreshInvestmentData() {
         viewModel.refreshData()
     }
@@ -188,7 +188,7 @@ class InvestmentsFragment : Fragment() {
         // Setup ViewPager with adapter
         val pagerAdapter = InvestmentPagerAdapter(this)
         binding.investmentViewPager.adapter = pagerAdapter
-        
+
         // Connect TabLayout with ViewPager2
         TabLayoutMediator(binding.investmentTabLayout, binding.investmentViewPager) { tab, position ->
             tab.text = when (position) {
@@ -349,7 +349,7 @@ class InvestmentsFragment : Fragment() {
                                 Log.d("InvestmentsFragment", "Applied pending ${if (isIncome) "income" else "expense"} transaction of $pendingAmount to investment $investmentId")
                             }
                         }
-                        
+
                         // Refresh the UI data
                         refreshInvestmentData()
                     } else {
@@ -461,26 +461,26 @@ class InvestmentsFragment : Fragment() {
                 try {
                     // First handle images if needed
                     var imageUriString = investment.imageUri
-                    
+
                     // Check if image list was modified
                     val oldImages = investment.imageUri?.split(",")?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
                     val currentImageUris = selectedImages.map { it.toString() }.toSet()
-                    
+
                     if (oldImages != currentImageUris) {
                         // Images changed, update them
                         val newImageUris = mutableListOf<String>()
-                        
+
                         // Keep track of existing images that we're keeping
-                        val existingImages = selectedImages.filter { 
-                            it.toString().startsWith("http") 
+                        val existingImages = selectedImages.filter {
+                            it.toString().startsWith("http")
                         }.map { it.toString() }
                         newImageUris.addAll(existingImages)
-                        
+
                         // Upload any new images
-                        val newImages = selectedImages.filter { 
-                            !it.toString().startsWith("http") 
+                        val newImages = selectedImages.filter {
+                            !it.toString().startsWith("http")
                         }
-                        
+
                         if (newImages.isNotEmpty()) {
                             for (imageUri in newImages) {
                                 val realUri = getFileUri(imageUri)
@@ -491,10 +491,10 @@ class InvestmentsFragment : Fragment() {
                                             .child("investments")
                                             .child(investment.id.toString())
                                             .child("$uuid.jpg")
-                                            
+
                                         val uploadTask = storageRef.putFile(realUri)
                                         uploadTask.await()
-                                        
+
                                         val downloadUrl = storageRef.downloadUrl.await()
                                         newImageUris.add(downloadUrl.toString())
                                     } catch (e: Exception) {
@@ -503,30 +503,83 @@ class InvestmentsFragment : Fragment() {
                                 }
                             }
                         }
-                        
+
                         imageUriString = newImageUris.joinToString(",")
                     }
-                    
-                    // Update the investment
-                    val updatedInvestment = investment.copy(
-                        name = name,
-                        amount = amount,
-                        type = type,
-                        description = description,
-                        imageUri = imageUriString,
-                        isPast = isPast
-                    )
-                    
-                    viewModel.updateInvestment(updatedInvestment)
-                    
-                    // Explicitly refresh after update
-                    refreshInvestmentData()
-                    
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(requireContext(), "Investment updated", Toast.LENGTH_SHORT).show()
-                        dialog.dismiss()
+
+                    // Check if investment amount is being decreased and not marked as past
+                    if (!isPast && amount < investment.amount) {
+                        // Amount is being decreased, ask user if they want to add the difference as income
+                        val amountDifference = investment.amount - amount
+
+                        withContext(Dispatchers.Main) {
+                            MaterialAlertDialogBuilder(requireContext())
+                                .setTitle("Investment Reduced")
+                                .setMessage("You've reduced this investment by ${amountDifference}. Would you like to add this amount as income (e.g., from liquidation)?")
+                                .setPositiveButton("Yes, Add as Income") { _, _ ->
+                                    // Create the updated investment
+                                    val updatedInvestment = investment.copy(
+                                        name = name,
+                                        amount = amount,
+                                        type = type,
+                                        description = description,
+                                        imageUri = imageUriString,
+                                        isPast = isPast
+                                    )
+
+                                    // Update with flag to add difference as income
+                                    viewModel.updateInvestmentWithAmountReduction(updatedInvestment, true)
+
+                                    // Explicitly refresh after update
+                                    refreshInvestmentData()
+
+                                    Toast.makeText(requireContext(), "Investment updated with income added", Toast.LENGTH_SHORT).show()
+                                    dialog.dismiss()
+                                }
+                                .setNegativeButton("No, Just Reduce") { _, _ ->
+                                    // Create the updated investment
+                                    val updatedInvestment = investment.copy(
+                                        name = name,
+                                        amount = amount,
+                                        type = type,
+                                        description = description,
+                                        imageUri = imageUriString,
+                                        isPast = isPast
+                                    )
+
+                                    // Update without adding difference as income
+                                    viewModel.updateInvestmentWithAmountReduction(updatedInvestment, false)
+
+                                    // Explicitly refresh after update
+                                    refreshInvestmentData()
+
+                                    Toast.makeText(requireContext(), "Investment updated", Toast.LENGTH_SHORT).show()
+                                    dialog.dismiss()
+                                }
+                                .show()
+                        }
+                    } else {
+                        // Normal update (amount increased or unchanged, or investment is marked as past)
+                        val updatedInvestment = investment.copy(
+                            name = name,
+                            amount = amount,
+                            type = type,
+                            description = description,
+                            imageUri = imageUriString,
+                            isPast = isPast
+                        )
+
+                        viewModel.updateInvestment(updatedInvestment)
+
+                        // Explicitly refresh after update
+                        refreshInvestmentData()
+
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(requireContext(), "Investment updated", Toast.LENGTH_SHORT).show()
+                            dialog.dismiss()
+                        }
                     }
-                    
+
                 } catch (e: Exception) {
                     Log.e("InvestmentsFragment", "Error updating investment", e)
                     withContext(Dispatchers.Main) {
@@ -545,7 +598,7 @@ class InvestmentsFragment : Fragment() {
             .setMessage("Are you sure you want to delete '${investment.name}'?")
             .setPositiveButton("Delete") { _, _ ->
                 viewModel.deleteInvestment(investment)
-                
+
                 // Show a toast confirming deletion
                 Toast.makeText(requireContext(), "${investment.name} deleted", Toast.LENGTH_SHORT).show()
             }
@@ -555,16 +608,16 @@ class InvestmentsFragment : Fragment() {
 
     fun showFullscreenImage(uri: String?) {
         if (uri == null) return
-        
+
         // Determine if uri is part of an investment with multiple images
         val allImages = mutableListOf<String>()
         var initialPosition = 0
-        
+
         // Get the current investment (if any) that contains this image
         val investment = viewModel.allInvestments.value?.find { inv ->
             inv.imageUri?.split(",")?.filter { it.isNotBlank() }?.contains(uri) == true
         }
-        
+
         // If we found the investment, get all its images
         if (investment != null && !investment.imageUri.isNullOrBlank()) {
             val images = investment.imageUri.split(",").filter { it.isNotBlank() }
@@ -574,26 +627,26 @@ class InvestmentsFragment : Fragment() {
             // Just show this single image
             allImages.add(uri)
         }
-        
+
         // Create the dialog
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_fullscreen_image, null)
         val dialog = Dialog(requireContext(), android.R.style.Theme_Black_NoTitleBar_Fullscreen)
         dialog.setContentView(dialogView)
-        
+
         // Setup ViewPager
         val viewPager = dialogView.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.fullscreenViewPager)
         val imageCounter = dialogView.findViewById<TextView>(R.id.imageCounterText)
-        
+
         // Setup adapter for the ViewPager
         val adapter = com.example.allinone.adapters.FullscreenImageAdapter(requireContext(), allImages)
         viewPager.adapter = adapter
-        
+
         // Set initial position
         viewPager.setCurrentItem(initialPosition, false)
-        
+
         // Update counter text
         updateImageCounter(imageCounter, initialPosition, allImages.size)
-        
+
         // Listen for page changes
         viewPager.registerOnPageChangeCallback(object : androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
@@ -601,14 +654,14 @@ class InvestmentsFragment : Fragment() {
                 updateImageCounter(imageCounter, position, allImages.size)
             }
         })
-        
+
         // Show dialog
         dialog.show()
-        
+
         // Close on click anywhere on the screen
         dialogView.setOnClickListener { dialog.dismiss() }
     }
-    
+
     private fun updateImageCounter(textView: TextView, position: Int, total: Int) {
         if (total <= 1) {
             textView.visibility = View.GONE
