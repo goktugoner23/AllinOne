@@ -17,7 +17,8 @@ object TransactionCategories {
         "Shopping",
         "Bills",
         "Food",
-        "Transport"
+        "Transport",
+        "Game"
     )
 
     // Income-specific categories (can expand in the future if needed)
@@ -35,7 +36,8 @@ object TransactionCategories {
         "Bills",
         "Food",
         "Transport",
-        "Wing Tzun"
+        "Wing Tzun",
+        "Game"
     )
 
     // Special adjustment categories that are shown separately in reports
@@ -57,6 +59,7 @@ object TransactionCategories {
         "Shopping" to R.drawable.ic_category_shopping,
         "Bills" to R.drawable.ic_category_bills,
         "Food" to R.drawable.ic_category_food,
-        "Transport" to R.drawable.ic_category_transport
+        "Transport" to R.drawable.ic_category_transport,
+        "Game" to R.drawable.ic_category_game
     )
 }
