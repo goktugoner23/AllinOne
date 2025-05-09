@@ -41,6 +41,7 @@ import java.util.UUID
 import com.google.firebase.storage.FirebaseStorage
 import com.bumptech.glide.Glide
 import com.example.allinone.adapters.FullscreenImageAdapter
+import com.example.allinone.firebase.DataChangeNotifier
 
 class InvestmentsFragment : Fragment() {
     private var _binding: FragmentInvestmentsBinding? = null
@@ -593,17 +594,49 @@ class InvestmentsFragment : Fragment() {
     }
 
     fun showDeleteConfirmation(investment: Investment) {
+        val options = arrayOf("Delete", "Liquidate")
+        
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Delete Investment")
-            .setMessage("Are you sure you want to delete '${investment.name}'?")
-            .setPositiveButton("Delete") { _, _ ->
-                viewModel.deleteInvestment(investment)
-
-                // Show a toast confirming deletion
-                Toast.makeText(requireContext(), "${investment.name} deleted", Toast.LENGTH_SHORT).show()
+            .setTitle("Investment Options")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> { // Delete
+                        MaterialAlertDialogBuilder(requireContext())
+                            .setTitle("Delete Investment")
+                            .setMessage("Are you sure you want to delete '${investment.name}'?")
+                            .setPositiveButton("Delete") { _, _ ->
+                                viewModel.deleteInvestment(investment)
+                                Toast.makeText(requireContext(), "${investment.name} deleted", Toast.LENGTH_SHORT).show()
+                            }
+                            .setNegativeButton("Cancel", null)
+                            .show()
+                    }
+                    1 -> { // Liquidate
+                        MaterialAlertDialogBuilder(requireContext())
+                            .setTitle("Liquidate Investment")
+                            .setMessage("Are you sure you want to liquidate '${investment.name}'? This will remove the investment without affecting your transaction history.")
+                            .setPositiveButton("Liquidate") { _, _ ->
+                                liquidateInvestment(investment)
+                                Toast.makeText(requireContext(), "${investment.name} liquidated", Toast.LENGTH_SHORT).show()
+                            }
+                            .setNegativeButton("Cancel", null)
+                            .show()
+                    }
+                }
             }
-            .setNegativeButton("Cancel", null)
             .show()
+    }
+    
+    private fun liquidateInvestment(investment: Investment) {
+        lifecycleScope.launch {
+            try {
+                // Use the viewModel's liquidateInvestment method
+                viewModel.liquidateInvestment(investment)
+            } catch (e: Exception) {
+                Log.e("InvestmentsFragment", "Error liquidating investment: ${e.message}", e)
+                Toast.makeText(requireContext(), "Error liquidating investment: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     fun showFullscreenImage(uri: String?) {

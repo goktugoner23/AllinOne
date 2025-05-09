@@ -464,6 +464,31 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     /**
+     * Liquidates an investment by deleting it without affecting related transactions
+     * @param investment The investment to liquidate
+     */
+    fun liquidateInvestment(investment: Investment) {
+        viewModelScope.launch {
+            try {
+                Log.d("InvestmentsViewModel", "Liquidating investment: ${investment.name}, ID: ${investment.id}, Amount: ${investment.amount}")
+                
+                // Just delete the investment without looking for or modifying transactions
+                repository.deleteInvestment(investment)
+
+                // Notify about data change (only for investments)
+                DataChangeNotifier.notifyInvestmentsChanged()
+
+                refreshData()
+                _deleteStatus.value = DeleteStatus.SUCCESS
+            } catch (e: Exception) {
+                Log.e("InvestmentsViewModel", "Error liquidating investment: ${e.message}", e)
+                _deleteStatus.value = DeleteStatus.ERROR
+                _errorMessage.value = "Error liquidating investment: ${e.message}"
+            }
+        }
+    }
+
+    /**
      * Update an investment with a reduced amount, with option to add the difference as income
      * @param newInvestment The updated investment with reduced amount
      * @param addDifferenceAsIncome Whether to add the difference as income
