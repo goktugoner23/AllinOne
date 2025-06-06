@@ -53,7 +53,6 @@ import android.widget.EditText
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.example.allinone.workers.LogcatCaptureWorker
-import com.example.allinone.ui.SourceCodeViewerFragment
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.withTimeoutOrNull
 import com.google.firebase.FirebaseOptions
@@ -695,9 +694,6 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             R.id.nav_error_logs -> {
                 binding.bottomNavigation.visibility = View.GONE
             }
-            R.id.nav_source_code -> {
-                binding.bottomNavigation.visibility = View.GONE
-            }
             R.id.nav_clear_data -> {
                 binding.bottomNavigation.visibility = View.GONE
             }
@@ -912,11 +908,6 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                 R.id.nav_clear_db -> {
                     // Clear Firestore database
                     clearFirestoreDatabase()
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_source_code -> {
-                    navController.navigate(R.id.nav_source_code)
                     drawerLayout.closeDrawers()
                     true
                 }
