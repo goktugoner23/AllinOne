@@ -5,7 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
+import androidx.fragment.app.activityViewModels
 import com.example.allinone.R
 import com.example.allinone.databinding.FragmentWorkoutDashboardBinding
 import java.text.SimpleDateFormat
@@ -14,7 +14,7 @@ import java.util.Locale
 class WorkoutDashboardFragment : Fragment() {
     private var _binding: FragmentWorkoutDashboardBinding? = null
     private val binding get() = _binding!!
-    private val viewModel: WorkoutViewModel by viewModels()
+    private val viewModel: WorkoutViewModel by activityViewModels()
 
     private val dateFormat = SimpleDateFormat("MMM dd, yyyy - hh:mm a", Locale.getDefault())
 
@@ -34,7 +34,7 @@ class WorkoutDashboardFragment : Fragment() {
         binding.swipeRefreshLayout.setOnRefreshListener {
             refreshWorkouts()
         }
-        
+
         // Set refresh indicator colors
         binding.swipeRefreshLayout.setColorSchemeResources(
             R.color.colorPrimary,
@@ -46,7 +46,7 @@ class WorkoutDashboardFragment : Fragment() {
         viewModel.allWorkouts.observe(viewLifecycleOwner) { workouts ->
             // Hide refresh indicator if it's showing
             binding.swipeRefreshLayout.isRefreshing = false
-            
+
             updateDashboard(workouts)
         }
     }
@@ -101,10 +101,10 @@ class WorkoutDashboardFragment : Fragment() {
         super.onDestroyView()
         _binding = null
     }
-    
+
     override fun onResume() {
         super.onResume()
-        
+
         // Refresh data when returning to this fragment
         refreshWorkouts()
     }

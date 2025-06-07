@@ -14,7 +14,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
+import androidx.fragment.app.activityViewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.allinone.R
@@ -34,7 +34,7 @@ import java.util.concurrent.TimeUnit
 class WorkoutExerciseFragment : Fragment() {
     private var _binding: FragmentWorkoutExerciseBinding? = null
     private val binding get() = _binding!!
-    private val viewModel: WorkoutViewModel by viewModels()
+    private val viewModel: WorkoutViewModel by activityViewModels()
 
     // Workout variables
     private var selectedProgram: Program? = null
@@ -47,11 +47,11 @@ class WorkoutExerciseFragment : Fragment() {
     private var selectedSortOption: String? = null
     private lateinit var workoutLogAdapter: WorkoutLogAdapter
     private val dateFormat = SimpleDateFormat("MMM dd, yyyy - hh:mm a", Locale.getDefault())
-    
+
     private val sortOptions = arrayOf(
-        "Date (Newest First)", 
-        "Date (Oldest First)", 
-        "Duration (Longest First)", 
+        "Date (Newest First)",
+        "Date (Oldest First)",
+        "Duration (Longest First)",
         "Duration (Shortest First)"
     )
 
@@ -105,7 +105,7 @@ class WorkoutExerciseFragment : Fragment() {
         binding.swipeRefreshLayout.setOnRefreshListener {
             refreshWorkouts()
         }
-        
+
         // Set refresh indicator colors
         binding.swipeRefreshLayout.setColorSchemeResources(
             R.color.colorPrimary,
@@ -122,19 +122,19 @@ class WorkoutExerciseFragment : Fragment() {
         viewModel.allWorkouts.observe(viewLifecycleOwner) { workouts ->
             // Hide refresh indicator if it's showing
             binding.swipeRefreshLayout.isRefreshing = false
-            
+
             android.util.Log.d("WorkoutExerciseFragment", "Received ${workouts.size} workouts from ViewModel")
-            
+
             // Log each workout for debugging
             workouts.forEach { workout ->
                 android.util.Log.d("WorkoutExerciseFragment", "Workout: ${workout.id}, ${workout.programName}, Exercises: ${workout.exercises.size}")
             }
-            
+
             allWorkouts = workouts
             applyFilters()
         }
     }
-    
+
     private fun setupFilters() {
         // Set up muscle group filter
         val muscleGroupItems = listOf("All Muscle Groups") + MuscleGroups.MUSCLE_GROUPS.toList()
@@ -143,38 +143,38 @@ class WorkoutExerciseFragment : Fragment() {
             R.layout.dropdown_item,
             muscleGroupItems
         )
-        
+
         val muscleGroupDropdown = binding.filterMuscleGroup
         muscleGroupDropdown.setAdapter(muscleGroupAdapter)
         muscleGroupDropdown.setText(muscleGroupItems[0], false)
-        
+
         // Set up sort options
         val sortAdapter = ArrayAdapter(
             requireContext(),
             R.layout.dropdown_item,
             sortOptions
         )
-        
+
         val sortDropdown = binding.sortOption
         sortDropdown.setAdapter(sortAdapter)
         sortDropdown.setText(sortOptions[0], false)
     }
-    
+
     private fun applyFilters() {
         android.util.Log.d("WorkoutExerciseFragment", "Applying filters to ${allWorkouts.size} workouts")
-        
+
         if (allWorkouts.isEmpty()) {
             android.util.Log.d("WorkoutExerciseFragment", "No workouts available to filter")
             updateEmptyState(true)
             return
         }
-        
+
         // Get selected filter values
         selectedMuscleGroup = binding.filterMuscleGroup.text.toString()
         selectedSortOption = binding.sortOption.text.toString()
-        
+
         android.util.Log.d("WorkoutExerciseFragment", "Filter - Muscle group: $selectedMuscleGroup, Sort: $selectedSortOption")
-        
+
         // Apply muscle group filter
         filteredWorkouts = if (selectedMuscleGroup == "All Muscle Groups" || selectedMuscleGroup.isNullOrEmpty()) {
             allWorkouts
@@ -185,9 +185,9 @@ class WorkoutExerciseFragment : Fragment() {
                 }
             }
         }
-        
+
         android.util.Log.d("WorkoutExerciseFragment", "After muscle group filter: ${filteredWorkouts.size} workouts")
-        
+
         // Apply sorting
         filteredWorkouts = when (selectedSortOption) {
             "Date (Oldest First)" -> filteredWorkouts.sortedBy { it.startTime }
@@ -195,19 +195,19 @@ class WorkoutExerciseFragment : Fragment() {
             "Duration (Shortest First)" -> filteredWorkouts.sortedBy { it.duration }
             else -> filteredWorkouts.sortedByDescending { it.startTime } // Default is newest first
         }
-        
+
         android.util.Log.d("WorkoutExerciseFragment", "Final filtered workouts: ${filteredWorkouts.size}")
-        
+
         // Log the details of filtered workouts
         filteredWorkouts.forEach { workout ->
             android.util.Log.d("WorkoutExerciseFragment", "Filtered workout: ID=${workout.id}, Name=${workout.programName ?: "Unnamed"}, Date=${workout.startTime}")
         }
-        
+
         // Update RecyclerView
         workoutLogAdapter.updateWorkouts(filteredWorkouts)
         updateEmptyState(filteredWorkouts.isEmpty())
     }
-    
+
     private fun updateEmptyState(isEmpty: Boolean) {
         if (isEmpty) {
             binding.emptyLogText.visibility = View.VISIBLE
@@ -222,7 +222,7 @@ class WorkoutExerciseFragment : Fragment() {
         // Log the workout details we're about to display
         android.util.Log.d("WorkoutExerciseFragment", "Showing workout details: ${workout.programName ?: "Unnamed"} (ID: ${workout.id})")
         android.util.Log.d("WorkoutExerciseFragment", "Workout has ${workout.exercises.size} exercises")
-        
+
         // Create a dialog to show workout details
         val dialogView = LayoutInflater.from(requireContext())
             .inflate(R.layout.dialog_workout_details, null)
@@ -231,7 +231,7 @@ class WorkoutExerciseFragment : Fragment() {
         val workoutDateText = dialogView.findViewById<TextView>(R.id.workout_date_text)
         val workoutDurationText = dialogView.findViewById<TextView>(R.id.workout_duration_text)
         val exercisesRecyclerView = dialogView.findViewById<RecyclerView>(R.id.exercises_recycler_view)
-        
+
         // Set workout details
         workoutNameText.text = when {
             !workout.programName.isNullOrBlank() -> workout.programName
@@ -247,7 +247,7 @@ class WorkoutExerciseFragment : Fragment() {
             textView.text = "No exercises recorded for this workout"
             textView.textSize = 16f
             textView.setPadding(16, 16, 16, 16)
-            
+
             // Find the parent layout and add the text view before the RecyclerView
             val parent = exercisesRecyclerView.parent as? ViewGroup
             if (parent != null) {
@@ -255,7 +255,7 @@ class WorkoutExerciseFragment : Fragment() {
                 parent.addView(textView, index)
             }
         }
-        
+
         // Set up exercises RecyclerView
         exercisesRecyclerView.layoutManager = LinearLayoutManager(requireContext())
         val exerciseAdapter = WorkoutExerciseAdapter(
@@ -290,12 +290,12 @@ class WorkoutExerciseFragment : Fragment() {
 
     private fun setupProgramSpinner(programs: List<Program>) {
         android.util.Log.d("WorkoutExerciseFragment", "Setting up program spinner with ${programs.size} programs: ${programs.map { it.name }}")
-        
+
         if (programs.isEmpty()) {
             // Handle the case where there are no programs
             binding.programSpinner.isEnabled = false
             binding.createWorkoutButton.isEnabled = false
-            
+
             // Show a message to create programs first, but only once
             if (!hasShownNoProgramsMessage) {
                 Toast.makeText(requireContext(), "Create programs first in the Programs tab", Toast.LENGTH_SHORT).show()
@@ -303,14 +303,14 @@ class WorkoutExerciseFragment : Fragment() {
             }
             return
         }
-        
+
         // Reset the flag when programs are available
         hasShownNoProgramsMessage = false
-        
+
         // Re-enable controls if they were disabled
         binding.programSpinner.isEnabled = true
         binding.createWorkoutButton.isEnabled = true
-        
+
         // Log details about each program and its exercises
         programs.forEach { program ->
             android.util.Log.d("WorkoutExerciseFragment", "Program: ${program.name} (ID: ${program.id}) has ${program.exercises.size} exercises")
@@ -318,7 +318,7 @@ class WorkoutExerciseFragment : Fragment() {
                 android.util.Log.d("WorkoutExerciseFragment", "Exercises: ${program.exercises.map { it.exerciseName }}")
             }
         }
-        
+
         // Use program names directly without "Custom Workout" option
         val programNames = programs.map { it.name }
 
@@ -335,7 +335,7 @@ class WorkoutExerciseFragment : Fragment() {
             android.util.Log.d("WorkoutExerciseFragment", "Previously selected program has been deleted")
             selectedProgram = null
         }
-        
+
         binding.programSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 // Check if the position is valid
@@ -344,11 +344,11 @@ class WorkoutExerciseFragment : Fragment() {
                     selectedProgram = null
                     return
                 }
-                
+
                 // Directly map position to programs list
                 selectedProgram = programs[position]
                 android.util.Log.d("WorkoutExerciseFragment", "Selected program: ${selectedProgram?.name}")
-                
+
                 // Null-safe log to prevent crashes if the program is corrupt
                 selectedProgram?.let {
                     android.util.Log.d("WorkoutExerciseFragment", "Selected program has ${it.exercises.size} exercises")
@@ -360,7 +360,7 @@ class WorkoutExerciseFragment : Fragment() {
                 selectedProgram = if (programs.isNotEmpty()) programs[0] else null
             }
         }
-        
+
         // Attempt to restore previous selection if possible
         if (selectedProgram != null) {
             val index = programs.indexOfFirst { it.id == selectedProgram!!.id }
@@ -383,23 +383,23 @@ class WorkoutExerciseFragment : Fragment() {
                     "The selected program has been deleted. Please select another program.",
                     Toast.LENGTH_LONG
                 ).show()
-                
+
                 // Refresh programs to update the spinner
                 viewModel.refreshPrograms()
                 return
             }
-            
+
             android.util.Log.d("WorkoutExerciseFragment", "Creating workout from program: ${selectedProgram!!.name}")
             android.util.Log.d("WorkoutExerciseFragment", "Program has ${selectedProgram!!.exercises.size} exercises")
             android.util.Log.d("WorkoutExerciseFragment", "Exercise list: ${selectedProgram!!.exercises.map { it.exerciseName }}")
-            
+
             // Force refresh the program to ensure exercises are loaded
             viewModel.getProgram(selectedProgram!!.id) { refreshedProgram ->
                 if (refreshedProgram != null) {
                     // Update the selected program with the refreshed one
                     selectedProgram = refreshedProgram
                     android.util.Log.d("WorkoutExerciseFragment", "Refreshed program has ${refreshedProgram.exercises.size} exercises")
-                    
+
                     // Now create the workout with the refreshed program
                     createWorkoutWithProgram(refreshedProgram)
                 } else {
@@ -409,7 +409,7 @@ class WorkoutExerciseFragment : Fragment() {
                         "Error loading program. It may have been deleted.",
                         Toast.LENGTH_LONG
                     ).show()
-                    
+
                     // Refresh programs to update the spinner
                     viewModel.refreshPrograms()
                 }
@@ -419,7 +419,7 @@ class WorkoutExerciseFragment : Fragment() {
             createWorkoutWithProgram(null)
         }
     }
-    
+
     private fun createWorkoutWithProgram(program: Program?) {
         val exercises = if (program != null && program.exercises.isNotEmpty()) {
             // Convert program exercises to workout exercises
@@ -440,7 +440,7 @@ class WorkoutExerciseFragment : Fragment() {
         } else {
             emptyList()
         }
-        
+
         // Create a new workout (always use program name if available)
         val workout = Workout(
             programId = program?.id,
@@ -448,16 +448,16 @@ class WorkoutExerciseFragment : Fragment() {
             startTime = Date(),
             exercises = exercises
         )
-        
+
         android.util.Log.d("WorkoutExerciseFragment", "Created workout with name: ${workout.programName}, ${workout.exercises.size} exercises")
 
         // Save the created workout to the currentWorkout variable
         currentWorkout = workout
-        
+
         // Navigate to the active workout fragment
         navigateToActiveWorkout()
     }
-    
+
     /**
      * Navigate to active workout screen with the current workout
      */
@@ -469,21 +469,21 @@ class WorkoutExerciseFragment : Fragment() {
 
         // Serialize workout to JSON for passing to ActiveWorkoutFragment
         val workoutJson = viewModel.workoutToJson(currentWorkout!!)
-        
+
         // Create arguments bundle
         val args = Bundle().apply {
             putString("workout", workoutJson)
         }
-        
+
         // Create and configure ActiveWorkoutFragment
         val activeWorkoutFragment = ActiveWorkoutFragment().apply {
             arguments = args
         }
-        
+
         // Hide the bottom navigation view when in active workout
         val bottomNavigationView = (parentFragment as? WorkoutFragment)?.view?.findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.workout_bottom_navigation)
         bottomNavigationView?.visibility = View.GONE
-        
+
         // Use the parent activity's main container (nav_host_fragment) instead of the workout container
         requireActivity().supportFragmentManager.beginTransaction()
             .replace(R.id.nav_host_fragment, activeWorkoutFragment)
@@ -495,7 +495,7 @@ class WorkoutExerciseFragment : Fragment() {
         val totalSeconds = TimeUnit.MILLISECONDS.toSeconds(durationMs)
         val minutes = totalSeconds / 60
         val seconds = totalSeconds % 60
-        
+
         return if (seconds > 0) {
             String.format("%d min %02d sec", minutes, seconds)
         } else {
@@ -510,11 +510,11 @@ class WorkoutExerciseFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        
+
         // Show the bottom navigation when returning from ActiveWorkoutFragment
         val bottomNavigationView = (parentFragment as? WorkoutFragment)?.view?.findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.workout_bottom_navigation)
         bottomNavigationView?.visibility = View.VISIBLE
-        
+
         // Refresh workouts list when returning from active workout
         refreshWorkouts()
     }

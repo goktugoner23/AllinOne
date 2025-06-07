@@ -11,7 +11,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
+import androidx.fragment.app.activityViewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.example.allinone.R
@@ -28,7 +28,7 @@ import androidx.recyclerview.widget.RecyclerView
 class WorkoutProgramFragment : Fragment() {
     private var _binding: FragmentWorkoutProgramBinding? = null
     private val binding get() = _binding!!
-    private val viewModel: WorkoutViewModel by viewModels()
+    private val viewModel: WorkoutViewModel by activityViewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -58,7 +58,7 @@ class WorkoutProgramFragment : Fragment() {
         binding.swipeRefreshLayout.setOnRefreshListener {
             refreshPrograms()
         }
-        
+
         // Set refresh indicator colors
         binding.swipeRefreshLayout.setColorSchemeResources(
             R.color.colorPrimary,
@@ -70,7 +70,7 @@ class WorkoutProgramFragment : Fragment() {
         viewModel.allPrograms.observe(viewLifecycleOwner) { programs ->
             // Hide refresh indicator
             binding.swipeRefreshLayout.isRefreshing = false
-            
+
             if (programs.isEmpty()) {
                 binding.emptyProgramsText.visibility = View.VISIBLE
                 binding.programsRecyclerView.visibility = View.GONE
@@ -86,7 +86,7 @@ class WorkoutProgramFragment : Fragment() {
             showAddProgramDialog()
         }
     }
-    
+
     /**
      * Refresh programs data from the server
      */
@@ -191,7 +191,7 @@ class WorkoutProgramFragment : Fragment() {
                 val weightInput = exerciseLayout.findViewById<EditText>(R.id.exercise_weight_input)
                 val notesInput = exerciseLayout.findViewById<EditText>(R.id.exercise_notes_input)
                 val muscleGroupDropdown = exerciseLayout.findViewById<AutoCompleteTextView>(R.id.muscle_group_dropdown)
-                
+
                 // Get the hidden exerciseId if it exists
                 val exerciseIdTag = exerciseLayout.tag
                 val exerciseId = if (exerciseIdTag != null) {
@@ -272,7 +272,7 @@ class WorkoutProgramFragment : Fragment() {
     private fun confirmDeleteProgram(program: Program) {
         // Check if any workouts reference this program
         val workoutsWithProgram = viewModel.allWorkouts.value?.filter { it.programId == program.id } ?: emptyList()
-        
+
         val message = if (workoutsWithProgram.isEmpty()) {
             getString(R.string.delete_program_confirmation, program.name)
         } else {
@@ -282,7 +282,7 @@ class WorkoutProgramFragment : Fragment() {
             "Deleting this program will not delete those workouts, but they may display incorrectly.\n\n" +
             "Are you sure you want to delete \"${program.name}\"?"
         }
-        
+
         AlertDialog.Builder(requireContext())
             .setTitle(R.string.delete_program)
             .setMessage(message)
@@ -430,15 +430,15 @@ class WorkoutProgramFragment : Fragment() {
             exerciseView.findViewById<EditText>(R.id.exercise_sets_input).setText(existingExercise.sets.toString())
             exerciseView.findViewById<EditText>(R.id.exercise_reps_input).setText(existingExercise.reps.toString())
             exerciseView.findViewById<EditText>(R.id.exercise_weight_input).setText(existingExercise.weight.toString())
-            
+
             if (!existingExercise.notes.isNullOrEmpty()) {
                 exerciseView.findViewById<EditText>(R.id.exercise_notes_input).setText(existingExercise.notes)
             }
-            
+
             if (!existingExercise.muscleGroup.isNullOrEmpty()) {
                 muscleGroupDropdown.setText(existingExercise.muscleGroup, false)
             }
-            
+
             // Store the exercise ID in the view's tag
             exerciseView.tag = existingExercise.exerciseId
         }

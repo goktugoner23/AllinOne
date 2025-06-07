@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import com.example.allinone.R
 import com.example.allinone.databinding.FragmentWorkoutBinding
 import com.example.allinone.ui.BaseFragment
@@ -15,24 +16,27 @@ class WorkoutFragment : BaseFragment() {
     private var _binding: FragmentWorkoutBinding? = null
     private val binding get() = _binding!!
     private val TAG = "WorkoutFragment"
-    
+
+    // Shared ViewModel for all child fragments
+    private val viewModel: WorkoutViewModel by viewModels()
+
     // Keep fragment instances to reuse them
-    private val dashboardFragment: Fragment by lazy { 
+    private val dashboardFragment: Fragment by lazy {
         childFragmentManager.findFragmentByTag("dashboard") ?: WorkoutDashboardFragment()
     }
-    
+
     private val exerciseFragment: Fragment by lazy {
         childFragmentManager.findFragmentByTag("exercise") ?: WorkoutExerciseFragment()
     }
-    
-    private val programFragment: Fragment by lazy { 
+
+    private val programFragment: Fragment by lazy {
         childFragmentManager.findFragmentByTag("program") ?: WorkoutProgramFragment()
     }
-    
-    private val statsFragment: Fragment by lazy { 
+
+    private val statsFragment: Fragment by lazy {
         childFragmentManager.findFragmentByTag("stats") ?: WorkoutStatsFragment()
     }
-    
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -41,15 +45,15 @@ class WorkoutFragment : BaseFragment() {
         _binding = FragmentWorkoutBinding.inflate(inflater, container, false)
         return binding.root
     }
-    
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
+
         // Setup navigation between Dashboard, Exercise, Program, and Stats
         binding.workoutBottomNavigation.setOnItemSelectedListener { item ->
             // Update title based on selected item
             updateTitle(item.itemId)
-            
+
             when (item.itemId) {
                 R.id.workout_dashboard -> {
                     switchFragment(dashboardFragment, "dashboard")
@@ -70,18 +74,27 @@ class WorkoutFragment : BaseFragment() {
                 else -> false
             }
         }
-        
+
         // Set default fragment to Dashboard tab
         if (savedInstanceState == null) {
             binding.workoutBottomNavigation.selectedItemId = R.id.workout_dashboard
         }
     }
-    
+
+    override fun onResume() {
+        super.onResume()
+
+        // Refresh data when returning to this fragment (e.g., from ActiveWorkoutFragment)
+        android.util.Log.d(TAG, "WorkoutFragment resumed, refreshing data")
+        viewModel.refreshWorkouts()
+        viewModel.refreshPrograms()
+    }
+
     private fun switchFragment(fragment: Fragment, tag: String) {
         childFragmentManager.beginTransaction().apply {
             // Hide all fragments
             childFragmentManager.fragments.forEach { hide(it) }
-            
+
             // Show the selected fragment if it's already added, otherwise add it
             if (fragment.isAdded) {
                 show(fragment)
@@ -90,7 +103,7 @@ class WorkoutFragment : BaseFragment() {
             }
         }.commit()
     }
-    
+
     private fun updateTitle(itemId: Int) {
         val title = when (itemId) {
             R.id.workout_dashboard -> "Dashboard"
@@ -99,11 +112,11 @@ class WorkoutFragment : BaseFragment() {
             R.id.workout_stats -> "Stats"
             else -> "Workout"
         }
-        
+
         // Set title in action bar
         (requireActivity() as AppCompatActivity).supportActionBar?.title = title
     }
-    
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null

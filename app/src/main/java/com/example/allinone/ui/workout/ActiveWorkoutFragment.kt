@@ -15,7 +15,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
+import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.allinone.R
@@ -32,20 +32,20 @@ class ActiveWorkoutFragment : Fragment() {
 
     private var _binding: FragmentActiveWorkoutBinding? = null
     private val binding get() = _binding!!
-    private val viewModel: WorkoutViewModel by viewModels()
-    
+    private val viewModel: WorkoutViewModel by activityViewModels()
+
     // Timer variables
     private var isTimerRunning = false
     private var startTime: Long = 0
     private var elapsedTime: Long = 0
     private var pausedTime: Long = 0
     private val handler = Handler(Looper.getMainLooper())
-    
+
     // Workout variables
     private lateinit var currentWorkout: Workout
     private var workoutExercises = mutableListOf<WorkoutExercise>()
     private lateinit var workoutExerciseAdapter: WorkoutExerciseAdapter
-    
+
     private val timerRunnable = object : Runnable {
         override fun run() {
             val currentTime = SystemClock.elapsedRealtime()
@@ -68,43 +68,43 @@ class ActiveWorkoutFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
+
         // Set up the action bar
         setupActionBar()
-        
+
         // Set up menu provider for handling back button
         setupMenuProvider()
-        
+
         // Get current workout from arguments
         val workoutJson = arguments?.getString("workout") ?: return navigateBack()
-        
+
         try {
             // Parse workout from JSON
             currentWorkout = viewModel.parseWorkoutFromJson(workoutJson)
             workoutExercises = currentWorkout.exercises.toMutableList()
-            
+
             android.util.Log.d("ActiveWorkoutFragment", "Started workout with ${workoutExercises.size} exercises")
-            
+
             // Set workout name title
             binding.workoutNameTitle.text = currentWorkout.programName ?: "Custom Workout"
-            
+
             // Setup exercise list
             setupWorkoutExercisesList()
-            
+
             // Setup timer controls
             binding.playPauseButton.setOnClickListener { togglePlayPause() }
             binding.stopButton.setOnClickListener { confirmStopWorkout() }
-            
+
             // Start the timer
             startTimer()
-            
+
         } catch (e: Exception) {
             android.util.Log.e("ActiveWorkoutFragment", "Error parsing workout: ${e.message}")
             Toast.makeText(requireContext(), "Error loading workout", Toast.LENGTH_SHORT).show()
             navigateBack()
         }
     }
-    
+
     private fun setupActionBar() {
         (requireActivity() as? AppCompatActivity)?.supportActionBar?.apply {
             title = "Active Workout"
@@ -112,14 +112,14 @@ class ActiveWorkoutFragment : Fragment() {
             setDisplayShowHomeEnabled(true)
         }
     }
-    
+
     private fun setupMenuProvider() {
         // Add menu provider to handle the back button
         requireActivity().addMenuProvider(object : MenuProvider {
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
                 // No menu items to add
             }
-            
+
             override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
                 // Handle back button
                 if (menuItem.itemId == android.R.id.home) {
@@ -130,7 +130,7 @@ class ActiveWorkoutFragment : Fragment() {
             }
         }, viewLifecycleOwner, Lifecycle.State.RESUMED)
     }
-    
+
     private fun setupWorkoutExercisesList() {
         // Set up RecyclerView
         binding.exercisesRecyclerView.layoutManager = LinearLayoutManager(requireContext())
@@ -145,7 +145,7 @@ class ActiveWorkoutFragment : Fragment() {
         )
         binding.exercisesRecyclerView.adapter = workoutExerciseAdapter
     }
-    
+
     private fun updateExerciseCompletion(exercise: WorkoutExercise, isCompleted: Boolean) {
         // Find the exercise in the list
         val index = workoutExercises.indexOfFirst { it.exerciseId == exercise.exerciseId }
@@ -165,7 +165,7 @@ class ActiveWorkoutFragment : Fragment() {
             workoutExerciseAdapter.updateExerciseCompletion(exercise.exerciseId, isCompleted)
         }
     }
-    
+
     private fun togglePlayPause() {
         if (isTimerRunning) {
             pauseTimer()
@@ -205,7 +205,7 @@ class ActiveWorkoutFragment : Fragment() {
             isTimerRunning = false
         }
     }
-    
+
     private fun updateTimerText(timeInMillis: Long) {
         val hours = (timeInMillis / (1000 * 60 * 60)) % 24
         val minutes = (timeInMillis / (1000 * 60)) % 60
@@ -215,7 +215,7 @@ class ActiveWorkoutFragment : Fragment() {
         binding.timerText.text = String.format("%02d:%02d:%02d", hours, minutes, seconds)
         binding.timerMsText.text = String.format(".%02d", milliseconds)
     }
-    
+
     private fun confirmStopWorkout() {
         AlertDialog.Builder(requireContext())
             .setTitle("Stop Workout")
@@ -223,13 +223,39 @@ class ActiveWorkoutFragment : Fragment() {
             .setPositiveButton("Yes") { _, _ ->
                 stopTimer()
                 finishWorkout()
-                saveWorkout()
-                navigateBack()
+                saveWorkoutAndNavigateBack()
             }
             .setNegativeButton("No", null)
             .show()
     }
-    
+
+    private fun saveWorkoutAndNavigateBack() {
+        android.util.Log.d("ActiveWorkoutFragment", "Saving workout before navigation")
+
+        // Save the workout and navigate back only after completion
+        viewModel.saveWorkout(currentWorkout) { success ->
+            // Check if fragment is still attached before showing Toast or navigating
+            if (isAdded && context != null) {
+                if (success) {
+                    Toast.makeText(requireContext(), R.string.workout_saved, Toast.LENGTH_SHORT).show()
+                    android.util.Log.d("ActiveWorkoutFragment", "Workout saved successfully, navigating back")
+                } else {
+                    Toast.makeText(requireContext(), "Failed to save workout", Toast.LENGTH_SHORT).show()
+                    android.util.Log.e("ActiveWorkoutFragment", "Failed to save workout, still navigating back")
+                }
+                // Navigate back regardless of save success/failure
+                navigateBack()
+            } else {
+                // Fragment is no longer attached, just log the result
+                if (success) {
+                    android.util.Log.d("ActiveWorkoutFragment", "Workout saved successfully (fragment detached)")
+                } else {
+                    android.util.Log.e("ActiveWorkoutFragment", "Failed to save workout (fragment detached)")
+                }
+            }
+        }
+    }
+
     private fun finishWorkout() {
         val endTime = Date()
         val updatedWorkout = currentWorkout.copy(
@@ -237,25 +263,11 @@ class ActiveWorkoutFragment : Fragment() {
             duration = elapsedTime,
             exercises = workoutExercises
         )
-        
+
         android.util.Log.d("ActiveWorkoutFragment", "Finishing workout with ${workoutExercises.size} exercises, duration: $elapsedTime ms")
         currentWorkout = updatedWorkout
     }
-    
-    private fun saveWorkout() {
-        android.util.Log.d("ActiveWorkoutFragment", "Saving workout: ${currentWorkout.programName} with ${currentWorkout.exercises.size} exercises")
-        
-        if (currentWorkout.exercises.isNotEmpty()) {
-            android.util.Log.d("ActiveWorkoutFragment", "Exercises: ${currentWorkout.exercises.map { exercise -> 
-                "${exercise.exerciseName} (${exercise.sets.size} sets)"
-            }}")
-        }
-        
-        // Save the workout in the ViewModel
-        viewModel.saveWorkout(currentWorkout)
-        Toast.makeText(requireContext(), R.string.workout_saved, Toast.LENGTH_SHORT).show()
-    }
-    
+
     private fun navigateBack() {
         // Restore default action bar configuration before navigating back
         (requireActivity() as? AppCompatActivity)?.supportActionBar?.apply {
@@ -263,14 +275,14 @@ class ActiveWorkoutFragment : Fragment() {
             setDisplayShowHomeEnabled(false)
             title = "Workout"
         }
-        
+
         // Navigate back to the previous fragment
         requireActivity().supportFragmentManager.popBackStack()
     }
-    
+
     override fun onDestroyView() {
         super.onDestroyView()
         handler.removeCallbacks(timerRunnable)
         _binding = null
     }
-} 
+}
