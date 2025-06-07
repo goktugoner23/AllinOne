@@ -140,7 +140,7 @@ class WorkoutExerciseFragment : Fragment() {
         val muscleGroupItems = listOf("All Muscle Groups") + MuscleGroups.MUSCLE_GROUPS.toList()
         val muscleGroupAdapter = ArrayAdapter(
             requireContext(),
-            android.R.layout.simple_dropdown_item_1line,
+            R.layout.dropdown_item,
             muscleGroupItems
         )
         
@@ -151,7 +151,7 @@ class WorkoutExerciseFragment : Fragment() {
         // Set up sort options
         val sortAdapter = ArrayAdapter(
             requireContext(),
-            android.R.layout.simple_dropdown_item_1line,
+            R.layout.dropdown_item,
             sortOptions
         )
         

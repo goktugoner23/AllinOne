@@ -1125,7 +1125,7 @@ class FirebaseManager(private val context: Context? = null) {
     suspend fun getWorkouts(): List<Workout> = withContext(Dispatchers.IO) {
         try {
             // Query for workouts, don't filter by deviceId right now as that might be limiting results
-            val snapshot = workoutsCollection.get().await()
+            val snapshot = workoutsCollection.whereEqualTo("deviceId", deviceId).get().await()
             Log.d(TAG, "Found ${snapshot.documents.size} workouts in Firestore")
 
             return@withContext snapshot.documents.mapNotNull { doc ->

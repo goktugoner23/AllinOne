@@ -32,6 +32,20 @@ service cloud.firestore {
                            request.resource.data.deviceId != null;
     }
     
+    // Rules for workout data
+    match /workouts/{document=**} {
+      allow read, write: if request.resource.data.deviceId != null;
+    }
+    
+    match /programs/{document=**} {
+      allow read, write: if request.resource.data.deviceId != null;
+    }
+    
+    // Allow access to id_counters for ID generation
+    match /counters/{document=**} {
+      allow read, write: if true;
+    }
+    
     // Testing collection with open access
     match /test_connection/{document=**} {
       allow read, write: if true;
