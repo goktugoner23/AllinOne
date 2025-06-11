@@ -22,15 +22,6 @@ spotless {
     enforceCheck false
 }
 
-// Task to generate source code JSON
-task generateSourceCodeJson(type: Exec) {
-    workingDir project.rootDir
-    commandLine 'python3', 'scripts/generate_source_code.py'
-}
-
-// Make sure the source code JSON is generated before building
-preBuild.dependsOn generateSourceCodeJson
-
 def getEnvValue(String key, String defaultVal = "NOT_SET") {
     def envFile = new File(rootDir, '.env')
     if (envFile.exists()) {
@@ -134,7 +125,7 @@ android {
     }
 
     tasks.register('cleanBuildDir', Delete) {
-        delete "${buildDir}"
+        delete layout.buildDirectory
     }
 
     lint {
@@ -144,12 +135,6 @@ android {
 
     kapt {
         correctErrorTypes true
-
-        // Only include essential kapt arguments
-        arguments {
-            // Only keep the kapt specific argument
-            arg("kapt.kotlin.generated", "${buildDir}/generated/source/kapt/")
-        }
     }
 
     // Ensure Hilt compiler options are properly handled
