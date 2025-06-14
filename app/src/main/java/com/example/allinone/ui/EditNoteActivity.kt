@@ -17,6 +17,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.allinone.R
 import com.example.allinone.adapters.NoteImageAdapter
+import com.example.allinone.adapters.NoteVideoAdapter
 import com.example.allinone.adapters.VoiceNoteAdapter
 import com.example.allinone.data.Note
 import com.example.allinone.data.VoiceNote
@@ -63,9 +64,11 @@ class EditNoteActivity : AppCompatActivity() {
     private lateinit var binding: ActivityEditNoteBinding
     private lateinit var viewModel: NotesViewModel
     private lateinit var imageAdapter: NoteImageAdapter
+    private lateinit var videoAdapter: NoteVideoAdapter
     private lateinit var voiceNoteAdapter: VoiceNoteAdapter
 
     private val selectedImages = mutableListOf<Uri>()
+    private val selectedVideos = mutableListOf<Uri>()
     private val voiceNotes = mutableListOf<VoiceNote>()
 
     private var mediaRecorder: MediaRecorder? = null
@@ -88,7 +91,7 @@ class EditNoteActivity : AppCompatActivity() {
     private var noteId: Long? = null
 
     // Image picker launcher
-    private val getContent = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    private val getImageContent = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
             try {
                 contentResolver.takePersistableUriPermission(
@@ -99,6 +102,22 @@ class EditNoteActivity : AppCompatActivity() {
                 updateImageAttachmentSection()
             } catch (e: Exception) {
                 Log.e("EditNoteActivity", "Error with image permission: ${e.message}", e)
+            }
+        }
+    }
+
+    // Video picker launcher
+    private val getVideoContent = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            try {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                selectedVideos.add(uri)
+                updateVideoAttachmentSection()
+            } catch (e: Exception) {
+                Log.e("EditNoteActivity", "Error with video permission: ${e.message}", e)
             }
         }
     }
@@ -150,6 +169,7 @@ class EditNoteActivity : AppCompatActivity() {
 
         setupToolbar()
         setupImageRecyclerView()
+        setupVideoRecyclerView()
         setupRichTextEditor()
         setupButtons()
         setupVoiceRecordingUI()
@@ -200,6 +220,92 @@ class EditNoteActivity : AppCompatActivity() {
             layoutManager = LinearLayoutManager(this@EditNoteActivity, LinearLayoutManager.HORIZONTAL, false)
         }
         binding.imagesRecyclerView.visibility = View.GONE
+    }
+
+    private fun setupVideoRecyclerView() {
+        videoAdapter = NoteVideoAdapter(
+            onDeleteClick = { uri ->
+                // Show confirmation dialog before deleting
+                MaterialAlertDialogBuilder(this)
+                    .setTitle(R.string.delete_video)
+                    .setMessage(R.string.delete_video_confirmation)
+                    .setPositiveButton(R.string.delete) { _, _ ->
+                        // Delete from Firebase if it's a Firebase URL
+                        if (uri.toString().contains("firebase")) {
+                            CoroutineScope(Dispatchers.IO).launch {
+                                try {
+                                    val success = storageUtil.deleteFile(uri.toString())
+                                    Log.d(TAG, "Video deleted from Firebase: $success")
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Error deleting video from Firebase: ${e.message}")
+                                }
+                            }
+                        }
+
+                        // Remove from UI list
+                        selectedVideos.remove(uri)
+                        updateVideoAttachmentSection()
+                    }
+                    .setNegativeButton(R.string.cancel, null)
+                    .show()
+            },
+            onVideoClick = { uri ->
+                playVideo(uri)
+            }
+        )
+        binding.videosRecyclerView?.apply {
+            adapter = videoAdapter
+            layoutManager = LinearLayoutManager(this@EditNoteActivity, LinearLayoutManager.HORIZONTAL, false)
+        }
+        binding.videosRecyclerView?.visibility = View.GONE
+    }
+
+    private fun updateVideoAttachmentSection() {
+        // Filter out any invalid URIs
+        val validVideos = selectedVideos.filter { uri ->
+            val isValid = try {
+                // For http/https URIs, we assume they're valid
+                if (uri.toString().startsWith("http")) {
+                    true
+                } else {
+                    contentResolver.getType(uri) != null
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Invalid video URI: $uri", e)
+                false
+            }
+            isValid
+        }.toMutableList()
+
+        // Update the list if needed
+        if (validVideos.size != selectedVideos.size) {
+            Log.d(TAG, "Filtered out ${selectedVideos.size - validVideos.size} invalid video URIs")
+            selectedVideos.clear()
+            selectedVideos.addAll(validVideos)
+        }
+
+        // Update adapter and visibility
+        videoAdapter.submitList(selectedVideos.toList())
+        binding.videosRecyclerView?.visibility = if (selectedVideos.isEmpty()) View.GONE else View.VISIBLE
+        Log.d(TAG, "Video section updated with ${selectedVideos.size} videos")
+    }
+
+    private fun playVideo(uri: Uri) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "video/*")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            
+            if (intent.resolveActivity(packageManager) != null) {
+                startActivity(intent)
+            } else {
+                Toast.makeText(this, "No video player found", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error playing video: ${e.message}", e)
+            Toast.makeText(this, "Error playing video", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun updateImageAttachmentSection() {
@@ -397,9 +503,9 @@ class EditNoteActivity : AppCompatActivity() {
     }
 
     private fun setupButtons() {
-        // Setup image attachment
+        // Setup attachment options (image and video)
         binding.addAttachmentButton.setOnClickListener {
-            getContent.launch("image/*")
+            showAttachmentOptions()
         }
 
         // Setup save FAB
@@ -423,6 +529,23 @@ class EditNoteActivity : AppCompatActivity() {
             binding.saveFab.setBackgroundTintList(android.content.res.ColorStateList.valueOf(android.graphics.Color.BLACK))
             binding.saveFab.imageTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE)
         }
+    }
+
+    private fun showAttachmentOptions() {
+        val options = arrayOf(
+            getString(R.string.add_image),
+            getString(R.string.add_video)
+        )
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.add_attachment))
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> getImageContent.launch("image/*")
+                    1 -> getVideoContent.launch("video/*")
+                }
+            }
+            .show()
     }
 
     private fun setupVoiceRecordingUI() {
@@ -853,6 +976,20 @@ class EditNoteActivity : AppCompatActivity() {
                     }
                     updateImageAttachmentSection()
 
+                    // Load videos
+                    selectedVideos.clear()
+                    foundNote.videoUris?.split(",")?.forEach { uriString ->
+                        if (uriString.isNotEmpty()) {
+                            try {
+                                val uri = Uri.parse(uriString)
+                                selectedVideos.add(uri)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error parsing video URI: $uriString", e)
+                            }
+                        }
+                    }
+                    updateVideoAttachmentSection()
+
                     // Load voice notes if any exist
                     voiceNotes.clear()
 
@@ -923,15 +1060,17 @@ class EditNoteActivity : AppCompatActivity() {
             return
         }
 
-        // First ensure we only have valid images
+        // First ensure we only have valid images and videos
         updateImageAttachmentSection()
+        updateVideoAttachmentSection()
 
         // Process and upload new images that need to be uploaded to Firebase
         val processedImageUris = mutableListOf<String>()
+        val processedVideoUris = mutableListOf<String>()
 
         // Process voice notes for saving
 
-        if (selectedImages.isNotEmpty()) {
+        if (selectedImages.isNotEmpty() || selectedVideos.isNotEmpty()) {
             CoroutineScope(Dispatchers.Main).launch {
                 val dialog = MaterialAlertDialogBuilder(this@EditNoteActivity)
                     .setTitle(R.string.saving)
@@ -941,7 +1080,7 @@ class EditNoteActivity : AppCompatActivity() {
                 dialog.show()
 
                 try {
-                    val uploadJobs = selectedImages.map { uri ->
+                    val imageUploadJobs = selectedImages.map { uri ->
                         CoroutineScope(Dispatchers.IO).async {
                             // Skip urls that are already uploaded (http/https)
                             if (uri.toString().startsWith("http")) {
@@ -960,14 +1099,39 @@ class EditNoteActivity : AppCompatActivity() {
                         }
                     }
 
+                    val videoUploadJobs = selectedVideos.map { uri ->
+                        CoroutineScope(Dispatchers.IO).async {
+                            // Skip urls that are already uploaded (http/https)
+                            if (uri.toString().startsWith("http")) {
+                                processedVideoUris.add(uri.toString())
+                                return@async
+                            }
+
+                            // Upload new video to Firebase
+                            val downloadUrl = uploadVideoToFirebase(uri)
+                            if (downloadUrl != null) {
+                                processedVideoUris.add(downloadUrl)
+                            } else {
+                                // Keep original URI if upload fails
+                                processedVideoUris.add(uri.toString())
+                            }
+                        }
+                    }
+
                     // Wait for all uploads to complete
-                    uploadJobs.awaitAll()
+                    (imageUploadJobs + videoUploadJobs).awaitAll()
 
                     dialog.dismiss()
 
                     // Convert processed URIs to comma-separated string
                     val imageUris = if (processedImageUris.isNotEmpty()) {
                         processedImageUris.joinToString(",")
+                    } else {
+                        null
+                    }
+
+                    val videoUris = if (processedVideoUris.isNotEmpty()) {
+                        processedVideoUris.joinToString(",")
                     } else {
                         null
                     }
@@ -992,7 +1156,7 @@ class EditNoteActivity : AppCompatActivity() {
                         null
                     }
 
-                    finalizeSaveNote(title, content, imageUris, voiceNoteUris)
+                    finalizeSaveNote(title, content, imageUris, videoUris, voiceNoteUris)
                 } catch (e: Exception) {
                     dialog.dismiss()
                     Toast.makeText(
@@ -1009,6 +1173,12 @@ class EditNoteActivity : AppCompatActivity() {
                         null
                     }
 
+                    val videoUris = if (selectedVideos.isNotEmpty()) {
+                        selectedVideos.joinToString(",") { it.toString() }
+                    } else {
+                        null
+                    }
+
                     // Convert voice note URIs to comma-separated string
                     val voiceNoteUris = if (voiceNotes.isNotEmpty()) {
                         // Only save Firebase URLs for permanent storage
@@ -1029,7 +1199,7 @@ class EditNoteActivity : AppCompatActivity() {
                         null
                     }
 
-                    finalizeSaveNote(title, content, imageUris, voiceNoteUris)
+                    finalizeSaveNote(title, content, imageUris, videoUris, voiceNoteUris)
                 }
             }
         } else {
@@ -1053,17 +1223,18 @@ class EditNoteActivity : AppCompatActivity() {
                 null
             }
 
-            finalizeSaveNote(title, content, null, voiceNoteUris)
+            finalizeSaveNote(title, content, null, null, voiceNoteUris)
         }
     }
 
-    private fun finalizeSaveNote(title: String, content: String, imageUris: String?, voiceNoteUris: String?) {
+    private fun finalizeSaveNote(title: String, content: String, imageUris: String?, videoUris: String?, voiceNoteUris: String?) {
         if (isNewNote) {
 
             viewModel.addNote(
                 title = title,
                 content = content,
                 imageUris = imageUris,
+                videoUris = videoUris,
                 voiceNoteUris = voiceNoteUris
             )
             // Note saved successfully
@@ -1108,6 +1279,7 @@ class EditNoteActivity : AppCompatActivity() {
                     content = content,
                     date = existingNote?.date ?: Date(),
                     imageUris = imageUris,
+                    videoUris = videoUris ?: existingNote?.videoUris,
                     // If voiceNoteUris is null but existingNote has voice notes, preserve them
                     voiceNoteUris = voiceNoteUris ?: existingNote?.voiceNoteUris,
                     lastEdited = Date(),
@@ -1242,6 +1414,21 @@ class EditNoteActivity : AppCompatActivity() {
             return@runBlocking downloadUrl
         } catch (e: Exception) {
             Log.e(TAG, "Error uploading image: ${e.message}")
+            return@runBlocking null
+        }
+    }
+
+    private fun uploadVideoToFirebase(videoUri: Uri): String? = runBlocking {
+        try {
+            // Upload file to Firebase Storage using the new folder structure
+            val downloadUrl = storageUtil.uploadFile(
+                fileUri = videoUri,
+                folderName = "note-attachments",
+                id = noteId?.toString() ?: "temp" // Use note ID as the subfolder or "temp" for new notes
+            )
+            return@runBlocking downloadUrl
+        } catch (e: Exception) {
+            Log.e(TAG, "Error uploading video: ${e.message}")
             return@runBlocking null
         }
     }

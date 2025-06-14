@@ -134,12 +134,7 @@ android {
     }
 
     kapt {
-        correctErrorTypes true
-    }
-
-    // Ensure Hilt compiler options are properly handled
-    hilt {
-        enableAggregatingTask = true
+        correctErrorTypes = true
     }
 }
 

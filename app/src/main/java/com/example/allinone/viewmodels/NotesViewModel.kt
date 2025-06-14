@@ -33,7 +33,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addNote(title: String, content: String, imageUris: String? = null, voiceNoteUris: String? = null) {
+    fun addNote(title: String, content: String, imageUris: String? = null, videoUris: String? = null, voiceNoteUris: String? = null) {
         viewModelScope.launch {
             // Get next sequential ID for notes
             val noteId = idManager.getNextId("notes")
@@ -44,6 +44,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                 content = content,
                 date = Date(),
                 imageUris = imageUris,
+                videoUris = videoUris,
                 voiceNoteUris = voiceNoteUris,
                 lastEdited = Date(),
                 isRichText = true

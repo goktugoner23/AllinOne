@@ -182,6 +182,42 @@ class NotesAdapter(
             } else {
                 imageContainer.visibility = View.GONE
             }
+
+            // Handle videos if present  
+            if (!note.videoUris.isNullOrEmpty()) {
+                val videoUris = note.videoUris.split(",").filter { it.isNotEmpty() }
+                
+                // For each video URI, create and add a video thumbnail view
+                for (uriString in videoUris) {
+                    try {
+                        val uri = Uri.parse(uriString)
+                        val videoView = ImageView(itemView.context).apply {
+                            layoutParams = ViewGroup.LayoutParams(120, 120)
+                            scaleType = ImageView.ScaleType.CENTER_CROP
+                            setPadding(4, 4, 4, 4)
+                            setOnClickListener { 
+                                // Play video when clicked
+                                playVideo(itemView.context, uri)
+                            }
+                        }
+
+                        // Set placeholder first
+                        videoView.setImageResource(R.drawable.ic_video_placeholder)
+                        
+                        // Try to load video thumbnail with Glide
+                        Glide.with(itemView.context)
+                            .load(uri)
+                            .placeholder(R.drawable.ic_video_placeholder)
+                            .error(R.drawable.ic_video_error)
+                            .into(videoView)
+
+                        imageContainer.addView(videoView)
+                        imageContainer.visibility = View.VISIBLE
+                    } catch (e: Exception) {
+                        Log.e("NotesAdapter", "Error adding video preview: ${e.message}", e)
+                    }
+                }
+            }
         }
 
         private fun processNoteContent(content: String): String {
@@ -231,6 +267,24 @@ class NotesAdapter(
             }
 
             itemView.context.startActivity(Intent.createChooser(shareIntent, "Share Note"))
+        }
+        
+        private fun playVideo(context: android.content.Context, uri: Uri) {
+            try {
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "video/*")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                
+                if (intent.resolveActivity(context.packageManager) != null) {
+                    context.startActivity(intent)
+                } else {
+                    android.widget.Toast.makeText(context, "No video player found", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e("NotesAdapter", "Error playing video: ${e.message}", e)
+                android.widget.Toast.makeText(context, "Error playing video", android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
     }
 

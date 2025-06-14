@@ -10,7 +10,12 @@
     <string name="investment_name">Investment Name</string>
     <string name="investment_type">Investment Type</string>
     <string name="add_image">Add Image</string>
+    <string name="add_video">Add Video</string>
+    <string name="add_attachment">Add Attachment</string>
     <string name="delete_image">Delete Image</string>
+    <string name="delete_video">Delete Video</string>
+    <string name="delete_video_confirmation">Are you sure you want to delete this video?</string>
+    <string name="delete_image_confirmation">Are you sure you want to delete this image?</string>
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
 
@@ -200,7 +205,6 @@
     <string name="voice_note_plural">%d voice notes</string>
     <string name="delete_voice_note">Delete Voice Note</string>
     <string name="delete_voice_note_confirmation">Are you sure you want to delete this voice note?</string>
-    <string name="delete_image_confirmation">Are you sure you want to delete this image?</string>
     <string name="record">Record</string>
     <string name="recording">Recording…</string>
     <string name="stop">Stop</string>

@@ -243,12 +243,52 @@ class FirebaseManager(private val context: Context? = null) {
 
         // Prepare to save note to Firestore
 
+        // Upload videos if any
+        val videoUris = note.videoUris
+        val uploadedVideoUrls = mutableListOf<String>()
+
+        if (!videoUris.isNullOrEmpty()) {
+            val uriList = videoUris.split(",").filter { it.isNotEmpty() }
+            for (uriString in uriList) {
+                try {
+                    // Skip urls that are already uploaded (http/https)
+                    if (uriString.startsWith("http")) {
+                        uploadedVideoUrls.add(uriString)
+                        continue
+                    }
+
+                    // Only process valid content URIs
+                    if (uriString.startsWith("content://")) {
+                        val uri = Uri.parse(uriString)
+
+                        // Use the note-attachments folder and note ID subfolder
+                        val noteAttachmentsRef = storageRef.child("note-attachments/${note.id}")
+
+                        // Generate a unique filename for the video
+                        val videoFileName = "vid_${System.currentTimeMillis()}_${idManager.getNextId("note_videos")}"
+                        val videoRef = noteAttachmentsRef.child(videoFileName)
+
+                        videoRef.putFile(uri).await()
+                        val downloadUrl = videoRef.downloadUrl.await().toString()
+                        uploadedVideoUrls.add(downloadUrl)
+                    } else {
+                        Log.w(TAG, "Skipping video upload - invalid URI format: ${uriString.take(10)}...")
+                    }
+                } catch (e: Exception) {
+                    // Skip failed uploads
+                    Log.e(TAG, "Failed to upload video: ${e.message}", e)
+                    continue
+                }
+            }
+        }
+
         val noteMap = hashMapOf(
             "id" to note.id,
             "title" to note.title,
             "content" to note.content,
             "date" to note.date,
             "imageUris" to uploadedImageUrls.joinToString(","),
+            "videoUris" to uploadedVideoUrls.joinToString(","),
             "voiceNoteUris" to note.voiceNoteUris,
             "lastEdited" to note.lastEdited,
             "isRichText" to note.isRichText,
@@ -269,6 +309,7 @@ class FirebaseManager(private val context: Context? = null) {
                     val content = doc.getString("content") ?: ""
                     val date = doc.getDate("date") ?: Date()
                     val imageUris = doc.getString("imageUris") ?: doc.getString("imageUri") // Migrate old data
+                    val videoUris = doc.getString("videoUris")
                     val voiceNoteUris = doc.getString("voiceNoteUris")
                     val lastEdited = doc.getDate("lastEdited") ?: Date()
                     val isRichText = doc.getBoolean("isRichText") ?: true
@@ -279,6 +320,7 @@ class FirebaseManager(private val context: Context? = null) {
                         content = content,
                         date = date,
                         imageUris = imageUris,
+                        videoUris = videoUris,
                         voiceNoteUris = voiceNoteUris,
                         lastEdited = lastEdited,
                         isRichText = isRichText
