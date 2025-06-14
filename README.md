@@ -31,7 +31,24 @@ AllInOne is an Android application designed to centralize various aspects of per
 
 ### Note Taking
 - **Rich Text Editor**: Comprehensive formatting including bold, italic, underline, headings, and lists
-- **Image Support**: Embed and resize images within notes
+- **Image Support**: 
+  - Embed and resize images within notes
+  - Multiple image attachments per note
+  - Automatic cleanup of deleted images
+  - Efficient image loading and caching
+  - Support for both local and cloud storage
+  - Smart image validation and error handling
+  - Automatic thumbnail generation
+  - Full-screen image viewer with zoom
+- **Video Support**:
+  - Attach multiple videos to notes
+  - Automatic video thumbnail generation
+  - Video playback in external player
+  - Efficient video storage and streaming
+  - Automatic cleanup of deleted videos
+  - Smart video validation and error handling
+  - Progress tracking for video uploads
+  - Support for various video formats
 - **Drawing Tool**: Create and embed drawings directly in notes with customizable brush size and color picker
 - **Organization System**: Organize notes with folders, tags, and color-coding
 - **Search Functionality**: Full-text search across all notes with highlighted results
@@ -376,6 +393,26 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Recent Changes
 
+### Media Handling Improvements
+- **Enhanced Image Management**:
+  - Improved image deletion handling with proper cleanup
+  - Added validation for image URIs to prevent invalid references
+  - Optimized image loading with Glide for better performance
+  - Added error handling for failed image loads
+  - Implemented proper cleanup of Firebase storage resources
+- **Enhanced Video Management**:
+  - Improved video deletion handling with proper cleanup
+  - Added validation for video URIs to prevent invalid references
+  - Optimized video thumbnail generation
+  - Added error handling for failed video operations
+  - Implemented proper cleanup of Firebase storage resources
+- **UI Improvements**:
+  - Better visual feedback for media operations
+  - Improved error messages for failed operations
+  - Enhanced loading states and progress indicators
+  - Optimized layout for media attachments
+  - Better handling of media previews in note cards
+
 ### Binance Futures TP/SL Functionality
 - **Take Profit/Stop Loss Management**: Added ability to set, update, and delete TP/SL orders for futures positions
 - **Simplified TP/SL Display**: Position cards now show TP/SL values in a clean format (e.g., "TP/SL: $170.00 / -")
@@ -404,6 +441,9 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **Removed Single Image Field**: The `imageUri` field has been removed from the `Note` data class to standardize on the plural `imageUris` field for handling multiple images.
 - **Backward Compatibility**: The Firebase Manager includes migration code to handle old notes by checking for the `imageUri` field when loading notes from Firestore.
 - **Improved Consistency**: All code now consistently uses the `imageUris` field (a comma-separated list) for both single and multiple images.
+- **Enhanced Media Handling**: Added proper validation and cleanup for both image and video URIs.
+- **Improved Error Handling**: Better error handling and user feedback for media operations.
+- **Optimized Storage**: Improved storage efficiency with proper cleanup of unused media files.
 
 ### Database Management Updates
 - **Added Workout Collections**: The Database Management view now displays workout-related collections (`programs` and `workouts`), enabling viewing and management of workout data.
