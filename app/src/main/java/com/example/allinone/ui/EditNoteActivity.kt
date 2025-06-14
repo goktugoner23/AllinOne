@@ -207,6 +207,27 @@ class EditNoteActivity : AppCompatActivity() {
                         // Remove from UI list
                         selectedImages.remove(uri)
                         updateImageAttachmentSection()
+                        
+                        // Update the note's imageUris field
+                        noteId?.let { id ->
+                            viewModel.allNotes.value?.find { it.id == id }?.let { existingNote ->
+                                val currentUris = existingNote.imageUris?.split(",")?.filter {
+                                    it.isNotEmpty() && it != uri.toString()
+                                } ?: emptyList()
+
+                                // Create updated image URIs string
+                                val updatedImageUris = if (currentUris.isEmpty()) null else currentUris.joinToString(",")
+
+                                // Create updated note with the new image URIs
+                                val updatedNote = existingNote.copy(
+                                    imageUris = updatedImageUris,
+                                    lastEdited = Date()
+                                )
+
+                                // Update the note in the database
+                                viewModel.updateNote(updatedNote)
+                            }
+                        }
                     }
                     .setNegativeButton(R.string.cancel, null)
                     .show()
@@ -245,6 +266,27 @@ class EditNoteActivity : AppCompatActivity() {
                         // Remove from UI list
                         selectedVideos.remove(uri)
                         updateVideoAttachmentSection()
+                        
+                        // Update the note's videoUris field
+                        noteId?.let { id ->
+                            viewModel.allNotes.value?.find { it.id == id }?.let { existingNote ->
+                                val currentUris = existingNote.videoUris?.split(",")?.filter {
+                                    it.isNotEmpty() && it != uri.toString()
+                                } ?: emptyList()
+
+                                // Create updated video URIs string
+                                val updatedVideoUris = if (currentUris.isEmpty()) null else currentUris.joinToString(",")
+
+                                // Create updated note with the new video URIs
+                                val updatedNote = existingNote.copy(
+                                    videoUris = updatedVideoUris,
+                                    lastEdited = Date()
+                                )
+
+                                // Update the note in the database
+                                viewModel.updateNote(updatedNote)
+                            }
+                        }
                     }
                     .setNegativeButton(R.string.cancel, null)
                     .show()

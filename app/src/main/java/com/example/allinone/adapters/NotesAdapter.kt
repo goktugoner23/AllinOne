@@ -19,6 +19,7 @@ import com.example.allinone.viewmodels.NotesViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
 import com.bumptech.glide.Glide
+import java.io.File
 
 class NotesAdapter(
     private val onNoteClick: (Note) -> Unit,
@@ -161,6 +162,11 @@ class NotesAdapter(
                 for (uriString in imageUris) {
                     try {
                         val uri = Uri.parse(uriString)
+                        // Skip invalid or non-existent URIs
+                        if (!isValidImageUri(uri)) {
+                            continue
+                        }
+                        
                         val imageView = ImageView(itemView.context).apply {
                             layoutParams = ViewGroup.LayoutParams(120, 120)
                             scaleType = ImageView.ScaleType.CENTER_CROP
@@ -191,6 +197,11 @@ class NotesAdapter(
                 for (uriString in videoUris) {
                     try {
                         val uri = Uri.parse(uriString)
+                        // Skip invalid or non-existent URIs
+                        if (!isValidVideoUri(uri)) {
+                            continue
+                        }
+                        
                         val videoView = ImageView(itemView.context).apply {
                             layoutParams = ViewGroup.LayoutParams(120, 120)
                             scaleType = ImageView.ScaleType.CENTER_CROP
@@ -284,6 +295,24 @@ class NotesAdapter(
             } catch (e: Exception) {
                 Log.e("NotesAdapter", "Error playing video: ${e.message}", e)
                 android.widget.Toast.makeText(context, "Error playing video", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        private fun isValidImageUri(uri: Uri): Boolean {
+            return when (uri.scheme) {
+                "content" -> true  // Content provider URI
+                "file" -> File(uri.path ?: "").exists()  // File exists check
+                "http", "https" -> true  // Remote URLs
+                else -> false  // Invalid scheme
+            }
+        }
+
+        private fun isValidVideoUri(uri: Uri): Boolean {
+            return when (uri.scheme) {
+                "content" -> true  // Content provider URI
+                "file" -> File(uri.path ?: "").exists()  // File exists check
+                "http", "https" -> true  // Remote URLs
+                else -> false  // Invalid scheme
             }
         }
     }
