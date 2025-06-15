@@ -557,19 +557,38 @@ class UsdmFuturesFragment : Fragment() {
         requireActivity().runOnUiThread {
             // Convert PositionData to BinancePosition for adapter compatibility
             val binancePositions = positions.map { position ->
+                // Find TP/SL orders for this position
+                val positionOrders = openOrders.filter { it.symbol == position.symbol }
+                
+                // Get the correct side for TP/SL orders (opposite to position)
+                val isLong = position.positionAmount > 0
+                val expectedSide = if (isLong) "SELL" else "BUY"
+                
+                // Find TP and SL orders
+                val tpOrder = positionOrders.find { 
+                    it.side == expectedSide && (it.type == "TAKE_PROFIT_MARKET" || it.type == "TAKE_PROFIT")
+                }
+                val slOrder = positionOrders.find { 
+                    it.side == expectedSide && (it.type == "STOP_MARKET" || it.type == "STOP_LOSS_MARKET")
+                }
+                
                 BinancePosition(
                     symbol = position.symbol,
                     positionAmt = position.positionAmount,
                     entryPrice = position.entryPrice,
                     markPrice = position.markPrice,
                     unrealizedProfit = position.unrealizedProfit,
-                    liquidationPrice = 0.0, // Not provided by external API
+                    liquidationPrice = calculateLiquidationPrice(position), // Calculate liquidation price
                     leverage = position.leverage.toInt(),
                     marginType = position.marginType,
                     isolatedMargin = position.isolatedMargin,
                     roe = position.percentage, // Use percentage as ROE
-                    takeProfitPrice = 0.0, // Will be filled from orders
-                    stopLossPrice = 0.0 // Will be filled from orders
+                    takeProfitPrice = tpOrder?.stopPrice ?: 0.0, // Get TP price from orders
+                    stopLossPrice = slOrder?.stopPrice ?: 0.0, // Get SL price from orders
+                    positionSide = position.positionSide,
+                    percentage = position.percentage,
+                    maxNotionalValue = position.maxNotionalValue,
+                    isAutoAddMargin = position.isAutoAddMargin
                 )
             }
 
@@ -583,6 +602,35 @@ class UsdmFuturesFragment : Fragment() {
             }
 
             Log.d("UsdmFuturesFragment", "External UI updated with ${binancePositions.size} USD-M positions")
+        }
+    }
+
+    /**
+     * Calculate liquidation price based on position data
+     * This is a simplified calculation - in reality Binance uses more complex formulas
+     */
+    private fun calculateLiquidationPrice(position: PositionData): Double {
+        return try {
+            if (position.positionAmount == 0.0) return 0.0
+            
+            val leverage = position.leverage
+            val entryPrice = position.entryPrice
+            val isLong = position.positionAmount > 0
+            
+            // Simplified liquidation price calculation
+            // For LONG: liqPrice = entryPrice * (1 - 1/leverage)  
+            // For SHORT: liqPrice = entryPrice * (1 + 1/leverage)
+            val liqPrice = if (isLong) {
+                entryPrice * (1 - 1 / leverage)
+            } else {
+                entryPrice * (1 + 1 / leverage)
+            }
+            
+            // Ensure liquidation price is positive
+            if (liqPrice > 0) liqPrice else 0.0
+        } catch (e: Exception) {
+            Log.e("UsdmFuturesFragment", "Error calculating liquidation price: ${e.message}")
+            0.0
         }
     }
 

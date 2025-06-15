@@ -159,7 +159,7 @@ class TransactionReportFragment : BaseFragment() {
     // Pagination buttons removed
 
     private fun observeTransactions() {
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             firebaseRepository.transactions.collectLatest { transactions ->
                 allTransactions = transactions
 
@@ -218,6 +218,9 @@ class TransactionReportFragment : BaseFragment() {
     // Transaction list removed
 
     private fun updateSummarySection() {
+        // Check if binding is still available
+        if (_binding == null) return
+        
         val totalIncome = filteredTransactions.filter { it.isIncome }.sumOf { it.amount }
         val totalExpense = filteredTransactions.filter { !it.isIncome }.sumOf { it.amount }
         val balance = totalIncome - totalExpense
@@ -235,6 +238,9 @@ class TransactionReportFragment : BaseFragment() {
     }
 
     private fun updateChart() {
+        // Check if binding is still available
+        if (_binding == null) return
+        
         if (filteredTransactions.isEmpty()) {
             binding.lineChart.setNoDataText("No data available")
             binding.lineChart.invalidate()
@@ -379,6 +385,9 @@ class TransactionReportFragment : BaseFragment() {
     }
 
     private fun updateCategorySpending() {
+        // Check if binding is still available
+        if (_binding == null) return
+        
         if (filteredTransactions.isEmpty()) {
             binding.categoryPieChart.setNoDataText("No data available")
             binding.categoryPieChart.invalidate()
@@ -482,6 +491,9 @@ class TransactionReportFragment : BaseFragment() {
     }
 
     private fun updateTransactionInsights() {
+        // Check if binding is still available
+        if (_binding == null) return
+        
         if (filteredTransactions.isEmpty()) {
             binding.largestExpenseText.text = NumberFormatUtils.formatAmount(0.0)
             binding.mostSpentCategoryText.text = "N/A"

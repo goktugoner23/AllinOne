@@ -69,8 +69,8 @@ class BinancePositionAdapter(
             pnlValue.text = NumberFormatUtils.formatDecimal(pnl)
             pnlValue.setTextColor(pnlColor)
 
-            // Set ROI with color
-            val roi = position.roe * 100 // Convert to percentage
+            // Calculate and set ROI with color
+            val roi = calculateROI(position)
             val roiText = if (roi.isNaN() || roi.isInfinite()) {
                 "0.00%" // Default value for invalid ROI
             } else {
@@ -126,6 +126,33 @@ class BinancePositionAdapter(
                 String.format(Locale.US, "%.7f", price)
             } else {
                 "--"
+            }
+        }
+
+        /**
+         * Calculate ROI (Return on Investment) for a futures position
+         * ROI = (Unrealized Profit / Initial Margin) × 100
+         */
+        private fun calculateROI(position: BinancePosition): Double {
+            return try {
+                // If position amount is 0, no ROI
+                if (position.positionAmt == 0.0) return 0.0
+                
+                // Calculate initial margin: (Position Size × Entry Price) / Leverage
+                val positionValue = abs(position.positionAmt) * position.entryPrice
+                val initialMargin = positionValue / position.leverage
+                
+                // Avoid division by zero
+                if (initialMargin == 0.0) return 0.0
+                
+                // Calculate ROI as percentage
+                val roi = (position.unrealizedProfit / initialMargin) * 100
+                
+                // Return the calculated ROI
+                roi
+            } catch (e: Exception) {
+                // Return 0 if calculation fails
+                0.0
             }
         }
     }

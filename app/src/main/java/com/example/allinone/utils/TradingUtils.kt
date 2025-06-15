@@ -214,17 +214,23 @@ class PositionUpdater(private val repository: ExternalBinanceRepository) {
                                 // Convert API response to BinancePosition
                                 val positions = response.data.mapNotNull { positionData ->
                                     if (positionData.positionAmount != 0.0) { // Only include positions with non-zero amount
+                                        
+                                        // For the PositionUpdater, we don't have orders context
+                                        // So we'll create positions with default TP/SL values
+                                        // The fragments will handle the proper TP/SL population
                                         BinancePosition(
                                             symbol = positionData.symbol,
                                             positionAmt = positionData.positionAmount,
                                             entryPrice = positionData.entryPrice,
                                             markPrice = positionData.markPrice,
                                             unrealizedProfit = positionData.unrealizedProfit,
-                                            liquidationPrice = 0.0, // Not provided in API response
+                                            liquidationPrice = calculateLiquidationPrice(positionData), // Calculate liquidation price
                                             leverage = positionData.leverage.toInt(),
                                             marginType = positionData.marginType,
                                             isolatedMargin = positionData.isolatedMargin,
-                                            roe = 0.0, // Calculate if needed
+                                            roe = positionData.percentage, // Use percentage as ROE
+                                            takeProfitPrice = 0.0, // Will be populated by fragments with order context
+                                            stopLossPrice = 0.0, // Will be populated by fragments with order context
                                             positionSide = positionData.positionSide,
                                             percentage = positionData.percentage,
                                             maxNotionalValue = positionData.maxNotionalValue,
@@ -256,6 +262,35 @@ class PositionUpdater(private val repository: ExternalBinanceRepository) {
         updateJob?.cancel()
         updateJob = null
         _isUpdating.postValue(false)
+    }
+    
+    /**
+     * Calculate liquidation price based on position data
+     * This is a simplified calculation - in reality Binance uses more complex formulas
+     */
+    private fun calculateLiquidationPrice(position: com.example.allinone.api.PositionData): Double {
+        return try {
+            if (position.positionAmount == 0.0) return 0.0
+            
+            val leverage = position.leverage
+            val entryPrice = position.entryPrice
+            val isLong = position.positionAmount > 0
+            
+            // Simplified liquidation price calculation
+            // For LONG: liqPrice = entryPrice * (1 - 1/leverage)  
+            // For SHORT: liqPrice = entryPrice * (1 + 1/leverage)
+            val liqPrice = if (isLong) {
+                entryPrice * (1 - 1 / leverage)
+            } else {
+                entryPrice * (1 + 1 / leverage)
+            }
+            
+            // Ensure liquidation price is positive
+            if (liqPrice > 0) liqPrice else 0.0
+        } catch (e: Exception) {
+            Log.e("TradingUtils", "Error calculating liquidation price: ${e.message}")
+            0.0
+        }
     }
 }
 
