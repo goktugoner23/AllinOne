@@ -80,14 +80,15 @@ class BinancePositionAdapter(
             roiValue.text = roiText
             roiValue.setTextColor(roiColor)
 
-            // Get base asset name
-            val baseAsset = position.symbol.replace("USDT", "")
+            // Determine if this is COIN-M or USD-M futures
+            val baseAsset = getBaseAsset(position.symbol)
+            val marginCurrency = getMarginCurrency(position.symbol)
 
             // Set size value with asset name
             sizeValue.text = formatPositionAmount(position.positionAmt) + " " + baseAsset
 
-            // Set margin value with USDT
-            marginValue.text = NumberFormatUtils.formatDecimal(position.isolatedMargin) + " USDT"
+            // Set margin value with correct currency
+            marginValue.text = NumberFormatUtils.formatDecimal(position.isolatedMargin) + " " + marginCurrency
 
             // Set prices
             val entryPrice = position.entryPrice
@@ -153,6 +154,45 @@ class BinancePositionAdapter(
             } catch (e: Exception) {
                 // Return 0 if calculation fails
                 0.0
+            }
+        }
+
+        /**
+         * Determine if a symbol is COIN-M futures
+         * COIN-M futures symbols typically end with USD_PERP (like BTCUSD_PERP, ETHUSD_PERP)
+         * USD-M futures symbols typically end with USDT (like BTCUSDT, ETHUSDT)
+         */
+        private fun isCoinMFutures(symbol: String): Boolean {
+            return symbol.contains("USD_PERP") || symbol.contains("USDC_PERP") || 
+                   (symbol.contains("USD") && !symbol.contains("USDT") && !symbol.contains("USDC"))
+        }
+
+        /**
+         * Get the base asset from the symbol
+         * For COIN-M: BTCUSD_PERP -> BTC
+         * For USD-M: BTCUSDT -> BTC
+         */
+        private fun getBaseAsset(symbol: String): String {
+            return when {
+                symbol.contains("USD_PERP") -> symbol.replace("USD_PERP", "")
+                symbol.contains("USDC_PERP") -> symbol.replace("USDC_PERP", "")
+                symbol.contains("USDT") -> symbol.replace("USDT", "")
+                symbol.contains("USDC") -> symbol.replace("USDC", "")
+                symbol.contains("USD") -> symbol.replace("USD", "")
+                else -> symbol
+            }
+        }
+
+        /**
+         * Get the margin currency for the position
+         * COIN-M futures: margin is in base coin (BTC, ETH, etc.)
+         * USD-M futures: margin is in USDT
+         */
+        private fun getMarginCurrency(symbol: String): String {
+            return if (isCoinMFutures(symbol)) {
+                getBaseAsset(symbol) // For COIN-M, margin is in base coin
+            } else {
+                "USDT" // For USD-M, margin is in USDT
             }
         }
     }

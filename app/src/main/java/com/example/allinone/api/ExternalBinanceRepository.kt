@@ -571,18 +571,13 @@ class ExternalBinanceRepository {
     
     suspend fun getCoinMPrice(symbol: String): Result<PriceResponse> = withContext(Dispatchers.IO) {
         try {
-            Log.d(TAG, "Fetching COIN-M futures price for symbol: $symbol")
             val response = apiService.getCoinMPrice(symbol)
-            if (response.isSuccessful && response.body() != null) {
-                Log.d(TAG, "COIN-M futures price fetch successful")
-                Result.success(response.body()!!)
+            if (response.isSuccessful) {
+                response.body()?.let { Result.success(it) } ?: Result.failure(Exception("Empty response"))
             } else {
-                val errorMsg = "COIN-M futures price fetch failed: ${response.message()}"
-                Log.e(TAG, errorMsg)
-                Result.failure(Exception(errorMsg))
+                Result.failure(Exception("HTTP ${response.code()}: ${response.message()}"))
             }
         } catch (e: Exception) {
-            Log.e(TAG, "COIN-M futures price fetch exception: ${e.message}")
             Result.failure(e)
         }
     }
@@ -848,6 +843,36 @@ class ExternalBinanceRepository {
             }
         } catch (e: Exception) {
             Log.e(TAG, "WebSocket status fetch exception: ${e.message}")
+            Result.failure(e)
+        }
+    }
+    
+    // ===============================
+    // WebSocket Ticker Subscriptions
+    // ===============================
+    
+    suspend fun subscribeToFuturesTicker(symbol: String): Result<ApiResponse> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.subscribeToFuturesTicker(symbol)
+            if (response.isSuccessful) {
+                response.body()?.let { Result.success(it) } ?: Result.failure(Exception("Empty response"))
+            } else {
+                Result.failure(Exception("HTTP ${response.code()}: ${response.message()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    suspend fun subscribeToCoinMTicker(symbol: String): Result<ApiResponse> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.subscribeToCoinMTicker(symbol)
+            if (response.isSuccessful) {
+                response.body()?.let { Result.success(it) } ?: Result.failure(Exception("Empty response"))
+            } else {
+                Result.failure(Exception("HTTP ${response.code()}: ${response.message()}"))
+            }
+        } catch (e: Exception) {
             Result.failure(e)
         }
     }

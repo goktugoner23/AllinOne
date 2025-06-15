@@ -5,16 +5,26 @@ import com.google.gson.annotations.SerializedName
 
 // Health Response
 data class HealthResponse(
+    val success: Boolean,
+    val data: HealthData,
+    val timestamp: Long
+)
+
+data class HealthData(
     val status: String,
-    val timestamp: String,
     val services: ServiceStatus
 )
 
 data class ServiceStatus(
-    val websocket: String,
-    @SerializedName("binance_spot") val binanceSpot: String,
-    @SerializedName("binance_usdm") val binanceUsdm: String,
-    @SerializedName("binance_coinm") val binanceCoinm: String
+    val usdm: BinanceServiceStatus,
+    val coinm: BinanceServiceStatus,
+    val spot: BinanceServiceStatus,
+    val isInitialized: Boolean
+)
+
+data class BinanceServiceStatus(
+    val isConnected: Boolean,
+    val clientCount: Int
 )
 
 // Account Response

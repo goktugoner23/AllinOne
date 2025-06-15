@@ -50,9 +50,12 @@ class BinanceWebSocketClient(
                 override fun onMessage(message: String?) {
                     message?.let {
                         try {
-                            Log.d(TAG, "WebSocket message received: $it")
+                            Log.d(TAG, "Raw WebSocket message received: $it")
                             val jsonObject = gson.fromJson(it, JsonObject::class.java)
                             val type = jsonObject.get("type")?.asString ?: "unknown"
+                            
+                            Log.d(TAG, "Parsed message type: $type")
+                            Log.d(TAG, "Full message JSON: $jsonObject")
                             
                             // Handle different message types
                             when (type) {
@@ -61,7 +64,7 @@ class BinanceWebSocketClient(
                                     handleWelcomeMessage(jsonObject)
                                 }
                                 "ticker" -> {
-                                    Log.d(TAG, "Ticker update received")
+                                    Log.d(TAG, "Ticker update received: $jsonObject")
                                     onMessage(type, jsonObject)
                                 }
                                 "depth" -> {
@@ -94,12 +97,12 @@ class BinanceWebSocketClient(
                                     onMessage(type, jsonObject)
                                 }
                                 else -> {
-                                    Log.d(TAG, "Unknown message type: $type")
+                                    Log.d(TAG, "Unknown message type: $type, full message: $jsonObject")
                                     onMessage(type, jsonObject)
                                 }
                             }
                         } catch (e: Exception) {
-                            Log.e(TAG, "Error parsing WebSocket message: ${e.message}")
+                            Log.e(TAG, "Error parsing WebSocket message: ${e.message}, raw message: $it")
                         }
                     }
                 }

@@ -174,7 +174,10 @@ object TradingUtils {
             val healthResult = repository.getHealth()
             healthResult.fold(
                 onSuccess = { response ->
-                    response.success && response.data.services.isInitialized
+                    response.success && 
+                    response.data.services.isInitialized &&
+                    response.data.services.usdm.isConnected &&
+                    response.data.services.coinm.isConnected
                 },
                 onFailure = { false }
             )

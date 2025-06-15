@@ -17,6 +17,8 @@ import com.example.allinone.databinding.FragmentFuturesTabBinding
 import com.example.allinone.viewmodels.InvestmentsViewModel
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
@@ -31,6 +33,7 @@ class ExternalFuturesFragment : Fragment() {
     private lateinit var webSocketClient: BinanceWebSocketClient
     private lateinit var futuresAdapter: BinancePositionAdapter
     private var openOrders: List<OrderData> = emptyList()
+    private var currentPositions: List<PositionData> = emptyList()
     
     private val gson = Gson()
     
@@ -132,7 +135,16 @@ class ExternalFuturesFragment : Fragment() {
                 webSocketClient.subscribeToPositionUpdates()
                 webSocketClient.subscribeToOrderUpdates()
                 webSocketClient.subscribeToBalanceUpdates()
+                
+                // Subscribe to ticker updates for all current positions
+                subscribeToTickerUpdates()
             }
+        }
+    }
+
+    private fun subscribeToTickerUpdates() {
+        currentPositions.forEach { position ->
+            webSocketClient.subscribeToTickerUpdates(position.symbol)
         }
     }
 
@@ -148,29 +160,35 @@ class ExternalFuturesFragment : Fragment() {
                 }
             }
             "positions_update" -> {
-                Log.d(TAG, "Position update: $data")
-                // Parse position update and refresh UI
+                Log.d(TAG, "Position update received")
+                // For real-time updates, refresh data to get latest positions
                 lifecycleScope.launch {
-                    refreshPositions()
+                    refreshAllData()
                 }
             }
             "order_update" -> {
-                Log.d(TAG, "Order update: $data")
-                // Parse order update and refresh orders
+                Log.d(TAG, "Order update received")
+                // Refresh orders to update TP/SL info on positions
                 lifecycleScope.launch {
-                    refreshOrders()
+                    val orders = refreshOrders()
+                    openOrders = orders
+                    // Re-update positions UI with new order data
+                    if (currentPositions.isNotEmpty()) {
+                        updatePositionsUI(currentPositions)
+                    }
                 }
             }
             "balance_update" -> {
-                Log.d(TAG, "Balance update: $data")
+                Log.d(TAG, "Balance update received")
                 // Handle balance updates
                 lifecycleScope.launch {
                     refreshAccountData()
                 }
             }
             "ticker" -> {
-                Log.d(TAG, "Ticker update: $data")
-                // Handle ticker updates if needed
+                Log.d(TAG, "Ticker update received")
+                // Handle real-time price updates
+                handleTickerUpdate(data)
             }
             "connection" -> {
                 val status = data.get("status")?.asString
@@ -190,6 +208,89 @@ class ExternalFuturesFragment : Fragment() {
         }
     }
 
+    private fun handleTickerUpdate(data: JsonObject) {
+        try {
+            // The ticker data is nested inside data.data according to server format
+            val tickerData = data.get("data")?.asJsonObject
+            val symbol = tickerData?.get("symbol")?.asString
+            val priceString = tickerData?.get("price")?.asString
+            val price = priceString?.toDoubleOrNull()
+            
+            if (symbol != null && price != null) {
+                Log.d(TAG, "Ticker update for $symbol: $price")
+                // Update the mark price for the specific position
+                updatePositionMarkPrice(symbol, price)
+            } else {
+                Log.w(TAG, "Invalid ticker data: symbol=$symbol, price=$priceString")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling ticker update: ${e.message}")
+        }
+    }
+
+    private fun updatePositionMarkPrice(symbol: String, newPrice: Double) {
+        // Get current positions from adapter
+        val currentPositions = futuresAdapter.currentList.toMutableList()
+        var updated = false
+        
+        for (i in currentPositions.indices) {
+            if (currentPositions[i].symbol == symbol) {
+                val position = currentPositions[i]
+                val updatedPosition = position.copy(
+                    markPrice = newPrice,
+                    // Recalculate unrealized profit
+                    unrealizedProfit = calculateUnrealizedProfit(
+                        position.positionAmt,
+                        position.entryPrice,
+                        newPrice
+                    ),
+                    // Recalculate ROE percentage
+                    roe = calculateROE(
+                        position.positionAmt,
+                        position.entryPrice,
+                        newPrice
+                    )
+                )
+                currentPositions[i] = updatedPosition
+                updated = true
+                break
+            }
+        }
+        
+        if (updated) {
+            requireActivity().runOnUiThread {
+                futuresAdapter.submitList(currentPositions)
+            }
+        }
+    }
+
+    private fun calculateUnrealizedProfit(positionAmt: Double, entryPrice: Double, markPrice: Double): Double {
+        return if (positionAmt > 0) {
+            // Long position
+            positionAmt * (markPrice - entryPrice)
+        } else {
+            // Short position
+            positionAmt * (entryPrice - markPrice)
+        }
+    }
+
+    private fun calculateROE(positionAmt: Double, entryPrice: Double, markPrice: Double): Double {
+        return if (entryPrice > 0) {
+            val priceDiff = if (positionAmt > 0) {
+                markPrice - entryPrice
+            } else {
+                entryPrice - markPrice
+            }
+            (priceDiff / entryPrice) * 100
+        } else {
+            0.0
+        }
+    }
+
+    private fun getCurrentPositions(): List<PositionData> {
+        return currentPositions
+    }
+
     private fun updateConnectionStatus(connected: Boolean) {
         Log.d(TAG, "Connection status changed: $connected")
         
@@ -204,6 +305,9 @@ class ExternalFuturesFragment : Fragment() {
                     webSocketClient.subscribeToPositionUpdates()
                     webSocketClient.subscribeToOrderUpdates()
                     webSocketClient.subscribeToBalanceUpdates()
+                    
+                    // Re-subscribe to ticker updates for current positions
+                    subscribeToTickerUpdates()
                 }
             }
         } else {
@@ -227,13 +331,13 @@ class ExternalFuturesFragment : Fragment() {
                 // Check health first
                 repository.getHealth().fold(
                     onSuccess = { health ->
-                        Log.d(TAG, "Service health: ${health.status}")
-                        if (health.services.binanceUsdm == "connected") {
+                        Log.d(TAG, "Service health: ${health.data.status}")
+                        if (health.success && health.data.services.usdm.isConnected && health.data.services.coinm.isConnected) {
                             // Service is healthy, fetch data
                             refreshAllData()
                         } else {
                             // Show warning but still try to refresh data since REST API might work
-                            Log.w(TAG, "USD-M service not connected, trying REST API")
+                            Log.w(TAG, "Some services not connected, trying REST API anyway")
                             refreshAllData()
                         }
                     },
@@ -253,31 +357,54 @@ class ExternalFuturesFragment : Fragment() {
 
     private fun refreshData() {
         lifecycleScope.launch {
+            showLoading(true)
             refreshAllData()
             if (_binding != null) {
                 binding.futuresSwipeRefreshLayout.isRefreshing = false
             }
+            showLoading(false)
         }
     }
 
     private suspend fun refreshAllData() {
         try {
             // Fetch positions and orders in parallel
-            refreshPositions()
-            refreshOrders()
-            refreshAccountData()
+            coroutineScope {
+                val positionsDeferred = async { refreshPositions() }
+                val ordersDeferred = async { refreshOrders() }
+                val accountDataJob = async { refreshAccountData() }
+
+                val positions = positionsDeferred.await()
+                openOrders = ordersDeferred.await()
+                accountDataJob.await()
+
+                // Store current positions for live updates
+                currentPositions = positions
+                updatePositionsUI(positions)
+                
+                // Subscribe to ticker updates for new positions
+                subscribeToTickerUpdates()
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error refreshing data: ${e.message}")
             showError("Failed to refresh data: ${e.message}")
         }
     }
 
-    private suspend fun refreshPositions() {
-        repository.getFuturesPositions().fold(
+    private suspend fun refreshPositions(): List<PositionData> = coroutineScope {
+        val usdmPositionsDeferred = async { repository.getFuturesPositions() }
+        val coinmPositionsDeferred = async { repository.getCoinMPositions() }
+
+        val usdmPositionsResult = usdmPositionsDeferred.await()
+        val coinmPositionsResult = coinmPositionsDeferred.await()
+
+        val combinedPositions = mutableListOf<PositionData>()
+
+        usdmPositionsResult.fold(
             onSuccess = { response ->
                 if (response.success && response.data != null) {
                     Log.d(TAG, "USD-M futures positions fetched: ${response.data.size}")
-                    updatePositionsUI(response.data)
+                    combinedPositions.addAll(response.data.filter { it.positionAmount != 0.0 })
                 } else {
                     Log.e(TAG, "USD-M futures positions fetch failed: ${response.error}")
                     showError(response.error ?: "Failed to fetch USD-M futures positions")
@@ -288,14 +415,38 @@ class ExternalFuturesFragment : Fragment() {
                 showError("Network error: ${error.message}")
             }
         )
+
+        coinmPositionsResult.fold(
+            onSuccess = { response ->
+                if (response.success && response.data != null) {
+                    Log.d(TAG, "COIN-M futures positions fetched: ${response.data.size}")
+                    combinedPositions.addAll(response.data.filter { it.positionAmount != 0.0 })
+                } else {
+                    Log.e(TAG, "COIN-M futures positions fetch failed: ${response.error}")
+                }
+            },
+            onFailure = { error ->
+                Log.e(TAG, "COIN-M futures positions fetch error: ${error.message}")
+            }
+        )
+
+        combinedPositions
     }
 
-    private suspend fun refreshOrders() {
-        repository.getFuturesOrders().fold(
+    private suspend fun refreshOrders(): List<OrderData> = coroutineScope {
+        val usdmOrdersDeferred = async { repository.getFuturesOrders() }
+        val coinmOrdersDeferred = async { repository.getCoinMOrders() }
+
+        val usdmOrdersResult = usdmOrdersDeferred.await()
+        val coinmOrdersResult = coinmOrdersDeferred.await()
+
+        val combinedOrders = mutableListOf<OrderData>()
+
+        usdmOrdersResult.fold(
             onSuccess = { response ->
                 if (response.success && response.data != null) {
                     Log.d(TAG, "USD-M futures orders fetched: ${response.data.size}")
-                    openOrders = response.data
+                    combinedOrders.addAll(response.data)
                 } else {
                     Log.e(TAG, "USD-M futures orders fetch failed: ${response.error}")
                 }
@@ -304,6 +455,22 @@ class ExternalFuturesFragment : Fragment() {
                 Log.e(TAG, "USD-M futures orders fetch error: ${error.message}")
             }
         )
+
+        coinmOrdersResult.fold(
+            onSuccess = { response ->
+                if (response.success && response.data != null) {
+                    Log.d(TAG, "COIN-M futures orders fetched: ${response.data.size}")
+                    combinedOrders.addAll(response.data)
+                } else {
+                    Log.e(TAG, "COIN-M futures orders fetch failed: ${response.error}")
+                }
+            },
+            onFailure = { error ->
+                Log.e(TAG, "COIN-M futures orders fetch error: ${error.message}")
+            }
+        )
+
+        combinedOrders
     }
 
     private suspend fun refreshAccountData() {
@@ -341,6 +508,13 @@ class ExternalFuturesFragment : Fragment() {
                     it.side == expectedSide && (it.type == "STOP_MARKET" || it.type == "STOP_LOSS_MARKET")
                 }
                 
+                // Calculate the correct margin: (Position Size × Entry Price) / Leverage
+                val calculatedMargin = if (position.leverage > 0) {
+                    (kotlin.math.abs(position.positionAmount) * position.entryPrice) / position.leverage
+                } else {
+                    position.isolatedMargin // Fallback to API value if leverage is 0
+                }
+                
                 BinancePosition(
                     symbol = position.symbol,
                     positionAmt = position.positionAmount,
@@ -350,7 +524,7 @@ class ExternalFuturesFragment : Fragment() {
                     liquidationPrice = calculateLiquidationPrice(position), // Calculate liquidation price
                     leverage = position.leverage.toInt(),
                     marginType = position.marginType,
-                    isolatedMargin = position.isolatedMargin,
+                    isolatedMargin = calculatedMargin, // Use calculated margin
                     roe = position.percentage, // Use percentage as ROE
                     takeProfitPrice = tpOrder?.stopPrice ?: 0.0, // Get TP price from orders
                     stopLossPrice = slOrder?.stopPrice ?: 0.0, // Get SL price from orders

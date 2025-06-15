@@ -34,6 +34,8 @@ import kotlinx.coroutines.withContext
 import java.text.NumberFormat
 import java.util.Locale
 import com.example.allinone.utils.TradingUtils
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 
 class CoinMFuturesFragment : Fragment() {
     private var _binding: FragmentFuturesTabBinding? = null
@@ -46,9 +48,12 @@ class CoinMFuturesFragment : Fragment() {
     private var openOrders: List<OrderData> = emptyList()
     private var useExternalService = true // Flag to use external service
     
+    private var pricePollingJob: Job? = null
+    
     companion object {
         private const val TAG = "CoinMFuturesFragment"
         private const val HEARTBEAT_INTERVAL = 30000L // 30 seconds
+        private const val PRICE_POLLING_INTERVAL = 5000L // 5 seconds
     }
 
     private val currencyFormatter = NumberFormat.getCurrencyInstance(Locale.US).apply {
@@ -489,56 +494,59 @@ class CoinMFuturesFragment : Fragment() {
     }
 
     private fun refreshData() {
-        // Safely check if binding is still valid before starting operation
-        if (_binding == null) return
-        binding.futuresSwipeRefreshLayout.isRefreshing = true
-        showLoading(true)
-
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                if (useExternalService) {
-                    // Check external service health first
-                    externalRepository.getHealth().fold(
-                        onSuccess = { health ->
-                            Log.d(TAG, "External service health: ${health.data.status}")
-                            if (health.data.services.coinm.isConnected) {
-                                refreshExternalData()
-                            } else {
-                                // Show warning but still try to refresh data since REST API might work
-                                Log.w(TAG, "COIN-M WebSocket not connected, trying REST API")
-                                refreshExternalData()
-                            }
-                        },
-                        onFailure = { error ->
-                            Log.e(TAG, "External service health check failed: ${error.message}")
-                            showError("Service unavailable: ${error.message}")
+                // Check health first to decide which service to use
+                externalRepository.getHealth().fold(
+                    onSuccess = { health ->
+                        Log.d(TAG, "Service health: ${health.data.status}")
+                        if (health.success && health.data.services.coinm.isConnected) {
+                            useExternalService = true
+                            Log.d(TAG, "Using external service for COIN-M data")
+                            refreshAllData() // Fetches from external service
+                        } else {
+                            // Fallback or show error
+                            useExternalService = false // Or handle as an error
+                            Log.w(TAG, "COIN-M service not connected, falling back or showing error")
+                            showError("Live COIN-M data not available")
+                            // Optionally, try to refresh from a different source if available
+                            // viewModel.refreshCoinmData()
                         }
-                    )
-                } else {
-                    showError("External service is required for COIN-M futures")
-                }
-
-                // Add a small delay to make the refresh animation visible
-                delay(500)
-
-                // Check if binding is still valid after async operation
-                if (_binding != null) {
-                    binding.futuresSwipeRefreshLayout.isRefreshing = false
-                    showLoading(false)
-                    Log.d(TAG, "Refreshed COIN-M futures data successfully")
-                }
+                    },
+                    onFailure = { error ->
+                        Log.e(TAG, "Health check failed: ${error.message}")
+                        showError("Service unavailable: ${error.message}")
+                        useExternalService = false
+                    }
+                )
             } catch (e: Exception) {
-                Log.e(TAG, "Error in refreshData: ${e.message}")
+                Log.e(TAG, "Error in fetchInitialData: ${e.message}")
+                showError("Failed to connect to service")
+            } finally {
                 if (_binding != null) {
                     binding.futuresSwipeRefreshLayout.isRefreshing = false
-                    showLoading(false)
-                    showError("Failed to refresh data: ${e.message}")
+                }
+                showLoading(false)
+            }
+        }
+    }
+    
+    private fun refreshAllData() {
+        lifecycleScope.launch {
+            try {
+                fetchAndProcessCoinmData()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error refreshing data: ${e.message}")
+                showError("Failed to refresh data: ${e.message}")
+            } finally {
+                if (_binding != null) {
+                    binding.futuresSwipeRefreshLayout.isRefreshing = false
                 }
             }
         }
     }
 
-    private suspend fun refreshExternalData() {
+    private suspend fun fetchAndProcessCoinmData() {
         try {
             Log.d(TAG, "Fetching COIN-M futures positions...")
             val positionsResponse = externalRepository.getCoinMPositions()
@@ -611,6 +619,15 @@ class CoinMFuturesFragment : Fragment() {
                     it.side == expectedSide && (it.type == "STOP_MARKET" || it.type == "STOP_LOSS_MARKET")
                 }
                 
+                // Calculate the correct margin for COIN-M futures
+                // For COIN-M: Margin = Position Size / Leverage (in base coin)
+                // For example: 1000 BTCUSD_PERP contracts with 10x leverage = 100 BTC margin
+                val calculatedMargin = if (position.leverage > 0) {
+                    kotlin.math.abs(position.positionAmount) / position.leverage
+                } else {
+                    position.isolatedMargin // Fallback to API value if leverage is 0
+                }
+                
                 BinancePosition(
                     symbol = position.symbol,
                     positionAmt = position.positionAmount,
@@ -620,7 +637,7 @@ class CoinMFuturesFragment : Fragment() {
                     liquidationPrice = calculateLiquidationPrice(position), // Calculate liquidation price
                     leverage = position.leverage.toInt(),
                     marginType = position.marginType,
-                    isolatedMargin = position.isolatedMargin,
+                    isolatedMargin = calculatedMargin, // Use calculated margin in base coin
                     roe = position.percentage, // Use percentage as ROE
                     takeProfitPrice = tpOrder?.stopPrice ?: 0.0, // Get TP price from orders
                     stopLossPrice = slOrder?.stopPrice ?: 0.0, // Get SL price from orders
@@ -634,10 +651,18 @@ class CoinMFuturesFragment : Fragment() {
             // Update adapter
             futuresAdapter.submitList(binancePositions)
 
+            // Subscribe to ticker updates for loaded positions
+            if (::webSocketClient.isInitialized && webSocketClient.isConnected()) {
+                subscribeToTickerUpdates()
+            }
+            
+            // Start price polling as fallback for live updates
+            startPricePolling()
+
             // Show empty state if no positions
             binding.emptyStateText.visibility = if (binancePositions.isEmpty()) View.VISIBLE else View.GONE
             if (binancePositions.isEmpty()) {
-                binding.emptyStateText.text = "No open COIN-M futures positions (Live Data)"
+                binding.emptyStateText.text = "No open COIN-M futures positions"
             }
 
             Log.d(TAG, "External UI updated with ${binancePositions.size} COIN-M positions")
@@ -742,6 +767,9 @@ class CoinMFuturesFragment : Fragment() {
                     webSocketClient.subscribeToPositionUpdates()
                     webSocketClient.subscribeToOrderUpdates()
                     webSocketClient.subscribeToBalanceUpdates()
+                    
+                    // Subscribe to ticker updates for current positions
+                    subscribeToTickerUpdates()
                 }
             }
         }
@@ -785,7 +813,8 @@ class CoinMFuturesFragment : Fragment() {
             }
             "ticker" -> {
                 Log.d(TAG, "Ticker update: $data")
-                // Handle ticker updates if needed
+                // Handle ticker updates for real-time price updates
+                handleTickerUpdate(data)
             }
             "connection" -> {
                 val status = data.get("status")?.asString
@@ -822,6 +851,9 @@ class CoinMFuturesFragment : Fragment() {
                     webSocketClient.subscribeToPositionUpdates()
                     webSocketClient.subscribeToOrderUpdates()
                     webSocketClient.subscribeToBalanceUpdates()
+                    
+                    // Subscribe to ticker updates for current positions
+                    subscribeToTickerUpdates()
                 }
             }
         } else {
@@ -847,6 +879,8 @@ class CoinMFuturesFragment : Fragment() {
                     if (response.success && response.data != null) {
                         Log.d(TAG, "Live COIN-M futures positions update: ${response.data.size}")
                         updateExternalPositionsUI(response.data)
+                        // Subscribe to ticker updates for updated positions
+                        subscribeToTickerUpdates()
                     }
                 },
                 onFailure = { error ->
@@ -939,8 +973,165 @@ class CoinMFuturesFragment : Fragment() {
         }
     }
 
+    private fun handleTickerUpdate(data: JsonObject) {
+        try {
+            // The ticker data is nested inside data.data according to server format
+            val tickerData = data.get("data")?.asJsonObject
+            val symbol = tickerData?.get("symbol")?.asString
+            val priceString = tickerData?.get("price")?.asString
+            val price = priceString?.toDoubleOrNull()
+            
+            if (symbol != null && price != null) {
+                Log.d(TAG, "Ticker update for $symbol: $price")
+                // Update the mark price for the specific position
+                updatePositionMarkPrice(symbol, price)
+            } else {
+                Log.w(TAG, "Invalid ticker data: symbol=$symbol, price=$priceString")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling ticker update: ${e.message}")
+        }
+    }
+
+    private fun updatePositionMarkPrice(symbol: String, newPrice: Double) {
+        // Get current positions from adapter
+        val currentPositions = futuresAdapter.currentList.toMutableList()
+        var updated = false
+        
+        for (i in currentPositions.indices) {
+            if (currentPositions[i].symbol == symbol) {
+                val position = currentPositions[i]
+                val updatedPosition = position.copy(
+                    markPrice = newPrice,
+                    // Recalculate unrealized profit
+                    unrealizedProfit = calculateUnrealizedProfit(
+                        position.positionAmt,
+                        position.entryPrice,
+                        newPrice
+                    ),
+                    // Recalculate ROE percentage
+                    roe = calculateROE(
+                        position.positionAmt,
+                        position.entryPrice,
+                        newPrice
+                    )
+                )
+                currentPositions[i] = updatedPosition
+                updated = true
+                break
+            }
+        }
+        
+        if (updated) {
+            requireActivity().runOnUiThread {
+                futuresAdapter.submitList(currentPositions)
+            }
+        }
+    }
+
+    private fun calculateUnrealizedProfit(positionAmt: Double, entryPrice: Double, markPrice: Double): Double {
+        return if (positionAmt > 0) {
+            // Long position
+            positionAmt * (markPrice - entryPrice)
+        } else {
+            // Short position
+            positionAmt * (entryPrice - markPrice)
+        }
+    }
+
+    private fun calculateROE(positionAmt: Double, entryPrice: Double, markPrice: Double): Double {
+        return if (entryPrice > 0) {
+            val priceDiff = if (positionAmt > 0) {
+                markPrice - entryPrice
+            } else {
+                entryPrice - markPrice
+            }
+            (priceDiff / entryPrice) * 100
+        } else {
+            0.0
+        }
+    }
+
+    private fun subscribeToTickerUpdates() {
+        // Subscribe to ticker updates for all current positions
+        val currentPositions = futuresAdapter.currentList
+        currentPositions.forEach { position ->
+            // WebSocket subscription
+            webSocketClient.subscribeToTickerUpdates(position.symbol)
+            
+            // HTTP subscription for COIN-M futures
+            lifecycleScope.launch {
+                try {
+                    val result = externalRepository.subscribeToCoinMTicker(position.symbol)
+                    result.fold(
+                        onSuccess = { response ->
+                            if (response.success) {
+                                Log.d(TAG, "Successfully subscribed to COIN-M ticker for ${position.symbol}")
+                            } else {
+                                Log.w(TAG, "Failed to subscribe to COIN-M ticker for ${position.symbol}: ${response.error}")
+                            }
+                        },
+                        onFailure = { error ->
+                            Log.e(TAG, "Error subscribing to COIN-M ticker for ${position.symbol}: ${error.message}")
+                        }
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Exception subscribing to COIN-M ticker for ${position.symbol}: ${e.message}")
+                }
+            }
+        }
+        Log.d(TAG, "Subscribed to ticker updates for ${currentPositions.size} COIN-M positions")
+    }
+
+    private fun startPricePolling() {
+        pricePollingJob?.cancel()
+        pricePollingJob = lifecycleScope.launch {
+            while (isActive) {
+                try {
+                    val currentPositions = futuresAdapter.currentList
+                    if (currentPositions.isNotEmpty()) {
+                        Log.d(TAG, "Polling prices for ${currentPositions.size} COIN-M positions")
+                        
+                        currentPositions.forEach { position ->
+                            try {
+                                val priceResult = externalRepository.getCoinMPrice(position.symbol)
+                                priceResult.fold(
+                                    onSuccess = { response ->
+                                        if (response.success && response.data != null) {
+                                            val newPrice = response.data.price
+                                            Log.d(TAG, "Polled price for ${position.symbol}: $newPrice")
+                                            // Simulate ticker update
+                                            updatePositionMarkPrice(position.symbol, newPrice)
+                                        }
+                                    },
+                                    onFailure = { error ->
+                                        Log.e(TAG, "Failed to poll price for ${position.symbol}: ${error.message}")
+                                    }
+                                )
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Exception polling price for ${position.symbol}: ${e.message}")
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in price polling: ${e.message}")
+                }
+                
+                delay(PRICE_POLLING_INTERVAL)
+            }
+        }
+        Log.d(TAG, "Started price polling for COIN-M positions")
+    }
+
+    private fun stopPricePolling() {
+        pricePollingJob?.cancel()
+        pricePollingJob = null
+        Log.d(TAG, "Stopped price polling for COIN-M positions")
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
+        stopPricePolling()
         if (::webSocketClient.isInitialized) {
             webSocketClient.disconnect()
         }

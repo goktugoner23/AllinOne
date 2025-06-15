@@ -158,4 +158,19 @@ interface BinanceExternalService {
     @GET("api/binance/prices")
     @Deprecated("Use getAllFuturesPrices() instead")
     suspend fun getAllPrices(): Response<AllPricesResponse>
+    
+    // ===============================
+    // WebSocket Subscription Endpoints
+    // ===============================
+    
+    // Futures ticker subscriptions
+    @POST("api/binance/futures/subscribe/ticker/{symbol}")
+    suspend fun subscribeToFuturesTicker(@Path("symbol") symbol: String): Response<ApiResponse>
+    
+    @POST("api/binance/coinm/subscribe/ticker/{symbol}")
+    suspend fun subscribeToCoinMTicker(@Path("symbol") symbol: String): Response<ApiResponse>
+    
+    // Spot ticker subscriptions (for reference)
+    @POST("api/binance/spot/subscribe/ticker/{symbol}")
+    suspend fun subscribeToSpotTicker(@Path("symbol") symbol: String): Response<ApiResponse>
 } 
