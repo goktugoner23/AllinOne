@@ -33,6 +33,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.NumberFormat
 import java.util.Locale
+import com.example.allinone.utils.TradingUtils
 
 class CoinMFuturesFragment : Fragment() {
     private var _binding: FragmentFuturesTabBinding? = null
@@ -305,72 +306,115 @@ class CoinMFuturesFragment : Fragment() {
     private fun placeTpSlOrders(position: BinanceFutures, tpPrice: Double?, slPrice: Double?, dialog: Dialog) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                // Determine the side for TP/SL orders (opposite of position side)
-                val side = if (position.positionAmt > 0) "SELL" else "BUY"
-                val quantity = Math.abs(position.positionAmt)
+                // Convert BinanceFutures to BinancePosition for integration guide compatibility
+                val binancePosition = BinancePosition(
+                    symbol = position.symbol,
+                    positionAmt = position.positionAmt,
+                    entryPrice = position.entryPrice,
+                    markPrice = position.markPrice,
+                    unrealizedProfit = position.unRealizedProfit,
+                    liquidationPrice = position.liquidationPrice,
+                    leverage = position.leverage,
+                    marginType = position.marginType,
+                    isolatedMargin = position.isolatedMargin,
+                    roe = 0.0,
+                    takeProfitPrice = tpPrice ?: 0.0,
+                    stopLossPrice = slPrice ?: 0.0,
+                    positionSide = position.positionSide,
+                    percentage = 0.0,
+                    maxNotionalValue = 0.0,
+                    isAutoAddMargin = position.isAutoAddMargin
+                )
 
-                Log.d("CoinMFuturesFragment", "Setting COIN-M TP/SL: symbol=${position.symbol}, side=$side, quantity=$quantity, tpPrice=$tpPrice, slPrice=$slPrice")
+                Log.d("CoinMFuturesFragment", "Using integration guide TP/SL method for COIN-M: ${position.symbol}")
                 Log.d("CoinMFuturesFragment", "Position details: positionAmt=${position.positionAmt}, entryPrice=${position.entryPrice}, markPrice=${position.markPrice}")
 
-                // Use the unified TP/SL endpoint as per integration guide
-                externalRepository.setCoinMTPSL(position.symbol, side, tpPrice, slPrice, quantity).fold(
+                // Validate prices using TradingUtils
+                val validation = TradingUtils.validateTPSLPrices(
+                    binancePosition.positionAmt,
+                    binancePosition.entryPrice,
+                    tpPrice,
+                    slPrice
+                )
+                
+                if (!validation.isValid) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Validation Error: ${validation.message}", Toast.LENGTH_LONG).show()
+                        
+                        // Reset button state
+                        val dialogBinding = DialogFuturesTpSlBinding.bind(dialog.findViewById(android.R.id.content))
+                        dialogBinding.confirmButton.isEnabled = true
+                        dialogBinding.confirmButton.text = "Confirm TP/SL"
+                    }
+                    return@launch
+                }
+
+                // Calculate correct parameters using TradingUtils
+                val orderSide = TradingUtils.getTPSLSide(binancePosition.positionAmt)
+                val quantity = TradingUtils.getAbsoluteQuantity(binancePosition.positionAmt)
+
+                // Use the COIN-M specific TP/SL endpoint
+                val result = externalRepository.setCoinMTPSL(
+                    symbol = binancePosition.symbol,
+                    side = orderSide,
+                    takeProfitPrice = tpPrice,
+                    stopLossPrice = slPrice,
+                    quantity = quantity
+                )
+                
+                result.fold(
                     onSuccess = { response ->
                         withContext(Dispatchers.Main) {
                             if (response.success) {
                                 val message = when {
-                                    tpPrice != null && slPrice != null -> "TP/SL orders placed successfully"
-                                    tpPrice != null -> "Take Profit order placed successfully"
-                                    slPrice != null -> "Stop Loss order placed successfully"
-                                    else -> "Orders updated successfully"
+                                    tpPrice != null && slPrice != null -> "COIN-M TP/SL orders placed successfully"
+                                    tpPrice != null -> "COIN-M Take Profit order placed successfully"
+                                    slPrice != null -> "COIN-M Stop Loss order placed successfully"
+                                    else -> "COIN-M orders updated successfully"
                                 }
                                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                                 dialog.dismiss()
                                 // Refresh data to show updated positions
                                 refreshData()
                             } else {
-                                // Log detailed error information
-                                Log.e("CoinMFuturesFragment", "TP/SL API Error: ${response.error}")
-                                response.data?.forEach { orderResult ->
-                                    Log.e("CoinMFuturesFragment", "Order ${orderResult.type}: success=${orderResult.success}, error=${orderResult.error}")
-                                }
+                                val errorMessage = "Error setting COIN-M TP/SL: ${response.error}"
+                                Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                                Log.e("CoinMFuturesFragment", errorMessage)
                                 
-                                val errorMsg = response.data?.firstOrNull { !it.success }?.error ?: response.error ?: "Unknown error"
-                                Toast.makeText(context, "Error setting TP/SL: $errorMsg", Toast.LENGTH_LONG).show()
-                                
-                                // Reset button state - find the button directly
-                                dialog.findViewById<android.widget.Button>(com.example.allinone.R.id.confirmButton)?.let { button ->
-                                    button.isEnabled = true
-                                    button.text = "Confirm TP/SL"
-                                }
+                                // Reset button state
+                                val dialogBinding = DialogFuturesTpSlBinding.bind(dialog.findViewById(android.R.id.content))
+                                dialogBinding.confirmButton.isEnabled = true
+                                dialogBinding.confirmButton.text = "Confirm TP/SL"
                             }
                         }
                     },
                     onFailure = { error ->
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error setting TP/SL: ${error.message}", Toast.LENGTH_LONG).show()
-                            // Reset button state - find the button directly
-                            dialog.findViewById<android.widget.Button>(com.example.allinone.R.id.confirmButton)?.let { button ->
-                                button.isEnabled = true
-                                button.text = "Confirm TP/SL"
-                            }
+                            val errorMessage = "Error setting COIN-M TP/SL: ${error.message}"
+                            Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                            Log.e("CoinMFuturesFragment", errorMessage, error)
+                            
+                            // Reset button state
+                            val dialogBinding = DialogFuturesTpSlBinding.bind(dialog.findViewById(android.R.id.content))
+                            dialogBinding.confirmButton.isEnabled = true
+                            dialogBinding.confirmButton.text = "Confirm TP/SL"
                         }
                     }
                 )
             } catch (e: Exception) {
-                Log.e("CoinMFuturesFragment", "Error placing TP/SL orders", e)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-                    // Reset button state - find the button directly
-                    dialog.findViewById<android.widget.Button>(com.example.allinone.R.id.confirmButton)?.let { button ->
-                        button.isEnabled = true
-                        button.text = "Confirm TP/SL"
-                    }
+                    val errorMessage = "Exception setting COIN-M TP/SL: ${e.message}"
+                    Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                    Log.e("CoinMFuturesFragment", errorMessage, e)
+                    
+                    // Reset button state
+                    val dialogBinding = DialogFuturesTpSlBinding.bind(dialog.findViewById(android.R.id.content))
+                    dialogBinding.confirmButton.isEnabled = true
+                    dialogBinding.confirmButton.text = "Confirm TP/SL"
                 }
             }
         }
     }
-
-
 
     private fun formatPrice(price: Double): String {
         // Use Locale.US to ensure decimal point is a dot, not a comma
@@ -766,8 +810,6 @@ class CoinMFuturesFragment : Fragment() {
         }
     }
 
-
-
     private suspend fun refreshExternalOrders() {
         try {
             val ordersResponse = externalRepository.getCoinMOrders()
@@ -790,22 +832,18 @@ class CoinMFuturesFragment : Fragment() {
     private fun closePosition(position: BinancePosition, dialog: Dialog) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                // Determine the side for closing position (opposite of current position)
-                val side = if (position.positionAmt > 0) "SELL" else "BUY"
-                val quantity = Math.abs(position.positionAmt)
+                Log.d(TAG, "Using integration guide close position method for COIN-M: ${position.symbol}")
 
-                Log.d(TAG, "Closing COIN-M position: ${position.symbol}, side: $side, quantity: $quantity")
-
-                // Create market order to close position
-                val orderRequest = com.example.allinone.api.OrderRequest(
+                // Calculate correct parameters using TradingUtils
+                val quantityToClose = TradingUtils.getAbsoluteQuantity(position.positionAmt)
+                
+                // Use the COIN-M specific close position endpoint
+                val result = externalRepository.closeCoinMPosition(
                     symbol = position.symbol,
-                    side = side,
-                    type = "MARKET",
-                    quantity = quantity,
-                    reduceOnly = true
+                    quantity = quantityToClose
                 )
-
-                externalRepository.placeCoinMOrder(orderRequest).fold(
+                
+                result.fold(
                     onSuccess = { response ->
                         requireActivity().runOnUiThread {
                             if (response.success) {
@@ -814,7 +852,10 @@ class CoinMFuturesFragment : Fragment() {
                                 // Refresh data to update UI
                                 refreshData()
                             } else {
-                                Toast.makeText(requireContext(), "Error closing COIN-M position: ${response.error}", Toast.LENGTH_LONG).show()
+                                val errorMessage = "Error closing COIN-M position: ${response.error}"
+                                Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_LONG).show()
+                                Log.e(TAG, errorMessage)
+                                
                                 // Reset button state
                                 val dialogBinding = DialogFuturesTpSlBinding.bind(dialog.findViewById(android.R.id.content))
                                 dialogBinding.closePositionButton.isEnabled = true
@@ -824,7 +865,10 @@ class CoinMFuturesFragment : Fragment() {
                     },
                     onFailure = { error ->
                         requireActivity().runOnUiThread {
-                            Toast.makeText(requireContext(), "Error closing COIN-M position: ${error.message}", Toast.LENGTH_LONG).show()
+                            val errorMessage = "Error closing COIN-M position: ${error.message}"
+                            Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_LONG).show()
+                            Log.e(TAG, errorMessage, error)
+                            
                             // Reset button state
                             val dialogBinding = DialogFuturesTpSlBinding.bind(dialog.findViewById(android.R.id.content))
                             dialogBinding.closePositionButton.isEnabled = true
@@ -834,7 +878,10 @@ class CoinMFuturesFragment : Fragment() {
                 )
             } catch (e: Exception) {
                 requireActivity().runOnUiThread {
-                    Toast.makeText(requireContext(), "Error closing COIN-M position: ${e.message}", Toast.LENGTH_LONG).show()
+                    val errorMessage = "Exception closing COIN-M position: ${e.message}"
+                    Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_LONG).show()
+                    Log.e(TAG, errorMessage, e)
+                    
                     // Reset button state
                     val dialogBinding = DialogFuturesTpSlBinding.bind(dialog.findViewById(android.R.id.content))
                     dialogBinding.closePositionButton.isEnabled = true

@@ -23,6 +23,7 @@ import com.example.allinone.api.BinanceWebSocketClient
 import com.example.allinone.api.PositionData
 import com.example.allinone.api.OrderData
 import com.example.allinone.data.BinanceFutures
+import com.example.allinone.utils.TradingUtils
 import com.google.gson.JsonObject
 import com.example.allinone.databinding.DialogFuturesTpSlBinding
 import com.example.allinone.databinding.FragmentFuturesTabBinding
@@ -306,72 +307,73 @@ class UsdmFuturesFragment : Fragment() {
     private fun placeTpSlOrders(position: BinanceFutures, tpPrice: Double?, slPrice: Double?, dialog: Dialog) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                // Determine the side for TP/SL orders (opposite of position side)
-                val side = if (position.positionAmt > 0) "SELL" else "BUY"
-                val quantity = Math.abs(position.positionAmt)
+                // Convert BinanceFutures to BinancePosition for integration guide compatibility
+                val binancePosition = BinancePosition(
+                    symbol = position.symbol,
+                    positionAmt = position.positionAmt,
+                    entryPrice = position.entryPrice,
+                    markPrice = position.markPrice,
+                    unrealizedProfit = position.unRealizedProfit,
+                    liquidationPrice = position.liquidationPrice,
+                    leverage = position.leverage,
+                    marginType = position.marginType,
+                    isolatedMargin = position.isolatedMargin,
+                    roe = 0.0,
+                    takeProfitPrice = tpPrice ?: 0.0,
+                    stopLossPrice = slPrice ?: 0.0,
+                    positionSide = position.positionSide,
+                    percentage = 0.0,
+                    maxNotionalValue = 0.0,
+                    isAutoAddMargin = position.isAutoAddMargin
+                )
 
-                Log.d("UsdmFuturesFragment", "Setting USD-M TP/SL: symbol=${position.symbol}, side=$side, quantity=$quantity, tpPrice=$tpPrice, slPrice=$slPrice")
+                Log.d("UsdmFuturesFragment", "Using integration guide TP/SL method for: ${position.symbol}")
                 Log.d("UsdmFuturesFragment", "Position details: positionAmt=${position.positionAmt}, entryPrice=${position.entryPrice}, markPrice=${position.markPrice}")
 
-                // Use the unified TP/SL endpoint as per integration guide
-                externalRepository.setFuturesTPSL(position.symbol, side, tpPrice, slPrice, quantity).fold(
-                    onSuccess = { response ->
+                // Use the enhanced TP/SL method from integration guide
+                val result = TradingUtils.setTPSLWithValidation(
+                    repository = externalRepository,
+                    position = binancePosition,
+                    takeProfitPrice = tpPrice,
+                    stopLossPrice = slPrice
+                )
+                
+                result.fold(
+                    onSuccess = { message ->
                         withContext(Dispatchers.Main) {
-                            if (response.success) {
-                                val message = when {
-                                    tpPrice != null && slPrice != null -> "TP/SL orders placed successfully"
-                                    tpPrice != null -> "Take Profit order placed successfully"
-                                    slPrice != null -> "Stop Loss order placed successfully"
-                                    else -> "Orders updated successfully"
-                                }
-                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                                dialog.dismiss()
-                                // Refresh data to show updated positions
-                                refreshData()
-                            } else {
-                                // Log detailed error information
-                                Log.e("UsdmFuturesFragment", "TP/SL API Error: ${response.error}")
-                                response.data?.forEach { orderResult ->
-                                    Log.e("UsdmFuturesFragment", "Order ${orderResult.type}: success=${orderResult.success}, error=${orderResult.error}")
-                                }
-                                
-                                val errorMsg = response.data?.firstOrNull { !it.success }?.error ?: response.error ?: "Unknown error"
-                                Toast.makeText(context, "Error setting TP/SL: $errorMsg", Toast.LENGTH_LONG).show()
-                                
-                                // Reset button state - find the button directly
-                                dialog.findViewById<android.widget.Button>(com.example.allinone.R.id.confirmButton)?.let { button ->
-                                    button.isEnabled = true
-                                    button.text = "Confirm TP/SL"
-                                }
-                            }
+                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                            dialog.dismiss()
+                            // Refresh data to show updated positions
+                            refreshData()
                         }
                     },
                     onFailure = { error ->
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error setting TP/SL: ${error.message}", Toast.LENGTH_LONG).show()
-                            // Reset button state - find the button directly
-                            dialog.findViewById<android.widget.Button>(com.example.allinone.R.id.confirmButton)?.let { button ->
-                                button.isEnabled = true
-                                button.text = "Confirm TP/SL"
-                            }
+                            val errorMessage = "Error setting TP/SL: ${error.message}"
+                            Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                            Log.e("UsdmFuturesFragment", errorMessage, error)
+                            
+                            // Reset button state
+                            val dialogBinding = DialogFuturesTpSlBinding.bind(dialog.findViewById(android.R.id.content))
+                            dialogBinding.confirmButton.isEnabled = true
+                            dialogBinding.confirmButton.text = "Confirm TP/SL"
                         }
                     }
                 )
             } catch (e: Exception) {
-                Log.e("UsdmFuturesFragment", "Error placing TP/SL orders", e)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-                    // Reset button state - find the button directly
-                    dialog.findViewById<android.widget.Button>(com.example.allinone.R.id.confirmButton)?.let { button ->
-                        button.isEnabled = true
-                        button.text = "Confirm TP/SL"
-                    }
+                    val errorMessage = "Exception setting TP/SL: ${e.message}"
+                    Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                    Log.e("UsdmFuturesFragment", errorMessage, e)
+                    
+                    // Reset button state
+                    val dialogBinding = DialogFuturesTpSlBinding.bind(dialog.findViewById(android.R.id.content))
+                    dialogBinding.confirmButton.isEnabled = true
+                    dialogBinding.confirmButton.text = "Confirm TP/SL"
                 }
             }
         }
     }
-
-
 
     private fun formatPrice(price: Double): String {
         // Use Locale.US to ensure decimal point is a dot, not a comma
@@ -723,8 +725,6 @@ class UsdmFuturesFragment : Fragment() {
         }
     }
 
-
-
     private suspend fun refreshExternalOrders() {
         try {
             val ordersResponse = externalRepository.getFuturesOrders()
@@ -747,41 +747,29 @@ class UsdmFuturesFragment : Fragment() {
     private fun closePosition(position: BinancePosition, dialog: Dialog) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                // Determine the side for closing position (opposite of current position)
-                val side = if (position.positionAmt > 0) "SELL" else "BUY"
-                val quantity = Math.abs(position.positionAmt)
+                Log.d("UsdmFuturesFragment", "Using integration guide close position method for: ${position.symbol}")
 
-                Log.d("UsdmFuturesFragment", "Closing position: ${position.symbol}, side: $side, quantity: $quantity")
-
-                // Create market order to close position
-                val orderRequest = com.example.allinone.api.OrderRequest(
-                    symbol = position.symbol,
-                    side = side,
-                    type = "MARKET",
-                    quantity = quantity,
-                    reduceOnly = true
+                // Use the enhanced close position method from integration guide
+                val result = TradingUtils.closePositionSafely(
+                    repository = externalRepository,
+                    position = position
                 )
-
-                externalRepository.placeFuturesOrder(orderRequest).fold(
-                    onSuccess = { response ->
+                
+                result.fold(
+                    onSuccess = { message ->
                         requireActivity().runOnUiThread {
-                            if (response.success) {
-                                Toast.makeText(requireContext(), "Position closed successfully", Toast.LENGTH_SHORT).show()
-                                dialog.dismiss()
-                                // Refresh data to update UI
-                                refreshData()
-                            } else {
-                                Toast.makeText(requireContext(), "Error closing position: ${response.error}", Toast.LENGTH_LONG).show()
-                                // Reset button state
-                                val dialogBinding = DialogFuturesTpSlBinding.bind(dialog.findViewById(android.R.id.content))
-                                dialogBinding.closePositionButton.isEnabled = true
-                                dialogBinding.closePositionButton.text = "Close Position"
-                            }
+                            Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+                            dialog.dismiss()
+                            // Refresh data to update UI
+                            refreshData()
                         }
                     },
                     onFailure = { error ->
                         requireActivity().runOnUiThread {
-                            Toast.makeText(requireContext(), "Error closing position: ${error.message}", Toast.LENGTH_LONG).show()
+                            val errorMessage = "Error closing position: ${error.message}"
+                            Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_LONG).show()
+                            Log.e("UsdmFuturesFragment", errorMessage, error)
+                            
                             // Reset button state
                             val dialogBinding = DialogFuturesTpSlBinding.bind(dialog.findViewById(android.R.id.content))
                             dialogBinding.closePositionButton.isEnabled = true
@@ -791,7 +779,10 @@ class UsdmFuturesFragment : Fragment() {
                 )
             } catch (e: Exception) {
                 requireActivity().runOnUiThread {
-                    Toast.makeText(requireContext(), "Error closing position: ${e.message}", Toast.LENGTH_LONG).show()
+                    val errorMessage = "Exception closing position: ${e.message}"
+                    Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_LONG).show()
+                    Log.e("UsdmFuturesFragment", errorMessage, e)
+                    
                     // Reset button state
                     val dialogBinding = DialogFuturesTpSlBinding.bind(dialog.findViewById(android.R.id.content))
                     dialogBinding.closePositionButton.isEnabled = true

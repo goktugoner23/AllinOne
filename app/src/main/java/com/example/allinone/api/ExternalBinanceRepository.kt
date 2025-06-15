@@ -324,6 +324,33 @@ class ExternalBinanceRepository {
         }
     }
     
+    /**
+     * Close position for USD-M futures (as per integration guide)
+     * @param symbol The trading symbol (e.g. "LINKUSDT") 
+     * @param quantity Optional quantity to close. If null, closes entire position
+     */
+    suspend fun closeFuturesPosition(symbol: String, quantity: Double? = null): Result<ClosePositionResponse> = withContext(Dispatchers.IO) {
+        try {
+            val closePositionRequest = ClosePositionRequest(
+                symbol = symbol,
+                quantity = quantity
+            )
+            Log.d(TAG, "Closing USD-M futures position: $closePositionRequest")
+            val response = apiService.closeFuturesPosition(closePositionRequest)
+            if (response.isSuccessful && response.body() != null) {
+                Log.d(TAG, "USD-M futures position close successful")
+                Result.success(response.body()!!)
+            } else {
+                val errorMsg = "USD-M futures position close failed: ${response.message()}"
+                Log.e(TAG, errorMsg)
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "USD-M futures position close exception: ${e.message}")
+            Result.failure(e)
+        }
+    }
+    
     suspend fun getFuturesBalance(asset: String = "USDT"): Result<BalanceResponse> = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Fetching USD-M futures balance for asset: $asset")
@@ -493,6 +520,33 @@ class ExternalBinanceRepository {
             }
         } catch (e: Exception) {
             Log.e(TAG, "COIN-M futures TP/SL setting exception: ${e.message}")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Close position for COIN-M futures (as per integration guide)
+     * @param symbol The trading symbol (e.g. "BTCUSD_PERP")
+     * @param quantity Optional quantity to close. If null, closes entire position
+     */
+    suspend fun closeCoinMPosition(symbol: String, quantity: Double? = null): Result<ClosePositionResponse> = withContext(Dispatchers.IO) {
+        try {
+            val closePositionRequest = ClosePositionRequest(
+                symbol = symbol,
+                quantity = quantity
+            )
+            Log.d(TAG, "Closing COIN-M futures position: $closePositionRequest")
+            val response = apiService.closeCoinMPosition(closePositionRequest)
+            if (response.isSuccessful && response.body() != null) {
+                Log.d(TAG, "COIN-M futures position close successful")
+                Result.success(response.body()!!)
+            } else {
+                val errorMsg = "COIN-M futures position close failed: ${response.message()}"
+                Log.e(TAG, errorMsg)
+                Result.failure(Exception(errorMsg))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "COIN-M futures position close exception: ${e.message}")
             Result.failure(e)
         }
     }

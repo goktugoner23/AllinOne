@@ -352,4 +352,17 @@ data class Order(
     val origType: String,
     val time: Long,
     val updateTime: Long
+)
+
+// Close Position Request and Response Models (as per integration guide)
+data class ClosePositionRequest(
+    val symbol: String,
+    val quantity: Double? = null // Optional - closes entire position if null
+)
+
+data class ClosePositionResponse(
+    val success: Boolean,
+    val data: OrderResult? = null,
+    val error: String? = null,
+    val timestamp: Long = System.currentTimeMillis()
 ) 
