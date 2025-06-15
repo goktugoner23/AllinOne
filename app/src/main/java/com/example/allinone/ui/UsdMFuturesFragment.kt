@@ -18,10 +18,12 @@ import com.example.allinone.R
 import com.example.allinone.adapters.BinanceFuturesAdapter
 import com.example.allinone.adapters.BinancePositionAdapter
 import com.example.allinone.data.BinancePosition
-import com.example.allinone.api.BinanceApiClient
-import com.example.allinone.data.BinanceBalance
+import com.example.allinone.api.ExternalBinanceRepository
+import com.example.allinone.api.BinanceWebSocketClient
+import com.example.allinone.api.PositionData
+import com.example.allinone.api.OrderData
 import com.example.allinone.data.BinanceFutures
-import com.example.allinone.data.BinanceOrder
+import com.google.gson.JsonObject
 import com.example.allinone.databinding.DialogFuturesTpSlBinding
 import com.example.allinone.databinding.FragmentFuturesTabBinding
 import com.example.allinone.viewmodels.InvestmentsViewModel
@@ -38,9 +40,16 @@ class UsdmFuturesFragment : Fragment() {
     private val binding get() = _binding!!
     private val viewModel: InvestmentsViewModel by viewModels({ requireParentFragment().requireParentFragment() })
 
-    private lateinit var binanceApiClient: BinanceApiClient
+    private lateinit var externalRepository: ExternalBinanceRepository
+    private lateinit var webSocketClient: BinanceWebSocketClient
     private lateinit var futuresAdapter: BinancePositionAdapter
-    private var openOrders: List<BinanceOrder> = emptyList()
+    private var openOrders: List<OrderData> = emptyList()
+    private var useExternalService = true // Flag to use external service
+    
+    companion object {
+        private const val TAG = "UsdmFuturesFragment"
+        private const val HEARTBEAT_INTERVAL = 30000L // 30 seconds
+    }
 
     private val currencyFormatter = NumberFormat.getCurrencyInstance(Locale.US).apply {
         minimumFractionDigits = 2
@@ -68,8 +77,11 @@ class UsdmFuturesFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Initialize Binance API client
-        binanceApiClient = BinanceApiClient()
+        // Initialize external service
+        externalRepository = ExternalBinanceRepository()
+        
+        // Initialize WebSocket
+        initializeWebSocket()
 
         // Setup RecyclerView and adapter
         setupRecyclerView()
@@ -310,68 +322,104 @@ class UsdmFuturesFragment : Fragment() {
                 if (tpPrice != null) {
                     // If there's an existing TP order, cancel it first
                     if (existingTpOrder != null) {
-                        val cancelResult = binanceApiClient.cancelOrder(position.symbol, existingTpOrder.orderId)
-                        Log.d("UsdmFuturesFragment", "Cancel TP Order Result: $cancelResult")
-                        if (cancelResult.contains("error")) {
-                            hasError = true
-                            tpResult = cancelResult
-                        }
+                        externalRepository.cancelFuturesOrder(position.symbol, existingTpOrder.orderId).fold(
+                            onSuccess = { response ->
+                                if (response.success) {
+                                    Log.d("UsdmFuturesFragment", "TP order canceled successfully")
+                                } else {
+                                    Log.e("UsdmFuturesFragment", "Error canceling TP order: ${response.error}")
+                                    hasError = true
+                                    tpResult = response.error ?: "Error canceling TP order"
+                                }
+                            },
+                            onFailure = { error ->
+                                Log.e("UsdmFuturesFragment", "Error canceling TP order: ${error.message}")
+                                hasError = true
+                                tpResult = error.message ?: "Error canceling TP order"
+                            }
+                        )
                     }
 
                     // Place new TP order if no error occurred during cancellation
                     if (!hasError) {
-                        tpResult = binanceApiClient.placeTakeProfitMarketOrder(
+                        tpResult = externalRepository.placeTakeProfitMarketOrder(
                             symbol = position.symbol,
                             side = side,
                             quantity = quantity,
                             stopPrice = tpPrice
                         )
                         Log.d("UsdmFuturesFragment", "TP Order Result: $tpResult")
-                        Log.d("UsdmFuturesFragment", "TP Order Query: symbol=${position.symbol}&side=$side&type=TAKE_PROFIT_MARKET&quantity=$quantity&stopPrice=$tpPrice&closePosition=true&workingType=CONTRACT_PRICE&timeInForce=GTE_GTC")
-                        hasError = hasError || tpResult.contains("error")
                     }
                 } else if (existingTpOrder != null) {
                     // If TP price is not provided but there's an existing TP order, cancel it
-                    val cancelResult = binanceApiClient.cancelOrder(position.symbol, existingTpOrder.orderId)
-                    Log.d("UsdmFuturesFragment", "Cancel TP Order Result: $cancelResult")
-                    if (cancelResult.contains("error")) {
-                        hasError = true
-                        tpResult = cancelResult
-                    }
+                    externalRepository.cancelFuturesOrder(position.symbol, existingTpOrder.orderId).fold(
+                        onSuccess = { response ->
+                            if (response.success) {
+                                Log.d("UsdmFuturesFragment", "TP order canceled successfully")
+                            } else {
+                                Log.e("UsdmFuturesFragment", "Error canceling TP order: ${response.error}")
+                                hasError = true
+                                tpResult = response.error ?: "Error canceling TP order"
+                            }
+                        },
+                        onFailure = { error ->
+                            Log.e("UsdmFuturesFragment", "Error canceling TP order: ${error.message}")
+                            hasError = true
+                            tpResult = error.message ?: "Error canceling TP order"
+                        }
+                    )
                 }
 
                 // Handle Stop Loss order
                 if (slPrice != null && !hasError) {
                     // If there's an existing SL order, cancel it first
                     if (existingSlOrder != null) {
-                        val cancelResult = binanceApiClient.cancelOrder(position.symbol, existingSlOrder.orderId)
-                        Log.d("UsdmFuturesFragment", "Cancel SL Order Result: $cancelResult")
-                        if (cancelResult.contains("error")) {
-                            hasError = true
-                            slResult = cancelResult
-                        }
+                        externalRepository.cancelFuturesOrder(position.symbol, existingSlOrder.orderId).fold(
+                            onSuccess = { response ->
+                                if (response.success) {
+                                    Log.d("UsdmFuturesFragment", "SL order canceled successfully")
+                                } else {
+                                    Log.e("UsdmFuturesFragment", "Error canceling SL order: ${response.error}")
+                                    hasError = true
+                                    slResult = response.error ?: "Error canceling SL order"
+                                }
+                            },
+                            onFailure = { error ->
+                                Log.e("UsdmFuturesFragment", "Error canceling SL order: ${error.message}")
+                                hasError = true
+                                slResult = error.message ?: "Error canceling SL order"
+                            }
+                        )
                     }
 
                     // Place new SL order if no error occurred during cancellation
                     if (!hasError) {
-                        slResult = binanceApiClient.placeStopLossMarketOrder(
+                        slResult = externalRepository.placeStopLossMarketOrder(
                             symbol = position.symbol,
                             side = side,
                             quantity = quantity,
                             stopPrice = slPrice
                         )
                         Log.d("UsdmFuturesFragment", "SL Order Result: $slResult")
-                        Log.d("UsdmFuturesFragment", "SL Order Query: symbol=${position.symbol}&side=$side&type=STOP_MARKET&quantity=$quantity&stopPrice=$slPrice&closePosition=true&workingType=MARK_PRICE&timeInForce=GTE_GTC")
-                        hasError = hasError || slResult.contains("error")
                     }
                 } else if (existingSlOrder != null && !hasError) {
                     // If SL price is not provided but there's an existing SL order, cancel it
-                    val cancelResult = binanceApiClient.cancelOrder(position.symbol, existingSlOrder.orderId)
-                    Log.d("UsdmFuturesFragment", "Cancel SL Order Result: $cancelResult")
-                    if (cancelResult.contains("error")) {
-                        hasError = true
-                        slResult = cancelResult
-                    }
+                    externalRepository.cancelFuturesOrder(position.symbol, existingSlOrder.orderId).fold(
+                        onSuccess = { response ->
+                            if (response.success) {
+                                Log.d("UsdmFuturesFragment", "SL order canceled successfully")
+                            } else {
+                                Log.e("UsdmFuturesFragment", "Error canceling SL order: ${response.error}")
+                                hasError = true
+                                slResult = response.error ?: "Error canceling SL order"
+                            }
+                        },
+                        onFailure = { error ->
+                            Log.e("UsdmFuturesFragment", "Error canceling SL order: ${error.message}")
+                            hasError = true
+                            slResult = error.message ?: "Error canceling SL order"
+                        }
+                    )
                 }
 
                 // Check for errors
@@ -428,7 +476,7 @@ class UsdmFuturesFragment : Fragment() {
     private fun closePosition(position: BinancePosition, dialog: Dialog) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                val result = binanceApiClient.closePosition(
+                val result = externalRepository.closePosition(
                     symbol = position.symbol,
                     positionAmt = position.positionAmt
                 )
@@ -534,29 +582,31 @@ class UsdmFuturesFragment : Fragment() {
         binding.futuresSwipeRefreshLayout.isRefreshing = true
         showLoading(true)
 
-        // Use viewLifecycleOwner.lifecycleScope instead of lifecycleScope to tie to view lifecycle
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                // Fetch Binance Futures data
-                Log.d("UsdmFuturesFragment", "Fetching USD-M account balance...")
-                val balances = binanceApiClient.getAccountBalance()
-                Log.d("UsdmFuturesFragment", "Fetched ${balances.size} balances")
-
-                Log.d("UsdmFuturesFragment", "Fetching USD-M position information...")
-                val positions = binanceApiClient.getPositionInformation()
-                Log.d("UsdmFuturesFragment", "Fetched ${positions.size} positions")
-
-                Log.d("UsdmFuturesFragment", "Fetching USD-M latest prices...")
-                val prices = binanceApiClient.getLatestPrices()
-                Log.d("UsdmFuturesFragment", "Fetched ${prices.size} prices")
-
-                // Fetch open orders
-                Log.d("UsdmFuturesFragment", "Fetching USD-M open orders...")
-                openOrders = binanceApiClient.getOpenOrders()
-                Log.d("UsdmFuturesFragment", "Fetched ${openOrders.size} open orders")
-
-                // Update UI with the fetched data
-                updateUI(balances, positions, prices)
+                if (useExternalService) {
+                    // Check external service health first
+                    externalRepository.getHealth().fold(
+                        onSuccess = { health ->
+                            Log.d("UsdmFuturesFragment", "External service health: ${health.data.status}")
+                            if (health.data.services.usdm.isConnected) {
+                                refreshExternalData()
+                            } else {
+                                // Show warning but still try to refresh data since REST API might work
+                                Log.w("UsdmFuturesFragment", "USD-M WebSocket not connected, trying REST API")
+                                refreshExternalData()
+                            }
+                        },
+                        onFailure = { error ->
+                            Log.e("UsdmFuturesFragment", "External service health check failed: ${error.message}")
+                            showError("Service unavailable: ${error.message}")
+                        }
+                    )
+                } else {
+                    // Fallback to direct API (this branch should not be used anymore)
+                    Log.w("UsdmFuturesFragment", "External service is disabled but required")
+                    showError("External service is required for USD-M futures")
+                }
 
                 // Add a small delay to make the refresh animation visible
                 delay(500)
@@ -565,142 +615,254 @@ class UsdmFuturesFragment : Fragment() {
                 if (_binding != null) {
                     binding.futuresSwipeRefreshLayout.isRefreshing = false
                     showLoading(false)
-                    Log.d("UsdmFuturesFragment", "Refreshed data successfully")
+                    Log.d("UsdmFuturesFragment", "Refreshed USD-M futures data successfully")
                 }
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                // Job cancellation is normal when leaving the fragment, no need to show error
-                Log.d("UsdmFuturesFragment", "Refresh job was cancelled")
             } catch (e: Exception) {
-                Log.e("UsdmFuturesFragment", "Error refreshing data: ${e.message}")
-                // Check if binding is still valid after async operation
+                Log.e("UsdmFuturesFragment", "Error in refreshData: ${e.message}")
                 if (_binding != null) {
                     binding.futuresSwipeRefreshLayout.isRefreshing = false
                     showLoading(false)
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Error refreshing data: ${e.message}", Toast.LENGTH_SHORT).show()
-                        binding.emptyStateText.visibility = View.VISIBLE
-                        binding.emptyStateText.text = "Error loading data: ${e.message}"
-                    }
+                    showError("Failed to refresh data: ${e.message}")
                 }
             }
         }
     }
 
-    private suspend fun updateUI(balances: List<BinanceBalance>, positions: List<BinanceFutures>, prices: Map<String, Double>) {
-        if (_binding == null) return
+    private suspend fun refreshExternalData() {
+        try {
+            Log.d("UsdmFuturesFragment", "Fetching USD-M futures positions...")
+            val positionsResponse = externalRepository.getFuturesPositions()
+            positionsResponse.fold(
+                onSuccess = { response ->
+                    if (response.success && response.data != null) {
+                        Log.d("UsdmFuturesFragment", "USD-M futures positions fetched: ${response.data.size}")
+                        updateExternalPositionsUI(response.data)
+                    } else {
+                        throw Exception(response.error ?: "Failed to fetch USD-M futures positions")
+                    }
+                },
+                onFailure = { error ->
+                    throw error
+                }
+            )
 
-        withContext(Dispatchers.Main) {
-            // Filter for USD-M futures only
-            val usdmPositions = positions.filter { it.futuresType == "USD-M" }
+            // Fetch USD-M futures orders
+            Log.d("UsdmFuturesFragment", "Fetching USD-M futures orders...")
+            val ordersResponse = externalRepository.getFuturesOrders()
+            ordersResponse.fold(
+                onSuccess = { response ->
+                    if (response.success && response.data != null) {
+                        openOrders = response.data
+                        Log.d("UsdmFuturesFragment", "USD-M futures orders fetched: ${response.data.size}")
+                    }
+                },
+                onFailure = { error ->
+                    Log.e("UsdmFuturesFragment", "Failed to fetch USD-M futures orders: ${error.message}")
+                }
+            )
 
-            // Convert BinanceFutures to BinancePosition objects
-            val positionList = usdmPositions.map { position ->
-                // Find TP/SL orders for this position
-                val isLong = position.positionAmt > 0
-                val expectedSide = if (isLong) "SELL" else "BUY" // TP/SL orders are opposite to position side
+            // Fetch USD-M futures account balance
+            Log.d("UsdmFuturesFragment", "Fetching USD-M futures account...")
+            val accountResponse = externalRepository.getFuturesAccount()
+            accountResponse.fold(
+                onSuccess = { response ->
+                    if (response.success && response.data != null) {
+                        Log.d("UsdmFuturesFragment", "USD-M futures account fetched: ${response.data.totalWalletBalance}")
+                        // Update account UI if needed
+                    }
+                },
+                onFailure = { error ->
+                    Log.e("UsdmFuturesFragment", "Failed to fetch USD-M futures account: ${error.message}")
+                }
+            )
 
-                // Filter orders for this symbol and side
-                val positionOrders = openOrders.filter { it.symbol == position.symbol && it.side == expectedSide }
+        } catch (e: Exception) {
+            Log.e("UsdmFuturesFragment", "Error in refreshExternalData: ${e.message}")
+            throw e
+        }
+    }
 
-                // Find TP order (TAKE_PROFIT_MARKET)
-                val tpOrder = positionOrders.find { it.type == "TAKE_PROFIT_MARKET" }
-
-                // Find SL order (STOP_MARKET)
-                val slOrder = positionOrders.find { it.type == "STOP_MARKET" }
-
-                // Create BinancePosition object
+    private fun updateExternalPositionsUI(positions: List<PositionData>) {
+        requireActivity().runOnUiThread {
+            // Convert PositionData to BinancePosition for adapter compatibility
+            val binancePositions = positions.map { position ->
                 BinancePosition(
                     symbol = position.symbol,
-                    positionAmt = position.positionAmt,
+                    positionAmt = position.positionAmount,
                     entryPrice = position.entryPrice,
                     markPrice = position.markPrice,
-                    unrealizedProfit = position.unRealizedProfit,
-                    liquidationPrice = position.liquidationPrice,
-                    leverage = position.leverage,
+                    unrealizedProfit = position.unrealizedProfit,
+                    liquidationPrice = 0.0, // Not provided by external API
+                    leverage = position.leverage.toInt(),
                     marginType = position.marginType,
-                    isolatedMargin = calculateIsolatedMargin(position),
-                    roe = calculateRoe(position), // Calculate ROE
-                    takeProfitPrice = tpOrder?.stopPrice ?: 0.0,
-                    stopLossPrice = slOrder?.stopPrice ?: 0.0
+                    isolatedMargin = position.isolatedMargin,
+                    roe = position.percentage, // Use percentage as ROE
+                    takeProfitPrice = 0.0, // Will be filled from orders
+                    stopLossPrice = 0.0 // Will be filled from orders
                 )
             }
 
-            // Update positions list
-            futuresAdapter.submitList(positionList)
+            // Update adapter
+            futuresAdapter.submitList(binancePositions)
 
             // Show empty state if no positions
-            binding.emptyStateText.visibility = if (positionList.isEmpty()) View.VISIBLE else View.GONE
-            if (positionList.isEmpty()) {
-                binding.emptyStateText.text = "No open USD-M futures positions"
+            binding.emptyStateText.visibility = if (binancePositions.isEmpty()) View.VISIBLE else View.GONE
+            if (binancePositions.isEmpty()) {
+                binding.emptyStateText.text = "No open USD-M futures positions (Live Data)"
             }
 
-            // Log all balances for debugging
-            Log.d("UsdmFuturesFragment", "USD-M Balances: ${balances.joinToString { "${it.asset}=${it.balance}" }}")
+            Log.d("UsdmFuturesFragment", "External UI updated with ${binancePositions.size} USD-M positions")
+        }
+    }
 
-            // Find USDT balance for summary
-            val usdtBalance = balances.find { it.asset == "USDT" && it.futuresType == "USD-M" }
-
-            // Log the balance we're using for reference
-            if (usdtBalance != null) {
-                // If we have USDT balance, log it
-                Log.d("UsdmFuturesFragment", "Found USDT balance: ${usdtBalance.balance} USDT")
-            } else if (balances.isNotEmpty()) {
-                // If we don't have USDT, log the first available balance
-                val firstBalance = balances.first()
-                Log.d("UsdmFuturesFragment", "No USDT balance found, first balance is: ${firstBalance.asset} = ${firstBalance.balance}")
+    private fun initializeWebSocket() {
+        if (useExternalService) {
+            webSocketClient = BinanceWebSocketClient(
+                onMessage = { type, data ->
+                    // Check if fragment is still valid before updating UI
+                    if (isAdded && _binding != null) {
+                        requireActivity().runOnUiThread {
+                            handleWebSocketMessage(type, data)
+                        }
+                    }
+                },
+                onConnectionChange = { connected ->
+                    // Check if fragment is still valid before updating UI
+                    if (isAdded && _binding != null) {
+                        requireActivity().runOnUiThread {
+                            updateConnectionStatus(connected)
+                        }
+                    }
+                }
+            )
+            
+            // Connect WebSocket
+            webSocketClient.connect()
+            
+            // Subscribe to futures-specific data streams
+            lifecycleScope.launch {
+                delay(1000) // Wait for connection to establish
+                if (webSocketClient.isConnected()) {
+                    webSocketClient.subscribeToPositionUpdates()
+                    webSocketClient.subscribeToOrderUpdates()
+                    webSocketClient.subscribeToBalanceUpdates()
+                }
             }
+        }
+    }
 
-            // Calculate total unrealized PNL
-            val totalPnl = usdmPositions.sumOf { it.unRealizedProfit }
-
-            // Calculate total USDT value of all balances
-            var totalUsdtValue = 0.0
-
-            // Log all prices for debugging
-            Log.d("UsdmFuturesFragment", "Available prices: ${prices.keys.joinToString()}")
-
-            // Calculate USDT value for each non-zero balance
-            for (balance in balances) {
-                if (balance.balance > 0) {
-                    val asset = balance.asset
-                    // For USD-M futures, USDT balance is already in USDT
-                    if (asset == "USDT") {
-                        totalUsdtValue += balance.balance
-                        Log.d("UsdmFuturesFragment", "$asset: ${balance.balance} USDT (direct)")
-                    } else {
-                        val price = prices[asset] ?: 0.0
-                        val usdtValue = balance.balance * price
-                        Log.d("UsdmFuturesFragment", "$asset: ${balance.balance} * $price = $usdtValue USDT")
-                        totalUsdtValue += usdtValue
+    private fun handleWebSocketMessage(type: String, data: JsonObject) {
+        // Additional safety check - should not be needed due to caller check, but being extra safe
+        if (!isAdded || _binding == null) return
+        
+        Log.d("UsdmFuturesFragment", "WebSocket message received: $type")
+        
+        when (type) {
+            "positions_update" -> {
+                Log.d("UsdmFuturesFragment", "Position update: $data")
+                // Refresh positions when update received
+                viewLifecycleOwner.lifecycleScope.launch {
+                    if (useExternalService) {
+                        refreshExternalPositions()
                     }
                 }
             }
+            "order_update" -> {
+                Log.d("UsdmFuturesFragment", "Order update: $data")
+                // Refresh orders when update received
+                viewLifecycleOwner.lifecycleScope.launch {
+                    if (useExternalService) {
+                        refreshExternalOrders()
+                    }
+                }
+            }
+            "balance_update" -> {
+                Log.d("UsdmFuturesFragment", "Balance update: $data")
+                // Handle balance updates if needed
+            }
+            "connection" -> {
+                val status = data.get("status")?.asString
+                Log.d("UsdmFuturesFragment", "Connection status: $status")
+            }
+            "pong" -> {
+                Log.d("UsdmFuturesFragment", "Heartbeat pong received")
+            }
+        }
+    }
 
-            // Calculate margin balance as (wallet balance + unrealized PNL) in USDT
-            // This is the correct formula used by Binance
-            val marginBalanceUsdt = totalUsdtValue + totalPnl
+    private fun updateConnectionStatus(connected: Boolean) {
+        // Additional safety check - should not be needed due to caller check, but being extra safe
+        if (!isAdded || _binding == null) return
+        
+        Log.d("UsdmFuturesFragment", "WebSocket connection status: $connected")
+        
+        if (connected) {
+            // Show connected indicator
+            Toast.makeText(requireContext(), "Live data connected", Toast.LENGTH_SHORT).show()
+        } else {
+            // Show disconnected indicator
+            Toast.makeText(requireContext(), "Live data disconnected", Toast.LENGTH_SHORT).show()
+            
+            // Try to reconnect after delay
+            viewLifecycleOwner.lifecycleScope.launch {
+                delay(5000)
+                if (::webSocketClient.isInitialized && !webSocketClient.isConnected()) {
+                    Log.d("UsdmFuturesFragment", "Attempting to reconnect WebSocket")
+                    webSocketClient.connect()
+                }
+            }
+        }
+    }
 
-            // Update the UI with the correct balance information
-            // 1. At the top: Margin Balance
-            binding.balanceValueText.text = currencyFormatter.format(marginBalanceUsdt)
-            Log.d("UsdmFuturesFragment", "Setting top balance text to margin balance: ${currencyFormatter.format(marginBalanceUsdt)}")
-
-            // 2. Below: Wallet Balance (total balance)
-            binding.marginBalanceValueText.text = currencyFormatter.format(totalUsdtValue)
-            Log.d("UsdmFuturesFragment", "Setting margin balance text to wallet balance: ${currencyFormatter.format(totalUsdtValue)}")
-
-            // Update PNL with color
-            binding.pnlValueText.text = if (totalPnl >= 0) "+${currencyFormatter.format(totalPnl)}"
-                                       else currencyFormatter.format(totalPnl)
-            binding.pnlValueText.setTextColor(
-                if (totalPnl >= 0) Color.parseColor("#4CAF50") // Green
-                else Color.parseColor("#F44336") // Red
+    private suspend fun refreshExternalPositions() {
+        try {
+            val positionsResponse = externalRepository.getFuturesPositions()
+            positionsResponse.fold(
+                onSuccess = { response ->
+                    if (response.success && response.data != null) {
+                        Log.d("UsdmFuturesFragment", "Live USD-M futures positions update: ${response.data.size}")
+                        updateExternalPositionsUI(response.data)
+                    }
+                },
+                onFailure = { error ->
+                    Log.e("UsdmFuturesFragment", "Failed to refresh live USD-M futures positions: ${error.message}")
+                }
             )
+        } catch (e: Exception) {
+            Log.e("UsdmFuturesFragment", "Error refreshing live USD-M futures positions: ${e.message}")
+        }
+    }
+
+    private suspend fun refreshExternalOrders() {
+        try {
+            val ordersResponse = externalRepository.getFuturesOrders()
+            ordersResponse.fold(
+                onSuccess = { response ->
+                    if (response.success && response.data != null) {
+                        openOrders = response.data
+                        Log.d("UsdmFuturesFragment", "Live USD-M futures orders update: ${response.data.size}")
+                    }
+                },
+                onFailure = { error ->
+                    Log.e("UsdmFuturesFragment", "Failed to refresh live USD-M futures orders: ${error.message}")
+                }
+            )
+        } catch (e: Exception) {
+            Log.e("UsdmFuturesFragment", "Error refreshing live USD-M futures orders: ${e.message}")
+        }
+    }
+
+    private fun showError(message: String) {
+        requireActivity().runOnUiThread {
+            Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
         }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
+        if (::webSocketClient.isInitialized) {
+            webSocketClient.disconnect()
+        }
         _binding = null
     }
 }

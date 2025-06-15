@@ -15,13 +15,14 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.allinone.R
-import com.example.allinone.adapters.BinanceFuturesAdapter
 import com.example.allinone.adapters.BinancePositionAdapter
 import com.example.allinone.data.BinancePosition
-import com.example.allinone.api.CoinMFuturesApiClient
-import com.example.allinone.data.BinanceBalance
+import com.example.allinone.api.ExternalBinanceRepository
+import com.example.allinone.api.BinanceWebSocketClient
+import com.example.allinone.api.PositionData
+import com.example.allinone.api.OrderData
 import com.example.allinone.data.BinanceFutures
-import com.example.allinone.data.BinanceOrder
+import com.google.gson.JsonObject
 import com.example.allinone.databinding.DialogFuturesTpSlBinding
 import com.example.allinone.databinding.FragmentFuturesTabBinding
 import com.example.allinone.viewmodels.InvestmentsViewModel
@@ -38,9 +39,16 @@ class CoinMFuturesFragment : Fragment() {
     private val binding get() = _binding!!
     private val viewModel: InvestmentsViewModel by viewModels({ requireParentFragment().requireParentFragment() })
 
-    private lateinit var coinMFuturesApiClient: CoinMFuturesApiClient
+    private lateinit var externalRepository: ExternalBinanceRepository
+    private lateinit var webSocketClient: BinanceWebSocketClient
     private lateinit var futuresAdapter: BinancePositionAdapter
-    private var openOrders: List<BinanceOrder> = emptyList()
+    private var openOrders: List<OrderData> = emptyList()
+    private var useExternalService = true // Flag to use external service
+    
+    companion object {
+        private const val TAG = "CoinMFuturesFragment"
+        private const val HEARTBEAT_INTERVAL = 30000L // 30 seconds
+    }
 
     private val currencyFormatter = NumberFormat.getCurrencyInstance(Locale.US).apply {
         minimumFractionDigits = 2
@@ -68,8 +76,11 @@ class CoinMFuturesFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Initialize Binance COIN-M Futures API client
-        coinMFuturesApiClient = CoinMFuturesApiClient()
+        // Initialize External Binance Repository
+        externalRepository = ExternalBinanceRepository()
+        
+        // Initialize WebSocket
+        initializeWebSocket()
 
         // Setup RecyclerView and adapter
         setupRecyclerView()
@@ -310,17 +321,27 @@ class CoinMFuturesFragment : Fragment() {
                 if (tpPrice != null) {
                     // If there's an existing TP order, cancel it first
                     if (existingTpOrder != null) {
-                        val cancelResult = coinMFuturesApiClient.cancelOrder(position.symbol, existingTpOrder.orderId)
-                        Log.d("CoinMFuturesFragment", "Cancel TP Order Result: $cancelResult")
-                        if (cancelResult.contains("error")) {
-                            hasError = true
-                            tpResult = cancelResult
-                        }
+                        externalRepository.cancelCoinMOrder(position.symbol, existingTpOrder.orderId).fold(
+                            onSuccess = { response ->
+                                if (response.success) {
+                                    Log.d("CoinMFuturesFragment", "TP order canceled successfully")
+                                } else {
+                                    Log.e("CoinMFuturesFragment", "Error canceling TP order: ${response.error}")
+                                    hasError = true
+                                    tpResult = response.error ?: "Error canceling TP order"
+                                }
+                            },
+                            onFailure = { error ->
+                                Log.e("CoinMFuturesFragment", "Error canceling TP order: ${error.message}")
+                                hasError = true
+                                tpResult = error.message ?: "Error canceling TP order"
+                            }
+                        )
                     }
 
                     // Place new TP order if no error occurred during cancellation
                     if (!hasError) {
-                        tpResult = coinMFuturesApiClient.placeTakeProfitMarketOrder(
+                        tpResult = externalRepository.placeTakeProfitMarketOrder(
                             symbol = position.symbol,
                             side = side,
                             quantity = quantity,
@@ -332,29 +353,49 @@ class CoinMFuturesFragment : Fragment() {
                     }
                 } else if (existingTpOrder != null) {
                     // If TP price is not provided but there's an existing TP order, cancel it
-                    val cancelResult = coinMFuturesApiClient.cancelOrder(position.symbol, existingTpOrder.orderId)
-                    Log.d("CoinMFuturesFragment", "Cancel TP Order Result: $cancelResult")
-                    if (cancelResult.contains("error")) {
-                        hasError = true
-                        tpResult = cancelResult
-                    }
+                    externalRepository.cancelCoinMOrder(position.symbol, existingTpOrder.orderId).fold(
+                        onSuccess = { response ->
+                            if (response.success) {
+                                Log.d("CoinMFuturesFragment", "TP order canceled successfully")
+                            } else {
+                                Log.e("CoinMFuturesFragment", "Error canceling TP order: ${response.error}")
+                                hasError = true
+                                tpResult = response.error ?: "Error canceling TP order"
+                            }
+                        },
+                        onFailure = { error ->
+                            Log.e("CoinMFuturesFragment", "Error canceling TP order: ${error.message}")
+                            hasError = true
+                            tpResult = error.message ?: "Error canceling TP order"
+                        }
+                    )
                 }
 
                 // Handle Stop Loss order
                 if (slPrice != null && !hasError) {
                     // If there's an existing SL order, cancel it first
                     if (existingSlOrder != null) {
-                        val cancelResult = coinMFuturesApiClient.cancelOrder(position.symbol, existingSlOrder.orderId)
-                        Log.d("CoinMFuturesFragment", "Cancel SL Order Result: $cancelResult")
-                        if (cancelResult.contains("error")) {
-                            hasError = true
-                            slResult = cancelResult
-                        }
+                        externalRepository.cancelCoinMOrder(position.symbol, existingSlOrder.orderId).fold(
+                            onSuccess = { response ->
+                                if (response.success) {
+                                    Log.d("CoinMFuturesFragment", "SL order canceled successfully")
+                                } else {
+                                    Log.e("CoinMFuturesFragment", "Error canceling SL order: ${response.error}")
+                                    hasError = true
+                                    slResult = response.error ?: "Error canceling SL order"
+                                }
+                            },
+                            onFailure = { error ->
+                                Log.e("CoinMFuturesFragment", "Error canceling SL order: ${error.message}")
+                                hasError = true
+                                slResult = error.message ?: "Error canceling SL order"
+                            }
+                        )
                     }
 
                     // Place new SL order if no error occurred during cancellation
                     if (!hasError) {
-                        slResult = coinMFuturesApiClient.placeStopLossMarketOrder(
+                        slResult = externalRepository.placeStopLossMarketOrder(
                             symbol = position.symbol,
                             side = side,
                             quantity = quantity,
@@ -366,12 +407,22 @@ class CoinMFuturesFragment : Fragment() {
                     }
                 } else if (existingSlOrder != null && !hasError) {
                     // If SL price is not provided but there's an existing SL order, cancel it
-                    val cancelResult = coinMFuturesApiClient.cancelOrder(position.symbol, existingSlOrder.orderId)
-                    Log.d("CoinMFuturesFragment", "Cancel SL Order Result: $cancelResult")
-                    if (cancelResult.contains("error")) {
-                        hasError = true
-                        slResult = cancelResult
-                    }
+                    externalRepository.cancelCoinMOrder(position.symbol, existingSlOrder.orderId).fold(
+                        onSuccess = { response ->
+                            if (response.success) {
+                                Log.d("CoinMFuturesFragment", "SL order canceled successfully")
+                            } else {
+                                Log.e("CoinMFuturesFragment", "Error canceling SL order: ${response.error}")
+                                hasError = true
+                                slResult = response.error ?: "Error canceling SL order"
+                            }
+                        },
+                        onFailure = { error ->
+                            Log.e("CoinMFuturesFragment", "Error canceling SL order: ${error.message}")
+                            hasError = true
+                            slResult = error.message ?: "Error canceling SL order"
+                        }
+                    )
                 }
 
                 // Check for errors
@@ -428,7 +479,7 @@ class CoinMFuturesFragment : Fragment() {
     private fun closePosition(position: BinancePosition, dialog: Dialog) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                val result = coinMFuturesApiClient.closePosition(
+                val result = externalRepository.closePosition(
                     symbol = position.symbol,
                     positionAmt = position.positionAmt
                 )
@@ -534,29 +585,29 @@ class CoinMFuturesFragment : Fragment() {
         binding.futuresSwipeRefreshLayout.isRefreshing = true
         showLoading(true)
 
-        // Use viewLifecycleOwner.lifecycleScope instead of lifecycleScope to tie to view lifecycle
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                // Fetch Binance COIN-M Futures data
-                Log.d("CoinMFuturesFragment", "Fetching COIN-M account balance...")
-                val balances = coinMFuturesApiClient.getAccountBalance()
-                Log.d("CoinMFuturesFragment", "Fetched ${balances.size} balances")
-
-                Log.d("CoinMFuturesFragment", "Fetching COIN-M position information...")
-                val positions = coinMFuturesApiClient.getPositionInformation()
-                Log.d("CoinMFuturesFragment", "Fetched ${positions.size} positions")
-
-                Log.d("CoinMFuturesFragment", "Fetching COIN-M latest prices...")
-                val prices = coinMFuturesApiClient.getLatestPrices()
-                Log.d("CoinMFuturesFragment", "Fetched ${prices.size} prices")
-
-                // Fetch open orders
-                Log.d("CoinMFuturesFragment", "Fetching COIN-M open orders...")
-                openOrders = coinMFuturesApiClient.getOpenOrders()
-                Log.d("CoinMFuturesFragment", "Fetched ${openOrders.size} open orders")
-
-                // Update UI with the fetched data
-                updateUI(balances, positions, prices)
+                if (useExternalService) {
+                    // Check external service health first
+                    externalRepository.getHealth().fold(
+                        onSuccess = { health ->
+                            Log.d(TAG, "External service health: ${health.data.status}")
+                            if (health.data.services.coinm.isConnected) {
+                                refreshExternalData()
+                            } else {
+                                // Show warning but still try to refresh data since REST API might work
+                                Log.w(TAG, "COIN-M WebSocket not connected, trying REST API")
+                                refreshExternalData()
+                            }
+                        },
+                        onFailure = { error ->
+                            Log.e(TAG, "External service health check failed: ${error.message}")
+                            showError("Service unavailable: ${error.message}")
+                        }
+                    )
+                } else {
+                    showError("External service is required for COIN-M futures")
+                }
 
                 // Add a small delay to make the refresh animation visible
                 delay(500)
@@ -565,141 +616,294 @@ class CoinMFuturesFragment : Fragment() {
                 if (_binding != null) {
                     binding.futuresSwipeRefreshLayout.isRefreshing = false
                     showLoading(false)
-                    Log.d("CoinMFuturesFragment", "Refreshed data successfully")
+                    Log.d(TAG, "Refreshed COIN-M futures data successfully")
                 }
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                // Job cancellation is normal when leaving the fragment, no need to show error
-                Log.d("CoinMFuturesFragment", "Refresh job was cancelled")
             } catch (e: Exception) {
-                Log.e("CoinMFuturesFragment", "Error refreshing data: ${e.message}")
-                // Check if binding is still valid after async operation
+                Log.e(TAG, "Error in refreshData: ${e.message}")
                 if (_binding != null) {
                     binding.futuresSwipeRefreshLayout.isRefreshing = false
                     showLoading(false)
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Error refreshing data: ${e.message}", Toast.LENGTH_SHORT).show()
-                        binding.emptyStateText.visibility = View.VISIBLE
-                        binding.emptyStateText.text = "Error loading data: ${e.message}"
-                    }
+                    showError("Failed to refresh data: ${e.message}")
                 }
             }
         }
     }
 
-    private suspend fun updateUI(balances: List<BinanceBalance>, positions: List<BinanceFutures>, prices: Map<String, Double>) {
-        if (_binding == null) return
+    private suspend fun refreshExternalData() {
+        try {
+            Log.d(TAG, "Fetching COIN-M futures positions...")
+            val positionsResponse = externalRepository.getCoinMPositions()
+            positionsResponse.fold(
+                onSuccess = { response ->
+                    if (response.success && response.data != null) {
+                        Log.d(TAG, "COIN-M futures positions fetched: ${response.data.size}")
+                        updateExternalPositionsUI(response.data)
+                    } else {
+                        throw Exception(response.error ?: "Failed to fetch COIN-M futures positions")
+                    }
+                },
+                onFailure = { error ->
+                    throw error
+                }
+            )
 
-        withContext(Dispatchers.Main) {
-            // Filter for COIN-M futures only
-            val coinMPositions = positions.filter { it.futuresType == "COIN-M" }
+            // Fetch COIN-M futures orders
+            Log.d(TAG, "Fetching COIN-M futures orders...")
+            val ordersResponse = externalRepository.getCoinMOrders()
+            ordersResponse.fold(
+                onSuccess = { response ->
+                    if (response.success && response.data != null) {
+                        openOrders = response.data
+                        Log.d(TAG, "COIN-M futures orders fetched: ${response.data.size}")
+                    }
+                },
+                onFailure = { error ->
+                    Log.e(TAG, "Failed to fetch COIN-M futures orders: ${error.message}")
+                }
+            )
 
-            // Convert BinanceFutures to BinancePosition objects
-            val positionList = coinMPositions.map { position ->
-                // Find TP/SL orders for this position
-                val isLong = position.positionAmt > 0
-                val expectedSide = if (isLong) "SELL" else "BUY" // TP/SL orders are opposite to position side
+            // Fetch COIN-M futures account balance
+            Log.d(TAG, "Fetching COIN-M futures account...")
+            val accountResponse = externalRepository.getCoinMAccount()
+            accountResponse.fold(
+                onSuccess = { response ->
+                    if (response.success && response.data != null) {
+                        Log.d(TAG, "COIN-M futures account fetched: ${response.data.totalWalletBalance}")
+                        // Update account UI if needed
+                    }
+                },
+                onFailure = { error ->
+                    Log.e(TAG, "Failed to fetch COIN-M futures account: ${error.message}")
+                }
+            )
 
-                // Filter orders for this symbol and side
-                val positionOrders = openOrders.filter { it.symbol == position.symbol && it.side == expectedSide }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in refreshExternalData: ${e.message}")
+            throw e
+        }
+    }
 
-                // Find TP order (TAKE_PROFIT_MARKET)
-                val tpOrder = positionOrders.find { it.type == "TAKE_PROFIT_MARKET" }
-
-                // Find SL order (STOP_MARKET)
-                val slOrder = positionOrders.find { it.type == "STOP_MARKET" }
-
-                // Get the base asset from the symbol (e.g., BTCUSD_PERP -> BTC)
-                val baseAsset = position.symbol.split("_").firstOrNull()?.replace("USD", "") ?: ""
-                val price = prices[baseAsset] ?: 0.0
-
-                // Convert PNL to USDT for COIN-M futures
-                val pnlInUsdt = position.unRealizedProfit * price
-
-                // Create BinancePosition object
+    private fun updateExternalPositionsUI(positions: List<PositionData>) {
+        requireActivity().runOnUiThread {
+            // Convert PositionData to BinancePosition for adapter compatibility
+            val binancePositions = positions.map { position ->
                 BinancePosition(
                     symbol = position.symbol,
-                    positionAmt = position.positionAmt,
+                    positionAmt = position.positionAmount,
                     entryPrice = position.entryPrice,
                     markPrice = position.markPrice,
-                    unrealizedProfit = pnlInUsdt, // Use USDT value for PNL
-                    liquidationPrice = position.liquidationPrice,
-                    leverage = position.leverage,
+                    unrealizedProfit = position.unrealizedProfit,
+                    liquidationPrice = 0.0, // Not provided by external API
+                    leverage = position.leverage.toInt(),
                     marginType = position.marginType,
-                    isolatedMargin = calculateIsolatedMargin(position),
-                    roe = calculateRoe(position, pnlInUsdt), // Calculate ROE
-                    takeProfitPrice = tpOrder?.stopPrice ?: 0.0,
-                    stopLossPrice = slOrder?.stopPrice ?: 0.0
+                    isolatedMargin = position.isolatedMargin,
+                    roe = position.percentage, // Use percentage as ROE
+                    takeProfitPrice = 0.0, // Will be filled from orders
+                    stopLossPrice = 0.0 // Will be filled from orders
                 )
             }
 
-            // Update positions list
-            futuresAdapter.submitList(positionList)
+            // Update adapter
+            futuresAdapter.submitList(binancePositions)
 
             // Show empty state if no positions
-            binding.emptyStateText.visibility = if (positionList.isEmpty()) View.VISIBLE else View.GONE
-            if (positionList.isEmpty()) {
-                binding.emptyStateText.text = "No open COIN-M futures positions"
+            binding.emptyStateText.visibility = if (binancePositions.isEmpty()) View.VISIBLE else View.GONE
+            if (binancePositions.isEmpty()) {
+                binding.emptyStateText.text = "No open COIN-M futures positions (Live Data)"
             }
 
-            // Log all balances for debugging
-            Log.d("CoinMFuturesFragment", "COIN-M Balances: ${balances.joinToString { "${it.asset}=${it.balance}" }}")
+            Log.d(TAG, "External UI updated with ${binancePositions.size} COIN-M positions")
+        }
+    }
 
-            // Calculate total unrealized PNL in USDT
-            var totalPnlUsdt = 0.0
+    private fun showError(message: String) {
+        requireActivity().runOnUiThread {
+            Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+        }
+    }
 
-            // Calculate PNL in USDT for each position
-            for (position in coinMPositions) {
-                val symbol = position.symbol
-                val baseAsset = symbol.split("_").firstOrNull()?.replace("USD", "") ?: continue
-                val price = prices[baseAsset] ?: 0.0
-                val pnlUsdt = position.unRealizedProfit * price
-                Log.d("CoinMFuturesFragment", "PNL for $symbol: ${position.unRealizedProfit} $baseAsset * $price = $pnlUsdt USDT")
-                totalPnlUsdt += pnlUsdt
-            }
-
-            // Calculate total USDT value of all balances
-            var totalUsdtValue = 0.0
-
-            // Log all prices for debugging
-            Log.d("CoinMFuturesFragment", "Available prices: ${prices.keys.joinToString()}")
-
-            // Calculate USDT value for each non-zero balance
-            for (balance in balances) {
-                if (balance.balance > 0) {
-                    val asset = balance.asset
-                    val price = prices[asset] ?: 0.0
-                    val usdtValue = balance.balance * price
-                    Log.d("CoinMFuturesFragment", "$asset: ${balance.balance} * $price = $usdtValue USDT")
-                    totalUsdtValue += usdtValue
+    private fun startHeartbeat() {
+        lifecycleScope.launch {
+            while (true) {
+                delay(HEARTBEAT_INTERVAL)
+                if (::webSocketClient.isInitialized && webSocketClient.isConnected()) {
+                    webSocketClient.sendHeartbeat()
                 }
             }
+        }
+    }
 
-            // Calculate margin balance as (wallet balance + unrealized PNL) in USDT
-            // This is the correct formula used by Binance
-            val marginBalanceUsdt = totalUsdtValue + totalPnlUsdt
-
-            // Update the UI with the correct balance information
-            // 1. At the top: Margin Balance
-            binding.balanceValueText.text = currencyFormatter.format(marginBalanceUsdt)
-            Log.d("CoinMFuturesFragment", "Setting top balance text to margin balance: ${currencyFormatter.format(marginBalanceUsdt)}")
-
-            // 2. Below: Wallet Balance (total balance)
-            binding.marginBalanceValueText.text = currencyFormatter.format(totalUsdtValue)
-            Log.d("CoinMFuturesFragment", "Setting margin balance text to wallet balance: ${currencyFormatter.format(totalUsdtValue)}")
-
-            // Update PNL with color (using USDT value)
-            binding.pnlValueText.text = if (totalPnlUsdt >= 0) "+${currencyFormatter.format(totalPnlUsdt)}"
-                                       else currencyFormatter.format(totalPnlUsdt)
-            binding.pnlValueText.setTextColor(
-                if (totalPnlUsdt >= 0) Color.parseColor("#4CAF50") // Green
-                else Color.parseColor("#F44336") // Red
+    private fun initializeWebSocket() {
+        if (useExternalService) {
+            webSocketClient = BinanceWebSocketClient(
+                onMessage = { type, data ->
+                    // Check if fragment is still valid before updating UI
+                    if (isAdded && _binding != null) {
+                        requireActivity().runOnUiThread {
+                            handleWebSocketMessage(type, data)
+                        }
+                    }
+                },
+                onConnectionChange = { connected ->
+                    // Check if fragment is still valid before updating UI
+                    if (isAdded && _binding != null) {
+                        requireActivity().runOnUiThread {
+                            updateConnectionStatus(connected)
+                        }
+                    }
+                }
             )
-            Log.d("CoinMFuturesFragment", "Setting PNL text to USDT value: ${currencyFormatter.format(totalPnlUsdt)}")
+            
+            // Connect WebSocket
+            webSocketClient.connect()
+            
+            // Subscribe to COIN-M futures-specific data streams
+            lifecycleScope.launch {
+                delay(1000) // Wait for connection to establish
+                if (webSocketClient.isConnected()) {
+                    webSocketClient.subscribeToPositionUpdates()
+                    webSocketClient.subscribeToOrderUpdates()
+                    webSocketClient.subscribeToBalanceUpdates()
+                }
+            }
+        }
+    }
+
+    private fun handleWebSocketMessage(type: String, data: JsonObject) {
+        // Additional safety check - should not be needed due to caller check, but being extra safe
+        if (!isAdded || _binding == null) return
+        
+        Log.d(TAG, "WebSocket message received: $type")
+        
+        when (type) {
+            "welcome" -> {
+                Log.d(TAG, "Welcome message received")
+                val message = data.get("message")?.asString
+                if (message != null) {
+                    Log.d(TAG, "Welcome: $message")
+                }
+            }
+            "positions_update" -> {
+                Log.d(TAG, "Position update: $data")
+                // Refresh positions when update received
+                viewLifecycleOwner.lifecycleScope.launch {
+                    if (useExternalService) {
+                        refreshExternalPositions()
+                    }
+                }
+            }
+            "order_update" -> {
+                Log.d(TAG, "Order update: $data")
+                // Refresh orders when update received
+                viewLifecycleOwner.lifecycleScope.launch {
+                    if (useExternalService) {
+                        refreshExternalOrders()
+                    }
+                }
+            }
+            "balance_update" -> {
+                Log.d(TAG, "Balance update: $data")
+                // Handle balance updates
+            }
+            "ticker" -> {
+                Log.d(TAG, "Ticker update: $data")
+                // Handle ticker updates if needed
+            }
+            "connection" -> {
+                val status = data.get("status")?.asString
+                Log.d(TAG, "Connection status: $status")
+            }
+            "pong" -> {
+                Log.d(TAG, "Heartbeat pong received")
+            }
+            "error" -> {
+                val error = data.get("error")?.asString ?: "Unknown error"
+                Log.e(TAG, "WebSocket error: $error")
+                showError("WebSocket error: $error")
+            }
+            else -> {
+                Log.d(TAG, "Unknown message type: $type")
+            }
+        }
+    }
+
+    private fun updateConnectionStatus(connected: Boolean) {
+        // Additional safety check - should not be needed due to caller check, but being extra safe
+        if (!isAdded || _binding == null) return
+        
+        Log.d(TAG, "WebSocket connection status: $connected")
+        
+        if (connected) {
+            // Show connected indicator
+            Toast.makeText(requireContext(), "Live COIN-M futures data connected", Toast.LENGTH_SHORT).show()
+            
+            // Subscribe to data streams after connection
+            lifecycleScope.launch {
+                delay(500) // Small delay to ensure connection is stable
+                if (webSocketClient.isConnected()) {
+                    webSocketClient.subscribeToPositionUpdates()
+                    webSocketClient.subscribeToOrderUpdates()
+                    webSocketClient.subscribeToBalanceUpdates()
+                }
+            }
+        } else {
+            // Show disconnected indicator
+            Toast.makeText(requireContext(), "Live COIN-M futures data disconnected", Toast.LENGTH_SHORT).show()
+            
+            // Try to reconnect after delay
+            lifecycleScope.launch {
+                delay(5000)
+                if (::webSocketClient.isInitialized && !webSocketClient.isConnected()) {
+                    Log.d(TAG, "Attempting to reconnect WebSocket")
+                    webSocketClient.resetConnection()
+                }
+            }
+        }
+    }
+
+    private suspend fun refreshExternalPositions() {
+        try {
+            val positionsResponse = externalRepository.getCoinMPositions()
+            positionsResponse.fold(
+                onSuccess = { response ->
+                    if (response.success && response.data != null) {
+                        Log.d(TAG, "Live COIN-M futures positions update: ${response.data.size}")
+                        updateExternalPositionsUI(response.data)
+                    }
+                },
+                onFailure = { error ->
+                    Log.e(TAG, "Failed to refresh live COIN-M futures positions: ${error.message}")
+                }
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error refreshing live COIN-M futures positions: ${e.message}")
+        }
+    }
+
+    private suspend fun refreshExternalOrders() {
+        try {
+            val ordersResponse = externalRepository.getCoinMOrders()
+            ordersResponse.fold(
+                onSuccess = { response ->
+                    if (response.success && response.data != null) {
+                        openOrders = response.data
+                        Log.d(TAG, "Live COIN-M futures orders update: ${response.data.size}")
+                    }
+                },
+                onFailure = { error ->
+                    Log.e(TAG, "Failed to refresh live COIN-M futures orders: ${error.message}")
+                }
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error refreshing live COIN-M futures orders: ${e.message}")
         }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
+        if (::webSocketClient.isInitialized) {
+            webSocketClient.disconnect()
+        }
         _binding = null
     }
 }

@@ -449,3 +449,150 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **Added Workout Collections**: The Database Management view now displays workout-related collections (`programs` and `workouts`), enabling viewing and management of workout data.
 - **Enhanced UI**: Added dedicated formatting for workout collections in the database view, showing exercise counts, duration, and completion status.
 - **Delete Functionality**: Users can delete workout programs and recorded workouts directly from the Database Management screen.
+
+## Updated Binance Futures Integration
+
+### API Route Structure
+
+The app now uses the proper API route structure as defined in the external service documentation:
+
+#### USD-M Futures (`/api/binance/futures/`)
+- **Account & Balance**: 
+  - `GET /api/binance/futures/account` - Account information
+  - `GET /api/binance/futures/positions` - Position information
+  - `GET /api/binance/futures/balance/{asset}` - Balance for specific asset
+
+- **Order Management**:
+  - `GET /api/binance/futures/orders` - Open orders
+  - `POST /api/binance/futures/orders` - Place new order
+  - `DELETE /api/binance/futures/orders/{symbol}/{orderId}` - Cancel specific order
+  - `DELETE /api/binance/futures/orders/{symbol}` - Cancel all orders for symbol
+  - `POST /api/binance/futures/tpsl` - Set Take Profit/Stop Loss
+
+- **Market Data**:
+  - `GET /api/binance/futures/price/{symbol}` - Price for specific symbol
+  - `GET /api/binance/futures/price` - All prices
+
+#### COIN-M Futures (`/api/binance/coinm/`)
+- Similar structure to USD-M futures but for COIN-M contracts
+- All endpoints follow the same pattern with `/coinm/` prefix
+
+### Enhanced WebSocket Integration
+
+#### Connection Management
+- **Auto-reconnection**: Automatic reconnection with exponential backoff
+- **Connection Status**: Real-time connection status monitoring
+- **Heartbeat**: Automatic ping/pong heartbeat mechanism
+
+#### Subscription Features
+```kotlin
+// Subscribe to futures-specific data streams
+webSocketClient.subscribeToPositionUpdates()
+webSocketClient.subscribeToOrderUpdates()
+webSocketClient.subscribeToBalanceUpdates()
+webSocketClient.subscribeToTickerUpdates(symbol)
+```
+
+#### Message Types Handled
+- `welcome` - Initial connection acknowledgment
+- `positions_update` - Real-time position updates
+- `order_update` - Order execution and status updates
+- `balance_update` - Account balance changes
+- `ticker` - Price ticker updates
+- `depth` - Order book updates
+- `trade` - Trade execution updates
+- `pong` - Heartbeat response
+- `error` - Error messages
+
+### Implementation Details
+
+#### Fragment Updates
+- **UsdmFuturesFragment**: Updated to use USD-M specific endpoints
+- **ExternalFuturesFragment**: Enhanced with proper WebSocket subscriptions
+- **Backward Compatibility**: Legacy methods maintained with deprecation warnings
+
+#### Repository Pattern
+```kotlin
+// New futures-specific methods
+repository.getFuturesAccount()
+repository.getFuturesPositions()
+repository.getFuturesOrders()
+repository.placeFuturesOrder(orderRequest)
+repository.setFuturesTPSL(symbol, side, tpPrice, slPrice, quantity)
+
+// COIN-M specific methods
+repository.getCoinMAccount()
+repository.getCoinMPositions()
+repository.getCoinMOrders()
+repository.placeCoinMOrder(orderRequest)
+repository.setCoinMTPSL(symbol, side, tpPrice, slPrice, quantity)
+```
+
+#### WebSocket Client Features
+```kotlin
+class BinanceWebSocketClient {
+    // Enhanced connection management
+    fun connect()
+    fun disconnect()
+    fun resetConnection()
+    
+    // Subscription management
+    fun subscribeToPositionUpdates()
+    fun subscribeToOrderUpdates()
+    fun subscribeToBalanceUpdates()
+    fun subscribeToTickerUpdates(symbol: String)
+    fun unsubscribeFromChannel(channel: String)
+    
+    // Message handling
+    fun sendHeartbeat()
+    fun send(message: String)
+}
+```
+
+### Benefits of the New Implementation
+
+1. **Proper Route Structure**: Aligned with documented API endpoints
+2. **Type Safety**: Separate methods for USD-M and COIN-M futures
+3. **Real-time Updates**: Enhanced WebSocket with proper subscription management
+4. **Reliability**: Auto-reconnection and error handling
+5. **Maintainability**: Clean separation of concerns and backward compatibility
+6. **Performance**: Efficient message routing and handling
+
+### Migration Guide
+
+Existing code using legacy endpoints will continue to work but will show deprecation warnings. To use the new endpoints:
+
+```kotlin
+// Old way (deprecated)
+repository.getPositions()
+repository.getOpenOrders()
+
+// New way
+repository.getFuturesPositions() // For USD-M futures
+repository.getCoinMPositions()   // For COIN-M futures
+```
+
+### Error Handling
+
+The WebSocket client now includes comprehensive error handling:
+- Connection errors with automatic retry
+- Message parsing errors with logging
+- Rate limiting and throttling
+- Service unavailability handling
+
+### Testing
+
+The implementation includes:
+- Unit tests for repository methods
+- Integration tests for WebSocket functionality
+- Mock WebSocket server for testing
+- Error scenario testing
+
+## Architecture
+
+- **MVVM Pattern**: Clear separation between UI, business logic, and data
+- **Repository Pattern**: Centralized data access with caching
+- **Dependency Injection**: Hilt for dependency management
+- **Coroutines**: Asynchronous programming with structured concurrency
+- **LiveData/StateFlow**: Reactive UI updates
+- **WebSocket**: Real-time data streaming

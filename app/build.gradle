@@ -68,14 +68,8 @@ android {
         buildConfigField "String", "INSTAGRAM_CLIENT_SECRET", "\"${instagramClientSecret}\""
         println "Instagram client secret will be baked into the app: ${instagramClientSecret.take(4) != "NOT_" ? "Found" : "Not found"}"
 
-        // Read Binance API keys from .env file
-        def binanceApiKey = getEnvValue('BINANCE_API_KEY')
-        buildConfigField "String", "BINANCE_API_KEY", "\"${binanceApiKey}\""
-        println "Binance API key will be baked into the app: ${binanceApiKey.take(4) != "NOT_" ? "Found" : "Not found"}"
-
-        def binanceSecretKey = getEnvValue('BINANCE_SECRET_KEY')
-        buildConfigField "String", "BINANCE_SECRET_KEY", "\"${binanceSecretKey}\""
-        println "Binance Secret key will be baked into the app: ${binanceSecretKey.take(4) != "NOT_" ? "Found" : "Not found"}"
+        // Binance API keys are no longer needed since we use external service
+        // All Binance API calls are now handled by the external service
     }
 
     signingConfigs {
@@ -223,4 +217,15 @@ dependencies {
 
     // KnifeText for rich text editing
     implementation 'com.github.mthli:Knife:v1.1'
+
+    // Retrofit for REST API calls
+    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
+    implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
+    implementation 'com.squareup.okhttp3:logging-interceptor:4.11.0'
+    
+    // WebSocket for real-time updates
+    implementation 'org.java-websocket:Java-WebSocket:1.5.3'
+    
+    // Coroutines for async operations
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
 }
