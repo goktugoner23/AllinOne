@@ -264,4 +264,92 @@ data class TradeData(
     val time: Long,
     val isBuyerMaker: Boolean,
     val isBestMatch: Boolean
+)
+
+// TP/SL Request and Response Models (as per integration guide)
+data class TPSLRequest(
+    val symbol: String,
+    val side: String, // "BUY" or "SELL"
+    val takeProfitPrice: Double?,
+    val stopLossPrice: Double?,
+    val quantity: Double
+)
+
+data class TPSLResponse(
+    val success: Boolean,
+    val data: List<OrderResult>? = null,
+    val error: String? = null,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+data class OrderResult(
+    val type: String, // "TAKE_PROFIT" or "STOP_LOSS"
+    val success: Boolean,
+    val data: OrderData? = null,
+    val error: String? = null
+)
+
+// API Result handling (as per integration guide)
+sealed class ApiResult<T> {
+    data class Success<T>(val data: T) : ApiResult<T>()
+    data class Error<T>(val message: String, val code: Int? = null) : ApiResult<T>()
+    data class Loading<T>(val message: String = "Loading...") : ApiResult<T>()
+}
+
+// Position model aligned with integration guide
+data class Position(
+    val symbol: String,
+    val positionAmount: Double,
+    val entryPrice: Double,
+    val markPrice: Double,
+    val unrealizedProfit: Double,
+    val positionSide: String,
+    val leverage: Int
+)
+
+// Account Info model aligned with integration guide
+data class AccountInfo(
+    val totalWalletBalance: Double,
+    val totalUnrealizedProfit: Double,
+    val totalMarginBalance: Double,
+    val totalPositionInitialMargin: Double,
+    val maxWithdrawAmount: Double,
+    val assets: List<AssetBalance>
+)
+
+data class AssetBalance(
+    val asset: String,
+    val walletBalance: Double,
+    val unrealizedProfit: Double,
+    val marginBalance: Double,
+    val maintMargin: Double,
+    val initialMargin: Double,
+    val positionInitialMargin: Double,
+    val openOrderInitialMargin: Double,
+    val maxWithdrawAmount: Double
+)
+
+// Order model aligned with integration guide
+data class Order(
+    val orderId: String,
+    val symbol: String,
+    val status: String,
+    val clientOrderId: String,
+    val price: Double,
+    val avgPrice: Double,
+    val origQty: Double,
+    val executedQty: Double,
+    val cumQuote: Double,
+    val timeInForce: String,
+    val type: String,
+    val reduceOnly: Boolean,
+    val closePosition: Boolean,
+    val side: String,
+    val positionSide: String,
+    val stopPrice: Double,
+    val workingType: String,
+    val priceProtect: Boolean,
+    val origType: String,
+    val time: Long,
+    val updateTime: Long
 ) 

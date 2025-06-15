@@ -309,203 +309,68 @@ class CoinMFuturesFragment : Fragment() {
                 val side = if (position.positionAmt > 0) "SELL" else "BUY"
                 val quantity = Math.abs(position.positionAmt)
 
-                var tpResult = ""
-                var slResult = ""
-                var hasError = false
+                Log.d("CoinMFuturesFragment", "Setting COIN-M TP/SL: symbol=${position.symbol}, side=$side, quantity=$quantity, tpPrice=$tpPrice, slPrice=$slPrice")
+                Log.d("CoinMFuturesFragment", "Position details: positionAmt=${position.positionAmt}, entryPrice=${position.entryPrice}, markPrice=${position.markPrice}")
 
-                // Find existing TP/SL orders for this position
-                val existingTpOrder = openOrders.find { it.symbol == position.symbol && it.type == "TAKE_PROFIT_MARKET" }
-                val existingSlOrder = openOrders.find { it.symbol == position.symbol && it.type == "STOP_MARKET" }
-
-                // Handle Take Profit order
-                if (tpPrice != null) {
-                    // If there's an existing TP order, cancel it first
-                    if (existingTpOrder != null) {
-                        externalRepository.cancelCoinMOrder(position.symbol, existingTpOrder.orderId).fold(
-                            onSuccess = { response ->
-                                if (response.success) {
-                                    Log.d("CoinMFuturesFragment", "TP order canceled successfully")
-                                } else {
-                                    Log.e("CoinMFuturesFragment", "Error canceling TP order: ${response.error}")
-                                    hasError = true
-                                    tpResult = response.error ?: "Error canceling TP order"
-                                }
-                            },
-                            onFailure = { error ->
-                                Log.e("CoinMFuturesFragment", "Error canceling TP order: ${error.message}")
-                                hasError = true
-                                tpResult = error.message ?: "Error canceling TP order"
-                            }
-                        )
-                    }
-
-                    // Place new TP order if no error occurred during cancellation
-                    if (!hasError) {
-                        tpResult = externalRepository.placeTakeProfitMarketOrder(
-                            symbol = position.symbol,
-                            side = side,
-                            quantity = quantity,
-                            stopPrice = tpPrice
-                        )
-                        Log.d("CoinMFuturesFragment", "TP Order Result: $tpResult")
-                        Log.d("CoinMFuturesFragment", "TP Order Query: symbol=${position.symbol}&side=$side&type=TAKE_PROFIT_MARKET&quantity=$quantity&stopPrice=$tpPrice&closePosition=true&workingType=CONTRACT_PRICE&timeInForce=GTE_GTC")
-                        hasError = hasError || tpResult.contains("error")
-                    }
-                } else if (existingTpOrder != null) {
-                    // If TP price is not provided but there's an existing TP order, cancel it
-                    externalRepository.cancelCoinMOrder(position.symbol, existingTpOrder.orderId).fold(
-                        onSuccess = { response ->
+                // Use the unified TP/SL endpoint as per integration guide
+                externalRepository.setCoinMTPSL(position.symbol, side, tpPrice, slPrice, quantity).fold(
+                    onSuccess = { response ->
+                        withContext(Dispatchers.Main) {
                             if (response.success) {
-                                Log.d("CoinMFuturesFragment", "TP order canceled successfully")
-                            } else {
-                                Log.e("CoinMFuturesFragment", "Error canceling TP order: ${response.error}")
-                                hasError = true
-                                tpResult = response.error ?: "Error canceling TP order"
-                            }
-                        },
-                        onFailure = { error ->
-                            Log.e("CoinMFuturesFragment", "Error canceling TP order: ${error.message}")
-                            hasError = true
-                            tpResult = error.message ?: "Error canceling TP order"
-                        }
-                    )
-                }
-
-                // Handle Stop Loss order
-                if (slPrice != null && !hasError) {
-                    // If there's an existing SL order, cancel it first
-                    if (existingSlOrder != null) {
-                        externalRepository.cancelCoinMOrder(position.symbol, existingSlOrder.orderId).fold(
-                            onSuccess = { response ->
-                                if (response.success) {
-                                    Log.d("CoinMFuturesFragment", "SL order canceled successfully")
-                                } else {
-                                    Log.e("CoinMFuturesFragment", "Error canceling SL order: ${response.error}")
-                                    hasError = true
-                                    slResult = response.error ?: "Error canceling SL order"
+                                val message = when {
+                                    tpPrice != null && slPrice != null -> "TP/SL orders placed successfully"
+                                    tpPrice != null -> "Take Profit order placed successfully"
+                                    slPrice != null -> "Stop Loss order placed successfully"
+                                    else -> "Orders updated successfully"
                                 }
-                            },
-                            onFailure = { error ->
-                                Log.e("CoinMFuturesFragment", "Error canceling SL order: ${error.message}")
-                                hasError = true
-                                slResult = error.message ?: "Error canceling SL order"
-                            }
-                        )
-                    }
-
-                    // Place new SL order if no error occurred during cancellation
-                    if (!hasError) {
-                        slResult = externalRepository.placeStopLossMarketOrder(
-                            symbol = position.symbol,
-                            side = side,
-                            quantity = quantity,
-                            stopPrice = slPrice
-                        )
-                        Log.d("CoinMFuturesFragment", "SL Order Result: $slResult")
-                        Log.d("CoinMFuturesFragment", "SL Order Query: symbol=${position.symbol}&side=$side&type=STOP_MARKET&quantity=$quantity&stopPrice=$slPrice&closePosition=true&workingType=MARK_PRICE&timeInForce=GTE_GTC")
-                        hasError = hasError || slResult.contains("error")
-                    }
-                } else if (existingSlOrder != null && !hasError) {
-                    // If SL price is not provided but there's an existing SL order, cancel it
-                    externalRepository.cancelCoinMOrder(position.symbol, existingSlOrder.orderId).fold(
-                        onSuccess = { response ->
-                            if (response.success) {
-                                Log.d("CoinMFuturesFragment", "SL order canceled successfully")
+                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                dialog.dismiss()
+                                // Refresh data to show updated positions
+                                refreshData()
                             } else {
-                                Log.e("CoinMFuturesFragment", "Error canceling SL order: ${response.error}")
-                                hasError = true
-                                slResult = response.error ?: "Error canceling SL order"
+                                // Log detailed error information
+                                Log.e("CoinMFuturesFragment", "TP/SL API Error: ${response.error}")
+                                response.data?.forEach { orderResult ->
+                                    Log.e("CoinMFuturesFragment", "Order ${orderResult.type}: success=${orderResult.success}, error=${orderResult.error}")
+                                }
+                                
+                                val errorMsg = response.data?.firstOrNull { !it.success }?.error ?: response.error ?: "Unknown error"
+                                Toast.makeText(context, "Error setting TP/SL: $errorMsg", Toast.LENGTH_LONG).show()
+                                
+                                // Reset button state - find the button directly
+                                dialog.findViewById<android.widget.Button>(com.example.allinone.R.id.confirmButton)?.let { button ->
+                                    button.isEnabled = true
+                                    button.text = "Confirm TP/SL"
+                                }
                             }
-                        },
-                        onFailure = { error ->
-                            Log.e("CoinMFuturesFragment", "Error canceling SL order: ${error.message}")
-                            hasError = true
-                            slResult = error.message ?: "Error canceling SL order"
                         }
-                    )
-                }
-
-                // Check for errors
-                if (hasError) {
-                    withContext(Dispatchers.Main) {
-                        val errorMsg = when {
-                            tpResult.contains("error") -> tpResult
-                            slResult.contains("error") -> slResult
-                            else -> "Unknown error"
+                    },
+                    onFailure = { error ->
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Error setting TP/SL: ${error.message}", Toast.LENGTH_LONG).show()
+                            // Reset button state - find the button directly
+                            dialog.findViewById<android.widget.Button>(com.example.allinone.R.id.confirmButton)?.let { button ->
+                                button.isEnabled = true
+                                button.text = "Confirm TP/SL"
+                            }
                         }
-                        Toast.makeText(context, "Error setting TP/SL: $errorMsg", Toast.LENGTH_LONG).show()
                     }
-                } else {
-                    withContext(Dispatchers.Main) {
-                        // Use the existing TP/SL order flags from before the operation
-                        val hadTpOrder = existingTpOrder != null
-                        val hadSlOrder = existingSlOrder != null
-
-                        val message = when {
-                            // Setting both TP and SL
-                            tpPrice != null && slPrice != null -> "TP/SL orders placed successfully"
-                            // Setting TP only
-                            tpPrice != null && !hadSlOrder -> "Take Profit order placed successfully"
-                            // Setting TP and deleting SL
-                            tpPrice != null && hadSlOrder -> "Take Profit set, Stop Loss removed"
-                            // Setting SL only
-                            slPrice != null && !hadTpOrder -> "Stop Loss order placed successfully"
-                            // Setting SL and deleting TP
-                            slPrice != null && hadTpOrder -> "Stop Loss set, Take Profit removed"
-                            // Deleting TP only
-                            tpPrice == null && slPrice == null && hadTpOrder && !hadSlOrder -> "Take Profit order removed"
-                            // Deleting SL only
-                            tpPrice == null && slPrice == null && !hadTpOrder && hadSlOrder -> "Stop Loss order removed"
-                            // Deleting both TP and SL
-                            tpPrice == null && slPrice == null && hadTpOrder && hadSlOrder -> "TP/SL orders removed"
-                            // No changes
-                            else -> "No changes made"
-                        }
-                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                        dialog.dismiss()
-                        // Refresh data to show updated positions
-                        refreshData()
-                    }
-                }
+                )
             } catch (e: Exception) {
                 Log.e("CoinMFuturesFragment", "Error placing TP/SL orders", e)
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                    // Reset button state - find the button directly
+                    dialog.findViewById<android.widget.Button>(com.example.allinone.R.id.confirmButton)?.let { button ->
+                        button.isEnabled = true
+                        button.text = "Confirm TP/SL"
+                    }
                 }
             }
         }
     }
 
-    private fun closePosition(position: BinancePosition, dialog: Dialog) {
-        viewLifecycleOwner.lifecycleScope.launch {
-            try {
-                val result = externalRepository.closePosition(
-                    symbol = position.symbol,
-                    positionAmt = position.positionAmt
-                )
-                Log.d("CoinMFuturesFragment", "Close Position Result: $result")
 
-                // Check for errors
-                if (result.contains("error")) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Error closing position: $result", Toast.LENGTH_LONG).show()
-                    }
-                } else {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Position closed successfully", Toast.LENGTH_SHORT).show()
-                        dialog.dismiss()
-                        // Refresh data to show updated positions
-                        refreshData()
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("CoinMFuturesFragment", "Error closing position", e)
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
 
     private fun formatPrice(price: Double): String {
         // Use Locale.US to ensure decimal point is a dot, not a comma
@@ -669,7 +534,7 @@ class CoinMFuturesFragment : Fragment() {
                 onSuccess = { response ->
                     if (response.success && response.data != null) {
                         Log.d(TAG, "COIN-M futures account fetched: ${response.data.totalWalletBalance}")
-                        // Update account UI if needed
+                        updateAccountUI(response.data)
                     }
                 },
                 onFailure = { error ->
@@ -713,6 +578,27 @@ class CoinMFuturesFragment : Fragment() {
             }
 
             Log.d(TAG, "External UI updated with ${binancePositions.size} COIN-M positions")
+        }
+    }
+
+    private fun updateAccountUI(accountData: com.example.allinone.api.AccountData) {
+        requireActivity().runOnUiThread {
+            if (_binding == null) return@runOnUiThread
+
+            // Update balance values
+            binding.balanceValueText.text = currencyFormatter.format(accountData.totalMarginBalance)
+            binding.marginBalanceValueText.text = currencyFormatter.format(accountData.totalWalletBalance)
+            binding.pnlValueText.text = currencyFormatter.format(accountData.totalUnrealizedProfit)
+
+            // Set PNL color
+            val pnlColor = if (accountData.totalUnrealizedProfit >= 0) {
+                android.graphics.Color.parseColor("#4CAF50")
+            } else {
+                android.graphics.Color.parseColor("#FF5252")
+            }
+            binding.pnlValueText.setTextColor(pnlColor)
+
+            Log.d(TAG, "Account UI updated - Balance: ${accountData.totalMarginBalance}, PNL: ${accountData.totalUnrealizedProfit}")
         }
     }
 
@@ -880,6 +766,8 @@ class CoinMFuturesFragment : Fragment() {
         }
     }
 
+
+
     private suspend fun refreshExternalOrders() {
         try {
             val ordersResponse = externalRepository.getCoinMOrders()
@@ -896,6 +784,63 @@ class CoinMFuturesFragment : Fragment() {
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error refreshing live COIN-M futures orders: ${e.message}")
+        }
+    }
+
+    private fun closePosition(position: BinancePosition, dialog: Dialog) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                // Determine the side for closing position (opposite of current position)
+                val side = if (position.positionAmt > 0) "SELL" else "BUY"
+                val quantity = Math.abs(position.positionAmt)
+
+                Log.d(TAG, "Closing COIN-M position: ${position.symbol}, side: $side, quantity: $quantity")
+
+                // Create market order to close position
+                val orderRequest = com.example.allinone.api.OrderRequest(
+                    symbol = position.symbol,
+                    side = side,
+                    type = "MARKET",
+                    quantity = quantity,
+                    reduceOnly = true
+                )
+
+                externalRepository.placeCoinMOrder(orderRequest).fold(
+                    onSuccess = { response ->
+                        requireActivity().runOnUiThread {
+                            if (response.success) {
+                                Toast.makeText(requireContext(), "COIN-M position closed successfully", Toast.LENGTH_SHORT).show()
+                                dialog.dismiss()
+                                // Refresh data to update UI
+                                refreshData()
+                            } else {
+                                Toast.makeText(requireContext(), "Error closing COIN-M position: ${response.error}", Toast.LENGTH_LONG).show()
+                                // Reset button state
+                                val dialogBinding = DialogFuturesTpSlBinding.bind(dialog.findViewById(android.R.id.content))
+                                dialogBinding.closePositionButton.isEnabled = true
+                                dialogBinding.closePositionButton.text = "Close Position"
+                            }
+                        }
+                    },
+                    onFailure = { error ->
+                        requireActivity().runOnUiThread {
+                            Toast.makeText(requireContext(), "Error closing COIN-M position: ${error.message}", Toast.LENGTH_LONG).show()
+                            // Reset button state
+                            val dialogBinding = DialogFuturesTpSlBinding.bind(dialog.findViewById(android.R.id.content))
+                            dialogBinding.closePositionButton.isEnabled = true
+                            dialogBinding.closePositionButton.text = "Close Position"
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                requireActivity().runOnUiThread {
+                    Toast.makeText(requireContext(), "Error closing COIN-M position: ${e.message}", Toast.LENGTH_LONG).show()
+                    // Reset button state
+                    val dialogBinding = DialogFuturesTpSlBinding.bind(dialog.findViewById(android.R.id.content))
+                    dialogBinding.closePositionButton.isEnabled = true
+                    dialogBinding.closePositionButton.text = "Close Position"
+                }
+            }
         }
     }
 

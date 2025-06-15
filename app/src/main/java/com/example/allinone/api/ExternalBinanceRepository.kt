@@ -4,12 +4,175 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import android.util.Log
 import com.example.allinone.data.BinanceFutures
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 
 class ExternalBinanceRepository {
     private val apiService = ExternalBinanceApiClient.service
     
     companion object {
         private const val TAG = "ExternalBinanceRepository"
+    }
+    
+    // ===============================
+    // Position Repository with Polling (as per integration guide)
+    // ===============================
+    
+    private val _positions = MutableLiveData<List<Position>>()
+    val positions: LiveData<List<Position>> = _positions
+    
+    private val _orders = MutableLiveData<List<Order>>()
+    val orders: LiveData<List<Order>> = _orders
+    
+    private val _accountInfo = MutableLiveData<AccountInfo>()
+    val accountInfo: LiveData<AccountInfo> = _accountInfo
+    
+    private var refreshJob: Job? = null
+    
+    /**
+     * Start position updates with polling (as per integration guide)
+     * @param intervalMs Polling interval in milliseconds (default: 5000ms = 5 seconds)
+     */
+    fun startPositionUpdates(intervalMs: Long = 5000) {
+        refreshJob?.cancel() // Cancel any existing job
+        refreshJob = CoroutineScope(Dispatchers.IO).launch {
+            while (isActive) {
+                try {
+                    // Fetch USD-M positions
+                    val positionsResponse = getFuturesPositions()
+                    positionsResponse.fold(
+                        onSuccess = { response ->
+                            if (response.success && response.data != null) {
+                                // Convert to integration guide format
+                                val positions = response.data.map { position ->
+                                    Position(
+                                        symbol = position.symbol,
+                                        positionAmount = position.positionAmount,
+                                        entryPrice = position.entryPrice,
+                                        markPrice = position.markPrice,
+                                        unrealizedProfit = position.unrealizedProfit,
+                                        positionSide = position.positionSide,
+                                        leverage = position.leverage.toInt()
+                                    )
+                                }
+                                _positions.postValue(positions)
+                            }
+                        },
+                        onFailure = { error ->
+                            Log.e(TAG, "Failed to fetch positions: ${error.message}")
+                        }
+                    )
+                    
+                    // Fetch orders
+                    val ordersResponse = getFuturesOrders()
+                    ordersResponse.fold(
+                        onSuccess = { response ->
+                            if (response.success && response.data != null) {
+                                // Convert to integration guide format
+                                val orders = response.data.map { order ->
+                                    Order(
+                                        orderId = order.orderId,
+                                        symbol = order.symbol,
+                                        status = order.status,
+                                        clientOrderId = order.clientOrderId,
+                                        price = order.price,
+                                        avgPrice = order.avgPrice,
+                                        origQty = order.origQty,
+                                        executedQty = order.executedQty,
+                                        cumQuote = order.cumQuote,
+                                        timeInForce = order.timeInForce,
+                                        type = order.type,
+                                        reduceOnly = order.reduceOnly,
+                                        closePosition = order.closePosition,
+                                        side = order.side,
+                                        positionSide = order.positionSide,
+                                        stopPrice = order.stopPrice,
+                                        workingType = order.workingType,
+                                        priceProtect = order.priceProtect,
+                                        origType = order.origType,
+                                        time = order.time,
+                                        updateTime = order.updateTime
+                                    )
+                                }
+                                _orders.postValue(orders)
+                            }
+                        },
+                        onFailure = { error ->
+                            Log.e(TAG, "Failed to fetch orders: ${error.message}")
+                        }
+                    )
+                    
+                    // Fetch account info
+                    val accountResponse = getFuturesAccount()
+                    accountResponse.fold(
+                        onSuccess = { response ->
+                            if (response.success && response.data != null) {
+                                val accountInfo = AccountInfo(
+                                    totalWalletBalance = response.data.totalWalletBalance,
+                                    totalUnrealizedProfit = response.data.totalUnrealizedProfit,
+                                    totalMarginBalance = response.data.totalMarginBalance,
+                                    totalPositionInitialMargin = response.data.totalPositionInitialMargin,
+                                    maxWithdrawAmount = response.data.maxWithdrawAmount,
+                                    assets = response.data.assets.map { asset ->
+                                        AssetBalance(
+                                            asset = asset.asset,
+                                            walletBalance = asset.walletBalance,
+                                            unrealizedProfit = asset.unrealizedProfit,
+                                            marginBalance = asset.marginBalance,
+                                            maintMargin = asset.maintMargin,
+                                            initialMargin = asset.initialMargin,
+                                            positionInitialMargin = asset.positionInitialMargin,
+                                            openOrderInitialMargin = asset.openOrderInitialMargin,
+                                            maxWithdrawAmount = asset.maxWithdrawAmount
+                                        )
+                                    }
+                                )
+                                _accountInfo.postValue(accountInfo)
+                            }
+                        },
+                        onFailure = { error ->
+                            Log.e(TAG, "Failed to fetch account info: ${error.message}")
+                        }
+                    )
+                    
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in polling update: ${e.message}")
+                }
+                delay(intervalMs)
+            }
+        }
+    }
+    
+    /**
+     * Stop position updates
+     */
+    fun stopPositionUpdates() {
+        refreshJob?.cancel()
+        refreshJob = null
+    }
+    
+    // ===============================
+    // Safe API Call Helper (as per integration guide)
+    // ===============================
+    
+    suspend fun <T> safeApiCall(
+        apiCall: suspend () -> retrofit2.Response<T>
+    ): ApiResult<T> {
+        return try {
+            val response = apiCall()
+            if (response.isSuccessful && response.body() != null) {
+                ApiResult.Success(response.body()!!)
+            } else {
+                ApiResult.Error("API call failed: ${response.message()}", response.code())
+            }
+        } catch (e: Exception) {
+            ApiResult.Error("Network error: ${e.message}")
+        }
     }
     
     // ===============================
@@ -32,6 +195,14 @@ class ExternalBinanceRepository {
             Log.e(TAG, "Health check exception: ${e.message}")
             Result.failure(e)
         }
+    }
+    
+    // ===============================
+    // Health Check with ApiResult (Integration Guide Format)
+    // ===============================
+    
+    suspend fun checkServiceHealth(): ApiResult<HealthResponse> = withContext(Dispatchers.IO) {
+        safeApiCall { apiService.getHealth() }
     }
     
     // ===============================
@@ -128,14 +299,14 @@ class ExternalBinanceRepository {
         }
     }
     
-    suspend fun setFuturesTPSL(symbol: String, side: String, takeProfitPrice: Double?, stopLossPrice: Double?, quantity: Double): Result<ApiResponse> = withContext(Dispatchers.IO) {
+    suspend fun setFuturesTPSL(symbol: String, side: String, takeProfitPrice: Double?, stopLossPrice: Double?, quantity: Double): Result<TPSLResponse> = withContext(Dispatchers.IO) {
         try {
-            val tpslRequest = mapOf<String, Any>(
-                "symbol" to symbol,
-                "side" to side,
-                "takeProfitPrice" to (takeProfitPrice as Any),
-                "stopLossPrice" to (stopLossPrice as Any),
-                "quantity" to quantity
+            val tpslRequest = TPSLRequest(
+                symbol = symbol,
+                side = side,
+                takeProfitPrice = takeProfitPrice,
+                stopLossPrice = stopLossPrice,
+                quantity = quantity
             )
             Log.d(TAG, "Setting USD-M futures TP/SL: $tpslRequest")
             val response = apiService.setFuturesTPSL(tpslRequest)
@@ -301,14 +472,14 @@ class ExternalBinanceRepository {
         }
     }
     
-    suspend fun setCoinMTPSL(symbol: String, side: String, takeProfitPrice: Double?, stopLossPrice: Double?, quantity: Double): Result<ApiResponse> = withContext(Dispatchers.IO) {
+    suspend fun setCoinMTPSL(symbol: String, side: String, takeProfitPrice: Double?, stopLossPrice: Double?, quantity: Double): Result<TPSLResponse> = withContext(Dispatchers.IO) {
         try {
-            val tpslRequest = mapOf<String, Any>(
-                "symbol" to symbol,
-                "side" to side,
-                "takeProfitPrice" to (takeProfitPrice as Any),
-                "stopLossPrice" to (stopLossPrice as Any),
-                "quantity" to quantity
+            val tpslRequest = TPSLRequest(
+                symbol = symbol,
+                side = side,
+                takeProfitPrice = takeProfitPrice,
+                stopLossPrice = stopLossPrice,
+                quantity = quantity
             )
             Log.d(TAG, "Setting COIN-M futures TP/SL: $tpslRequest")
             val response = apiService.setCoinMTPSL(tpslRequest)
@@ -647,7 +818,7 @@ class ExternalBinanceRepository {
     suspend fun cancelOrder(symbol: String, orderId: String): Result<ApiResponse> = cancelFuturesOrder(symbol, orderId)
     
     @Deprecated("Use setFuturesTPSL() instead")
-    suspend fun setTPSL(symbol: String, side: String, takeProfitPrice: Double?, stopLossPrice: Double?, quantity: Double): Result<ApiResponse> = setFuturesTPSL(symbol, side, takeProfitPrice, stopLossPrice, quantity)
+    suspend fun setTPSL(symbol: String, side: String, takeProfitPrice: Double?, stopLossPrice: Double?, quantity: Double): Result<TPSLResponse> = setFuturesTPSL(symbol, side, takeProfitPrice, stopLossPrice, quantity)
     
     @Deprecated("Use getFuturesBalance() instead")
     suspend fun getBalance(asset: String = "USDT"): Result<BalanceResponse> = getFuturesBalance(asset)

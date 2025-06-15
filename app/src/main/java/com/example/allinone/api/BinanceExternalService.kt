@@ -46,7 +46,7 @@ interface BinanceExternalService {
     suspend fun cancelAllFuturesOrders(@Path("symbol") symbol: String): Response<ApiResponse>
     
     @POST("api/binance/futures/tpsl")
-    suspend fun setFuturesTPSL(@Body tpslRequest: Map<String, Any>): Response<ApiResponse>
+    suspend fun setFuturesTPSL(@Body tpslRequest: TPSLRequest): Response<TPSLResponse>
     
     // Market Data Endpoints
     @GET("api/binance/futures/price/{symbol}")
@@ -90,7 +90,7 @@ interface BinanceExternalService {
     suspend fun cancelAllCoinMOrders(@Path("symbol") symbol: String): Response<ApiResponse>
     
     @POST("api/binance/coinm/tpsl")
-    suspend fun setCoinMTPSL(@Body tpslRequest: Map<String, Any>): Response<ApiResponse>
+    suspend fun setCoinMTPSL(@Body tpslRequest: TPSLRequest): Response<TPSLResponse>
     
     // Market Data Endpoints
     @GET("api/binance/coinm/price/{symbol}")
