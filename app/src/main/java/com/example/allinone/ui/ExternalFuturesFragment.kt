@@ -227,13 +227,13 @@ class ExternalFuturesFragment : Fragment() {
                 // Check health first
                 repository.getHealth().fold(
                     onSuccess = { health ->
-                        Log.d(TAG, "Service health: ${health.data.status}")
-                        if (health.data.services.usdm.isConnected) {
+                        Log.d(TAG, "Service health: ${health.status}")
+                        if (health.services.binanceUsdm == "connected") {
                             // Service is healthy, fetch data
                             refreshAllData()
                         } else {
                             // Show warning but still try to refresh data since REST API might work
-                            Log.w(TAG, "USD-M WebSocket not connected, trying REST API")
+                            Log.w(TAG, "USD-M service not connected, trying REST API")
                             refreshAllData()
                         }
                     },

@@ -1,48 +1,20 @@
 package com.example.allinone.api
 
 import com.google.gson.JsonObject
+import com.google.gson.annotations.SerializedName
 
 // Health Response
 data class HealthResponse(
-    val success: Boolean,
-    val data: HealthData,
-    val timestamp: Long
-)
-
-data class HealthData(
     val status: String,
     val timestamp: String,
-    val services: ServiceStatus,
-    val uptime: Double,
-    val memory: MemoryInfo,
-    val version: String
+    val services: ServiceStatus
 )
 
 data class ServiceStatus(
-    val spot: BinanceServiceStatus,
-    val usdm: BinanceServiceStatus,
-    val coinm: BinanceServiceStatus,
-    val isInitialized: Boolean
-)
-
-data class BinanceServiceStatus(
-    val isConnected: Boolean,
-    val clientCount: Int
-)
-
-data class MemoryInfo(
-    val rss: Long,
-    val heapTotal: Long,
-    val heapUsed: Long,
-    val external: Long,
-    val arrayBuffers: Long
-)
-
-@Deprecated("Use BinanceServiceStatus instead")
-data class BinanceStatus(
-    val isConnected: Boolean,
-    val clientCount: Int,
-    val isInitialized: Boolean
+    val websocket: String,
+    @SerializedName("binance_spot") val binanceSpot: String,
+    @SerializedName("binance_usdm") val binanceUsdm: String,
+    @SerializedName("binance_coinm") val binanceCoinm: String
 )
 
 // Account Response

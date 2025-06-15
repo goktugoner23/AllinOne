@@ -7,7 +7,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ExternalBinanceApiClient {
-    private const val BASE_URL = "https://allinone-app-5t9md.ondigitalocean.app/"
+    private const val BASE_URL = "http://129.212.143.6/"
+    const val WS_URL = "ws://129.212.143.6/ws"
     
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY

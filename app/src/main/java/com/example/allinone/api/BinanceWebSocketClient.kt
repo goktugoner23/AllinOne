@@ -24,8 +24,6 @@ class BinanceWebSocketClient(
     
     companion object {
         private const val TAG = "BinanceWebSocketClient"
-        private const val WEBSOCKET_URL = "ws://localhost:3000"
-        private const val PRODUCTION_WEBSOCKET_URL = "wss://allinone-app-5t9md.ondigitalocean.app"
         private const val HEARTBEAT_INTERVAL = 30000L // 30 seconds
         private const val RECONNECT_DELAY = 5000L // 5 seconds
         private const val MAX_RECONNECT_ATTEMPTS = 10
@@ -35,8 +33,8 @@ class BinanceWebSocketClient(
     
     fun connect() {
         try {
-            val uri = URI(PRODUCTION_WEBSOCKET_URL)
-            Log.d(TAG, "Connecting to WebSocket: $PRODUCTION_WEBSOCKET_URL")
+            val uri = URI(ExternalBinanceApiClient.WS_URL)
+            Log.d(TAG, "Connecting to WebSocket: ${ExternalBinanceApiClient.WS_URL}")
             
             webSocket = object : WebSocketClient(uri) {
                 override fun onOpen(handshake: ServerHandshake?) {

@@ -7,6 +7,11 @@
         </trust-anchors>
     </base-config>
     
+    <!-- Allow cleartext traffic for the external server -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">129.212.143.6</domain>
+    </domain-config>
+    
     <!-- Domain-specific configurations -->
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">firebase.googleapis.com</domain>
