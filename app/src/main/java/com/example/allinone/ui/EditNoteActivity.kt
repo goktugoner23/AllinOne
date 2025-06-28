@@ -399,9 +399,9 @@ class EditNoteActivity : AppCompatActivity() {
             insertBulletList()
         }
 
-        binding.numberedListButton.setOnClickListener {
-            // For numbered lists, we'll insert actual numbers
-            insertNumberedList()
+        binding.checkboxListButton.setOnClickListener {
+            // For checkbox lists, we'll insert checkboxes
+            insertCheckboxList()
         }
 
         // Setup drawing button
@@ -467,7 +467,7 @@ class EditNoteActivity : AppCompatActivity() {
         }
     }
 
-    private fun insertNumberedList() {
+    private fun insertCheckboxList() {
         try {
             val editor = binding.editNoteContent
             val start = editor.selectionStart
@@ -479,11 +479,13 @@ class EditNoteActivity : AppCompatActivity() {
                 val lines = selectedText.split("\n")
                 val builder = StringBuilder()
 
-                for (i in lines.indices) {
-                    builder.append("${i+1}. ${lines[i]}\n")
+                for (line in lines) {
+                    if (line.isNotEmpty()) {
+                        builder.append("☐ $line\n")
+                    }
                 }
 
-                // Replace the selected text with numbered lines
+                // Replace the selected text with checkbox lines
                 editor.text.replace(start, end, builder.toString())
                 editor.setSelection(start + builder.length)
             } else {
@@ -502,24 +504,28 @@ class EditNoteActivity : AppCompatActivity() {
                     lineEnd++
                 }
 
-                // Check if the line already has a number
+                // Check if the line already has a checkbox
                 val line = text.substring(lineStart, lineEnd)
-                val numberPattern = "^\\d+\\.\\s*".toRegex()
+                val checkboxPattern = "^[☐☑]\\s".toRegex()
 
-                if (numberPattern.containsMatchIn(line)) {
-                    // If already numbered, remove the numbering
-                    val unnumbered = line.replace(numberPattern, "")
-                    editor.text.replace(lineStart, lineEnd, unnumbered)
-                    editor.setSelection(lineStart + unnumbered.length)
+                if (checkboxPattern.containsMatchIn(line)) {
+                    // Toggle checkbox state
+                    val toggledLine = when {
+                        line.startsWith("☐ ") -> line.replace("☐ ", "☑ ")
+                        line.startsWith("☑ ") -> line.replace("☑ ", "☐ ")
+                        else -> line
+                    }
+                    editor.text.replace(lineStart, lineEnd, toggledLine)
+                    editor.setSelection(lineStart + toggledLine.length)
                 } else {
-                    // Add a number to the line
-                    val numbered = "1. $line"
-                    editor.text.replace(lineStart, lineEnd, numbered)
-                    editor.setSelection(lineStart + numbered.length)
+                    // Add a checkbox to the line
+                    val checkboxLine = "☐ $line"
+                    editor.text.replace(lineStart, lineEnd, checkboxLine)
+                    editor.setSelection(lineStart + checkboxLine.length)
                 }
             }
         } catch (e: Exception) {
-            Log.e("EditNoteActivity", "Error applying numbered list: ${e.message}", e)
+            Log.e("EditNoteActivity", "Error applying checkbox list: ${e.message}", e)
             Toast.makeText(this, "Error formatting text", Toast.LENGTH_SHORT).show()
         }
     }

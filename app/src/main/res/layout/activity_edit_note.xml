@@ -98,12 +98,12 @@
                         android:src="@drawable/ic_format_list_bulleted" />
 
                     <ImageButton
-                        android:id="@+id/numberedListButton"
+                        android:id="@+id/checkboxListButton"
                         android:layout_width="40dp"
                         android:layout_height="40dp"
                         android:background="?attr/selectableItemBackgroundBorderless"
-                        android:contentDescription="Numbered List"
-                        android:src="@drawable/ic_format_list_numbered" />
+                        android:contentDescription="Checkbox List"
+                        android:src="@drawable/ic_checkbox" />
 
                     <View
                         android:layout_width="1dp"

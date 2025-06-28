@@ -342,9 +342,9 @@ class NotesFragment : Fragment() {
             dialogBinding.editNoteContent.bullet(!dialogBinding.editNoteContent.contains(KnifeText.FORMAT_BULLET))
         }
 
-        dialogBinding.numberedListButton.setOnClickListener {
-            // Apply ordered list formatting
-            applyOrderedList(dialogBinding.editNoteContent)
+        dialogBinding.checkboxListButton.setOnClickListener {
+            // Apply checkbox list formatting
+            applyCheckboxList(dialogBinding.editNoteContent)
         }
 
         dialogBinding.addImageButton.setOnClickListener {
@@ -354,50 +354,29 @@ class NotesFragment : Fragment() {
         }
     }
 
-    private fun applyOrderedList(editor: KnifeText) {
-        // Check if there's already an ordered list at the cursor position
-        val currentText = editor.html
-        val isOrderedList = currentText.contains("<ol>") && currentText.contains("</ol>")
-
-        if (isOrderedList) {
-            // Remove ordered list formatting
-            val processedText = currentText
-                .replace("<ol>", "")
-                .replace("</ol>", "")
-                .replace("<li>", "")
-                .replace("</li>", "\n")
-
-            editor.fromHtml(processedText)
-        } else {
-            // Get cursor position to apply ordered list formatting
+    private fun applyCheckboxList(editor: KnifeText) {
+        try {
             val selectionStart = editor.selectionStart
             val selectionEnd = editor.selectionEnd
             val text = editor.text.toString()
 
-            // Check if there's text selected
+            // If text is selected, apply to each line
             if (selectionStart != selectionEnd) {
-                // Get the selected text lines
                 val selectedText = text.substring(selectionStart, selectionEnd)
                 val lines = selectedText.split("\n")
+                val builder = StringBuilder()
 
-                // Create ordered list HTML
-                val orderedListHtml = StringBuilder("<ol>")
                 for (line in lines) {
                     if (line.isNotEmpty()) {
-                        orderedListHtml.append("<li>").append(line).append("</li>")
+                        builder.append("☐ $line\n")
                     }
                 }
-                orderedListHtml.append("</ol>")
 
-                // Replace selected text with ordered list HTML
-                editor.fromHtml(
-                    text.substring(0, selectionStart) +
-                    orderedListHtml.toString() +
-                    text.substring(selectionEnd)
-                )
+                // Replace the selected text with checkbox lines
+                editor.text.replace(selectionStart, selectionEnd, builder.toString())
+                editor.setSelection(selectionStart + builder.length)
             } else {
-                // If no text is selected, insert an empty ordered list at the current line
-
+                // If no selection, apply to current line
                 // Find the beginning of the current line
                 var lineStart = selectionStart
                 while (lineStart > 0 && text[lineStart - 1] != '\n') {
@@ -410,26 +389,29 @@ class NotesFragment : Fragment() {
                     lineEnd++
                 }
 
-                // Get the current line text
-                val currentLine = text.substring(lineStart, lineEnd).trim()
+                // Check if the line already has a checkbox
+                val line = text.substring(lineStart, lineEnd)
+                val checkboxPattern = "^[☐☑]\\s".toRegex()
 
-                // Create HTML for the ordered list
-                val htmlToInsert = if (currentLine.isEmpty()) {
-                    "<ol><li></li></ol>"
+                if (checkboxPattern.containsMatchIn(line)) {
+                    // Toggle checkbox state
+                    val toggledLine = when {
+                        line.startsWith("☐ ") -> line.replace("☐ ", "☑ ")
+                        line.startsWith("☑ ") -> line.replace("☑ ", "☐ ")
+                        else -> line
+                    }
+                    editor.text.replace(lineStart, lineEnd, toggledLine)
+                    editor.setSelection(lineStart + toggledLine.length)
                 } else {
-                    "<ol><li>$currentLine</li></ol>"
+                    // Add a checkbox to the line
+                    val checkboxLine = "☐ $line"
+                    editor.text.replace(lineStart, lineEnd, checkboxLine)
+                    editor.setSelection(lineStart + checkboxLine.length)
                 }
-
-                // Replace the current line with the ordered list HTML
-                editor.fromHtml(
-                    text.substring(0, lineStart) +
-                    htmlToInsert +
-                    text.substring(lineEnd)
-                )
-
-                // Set cursor inside the list item
-                editor.setSelection(lineStart + htmlToInsert.length - 5)  // Position inside <li></li>
             }
+        } catch (e: Exception) {
+            Log.e("NotesFragment", "Error applying checkbox list: ${e.message}", e)
+            Toast.makeText(requireContext(), "Error formatting text", Toast.LENGTH_SHORT).show()
         }
     }
 

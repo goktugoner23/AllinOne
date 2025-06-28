@@ -20,6 +20,10 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import com.bumptech.glide.Glide
 import java.io.File
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.ClickableSpan
+import android.widget.Toast
 
 class NotesAdapter(
     private val onNoteClick: (Note) -> Unit,
@@ -65,12 +69,9 @@ class NotesAdapter(
             if (note.content.isNotEmpty()) {
                 try {
                     val processedContent = processNoteContent(note.content)
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-                        contentTextView.text = Html.fromHtml(processedContent, Html.FROM_HTML_MODE_COMPACT)
-                    } else {
-                        @Suppress("DEPRECATION")
-                        contentTextView.text = Html.fromHtml(processedContent)
-                    }
+                    val spannableText = makeCheckboxesClickable(processedContent, note)
+                    contentTextView.text = spannableText
+                    contentTextView.movementMethod = android.text.method.LinkMovementMethod.getInstance()
                 } catch (e: Exception) {
                     Log.e("NotesAdapter", "Error rendering note content: ${e.message}", e)
                     contentTextView.text = note.content
@@ -240,14 +241,9 @@ class NotesAdapter(
                 "<b>Attached Images:</b>"
             )
 
-            // Fix numbered lists by ensuring proper HTML format
-            processedContent = processedContent.replace(
-                Regex("\\n\\d+\\.\\s"),
-                "<br/><ol><li>"
-            ).replace(
-                Regex("(?<=</li>)(?!\\n\\d+\\.\\s)"),
-                "</ol>"
-            )
+            // Handle checkbox lists - keep as plain text for display
+            processedContent = processedContent.replace("☐", "☐")
+            processedContent = processedContent.replace("☑", "☑")
 
             // Fix bullet lists
             processedContent = processedContent.replace(
@@ -313,6 +309,66 @@ class NotesAdapter(
                 "file" -> File(uri.path ?: "").exists()  // File exists check
                 "http", "https" -> true  // Remote URLs
                 else -> false  // Invalid scheme
+            }
+        }
+
+        private fun makeCheckboxesClickable(content: String, note: Note): SpannableString {
+            val spannableString = SpannableString(content)
+            
+            // Find all checkbox patterns (☐ and ☑)
+            val checkboxPattern = "[☐☑]".toRegex()
+            val matches = checkboxPattern.findAll(content)
+            
+            for (match in matches) {
+                val start = match.range.first
+                val end = match.range.last + 1
+                val checkbox = match.value
+                
+                val clickableSpan = object : ClickableSpan() {
+                    override fun onClick(widget: View) {
+                        toggleCheckbox(note, start, checkbox)
+                    }
+                    
+                    override fun updateDrawState(ds: android.text.TextPaint) {
+                        super.updateDrawState(ds)
+                        ds.isUnderlineText = false // Remove underline from clickable text
+                    }
+                }
+                
+                spannableString.setSpan(clickableSpan, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            
+            return spannableString
+        }
+        
+        private fun toggleCheckbox(note: Note, checkboxPosition: Int, currentCheckbox: String) {
+            try {
+                val content = note.content.toCharArray()
+                
+                // Toggle the checkbox at the specific position
+                if (checkboxPosition < content.size) {
+                    content[checkboxPosition] = when (currentCheckbox) {
+                        "☐" -> '☑'
+                        "☑" -> '☐'
+                        else -> return
+                    }
+                    
+                    // Update the note content
+                    val updatedContent = String(content)
+                    val updatedNote = note.copy(
+                        content = updatedContent,
+                        lastEdited = java.util.Date()
+                    )
+                    
+                    // Update through viewModel if available
+                    viewModel?.updateNote(updatedNote)
+                    
+                    // Show feedback to user
+                    Toast.makeText(itemView.context, "Checkbox toggled", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e("NotesAdapter", "Error toggling checkbox: ${e.message}", e)
+                Toast.makeText(itemView.context, "Error updating checkbox", Toast.LENGTH_SHORT).show()
             }
         }
     }
