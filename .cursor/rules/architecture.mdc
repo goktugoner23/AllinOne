@@ -1,6 +1,6 @@
 ---
-description:
-globs:
+description: architecture
+globs: 
 alwaysApply: false
 ---
 # Architecture Guidelines

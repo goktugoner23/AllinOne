@@ -44,6 +44,13 @@ import android.widget.TextView
 import androidx.viewpager2.widget.ViewPager2
 import com.bumptech.glide.Glide
 import android.util.Log
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.ClickableSpan
+import android.text.style.ForegroundColorSpan
+import android.text.TextWatcher
+import android.text.Editable
+import android.view.MotionEvent
 
 // Extension property to get HTML content from KnifeText
 val KnifeText.html: String
@@ -352,6 +359,9 @@ class NotesFragment : Fragment() {
             // Different from attachments which are shown separately
             getContent.launch("image/*")
         }
+        
+        // Setup clickable checkboxes in dialog editor
+        setupClickableCheckboxesInDialog(dialogBinding)
     }
 
     private fun applyCheckboxList(editor: KnifeText) {
@@ -412,6 +422,84 @@ class NotesFragment : Fragment() {
         } catch (e: Exception) {
             Log.e("NotesFragment", "Error applying checkbox list: ${e.message}", e)
             Toast.makeText(requireContext(), "Error formatting text", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private fun setupClickableCheckboxesInDialog(dialogBinding: DialogEditNoteBinding) {
+        // Add text change listener to make checkboxes clickable
+        dialogBinding.editNoteContent.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                s?.let { makeCheckboxesClickableInDialogEditor(it) }
+            }
+        })
+        
+        // Set up touch listener to handle checkbox clicks
+        dialogBinding.editNoteContent.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) {
+                val x = event.x
+                val y = event.y
+                
+                val offset = dialogBinding.editNoteContent.getOffsetForPosition(x, y)
+                val text = dialogBinding.editNoteContent.text.toString()
+                
+                // Check if the touched position is on a checkbox
+                if (offset < text.length && (text[offset] == '☐' || text[offset] == '☑')) {
+                    toggleCheckboxInDialogEditor(dialogBinding, offset)
+                    return@setOnTouchListener true
+                }
+            }
+            false
+        }
+    }
+    
+    private fun makeCheckboxesClickableInDialogEditor(editable: Editable) {
+        // Remove existing spans to avoid duplicates
+        val spans = editable.getSpans(0, editable.length, ForegroundColorSpan::class.java)
+        spans.forEach { editable.removeSpan(it) }
+        
+        val text = editable.toString()
+        val checkboxPattern = "[☐☑]".toRegex()
+        val matches = checkboxPattern.findAll(text)
+        
+        for (match in matches) {
+            val start = match.range.first
+            val end = match.range.last + 1
+            val checkbox = match.value
+            
+            // Apply blue color for checked checkboxes
+            if (checkbox == "☑") {
+                val blueColor = ContextCompat.getColor(requireContext(), android.R.color.holo_blue_dark)
+                editable.setSpan(
+                    ForegroundColorSpan(blueColor),
+                    start,
+                    end,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+        }
+    }
+    
+    private fun toggleCheckboxInDialogEditor(dialogBinding: DialogEditNoteBinding, position: Int) {
+        try {
+            val text = dialogBinding.editNoteContent.text
+            if (position < text.length) {
+                val currentChar = text[position]
+                val newChar = when (currentChar) {
+                    '☐' -> '☑'
+                    '☑' -> '☐'
+                    else -> return
+                }
+                
+                // Replace the character
+                text.replace(position, position + 1, newChar.toString())
+                
+                // Show feedback
+                Toast.makeText(requireContext(), "Checkbox ${if (newChar == '☑') "checked" else "unchecked"}", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            Log.e("NotesFragment", "Error toggling checkbox: ${e.message}", e)
         }
     }
 

@@ -1,7 +1,7 @@
 ---
 description: 
 globs: 
-alwaysApply: false
+alwaysApply: true
 ---
 # Android Best Practices
 Guidelines for effective Android development including UI, threading, and components.

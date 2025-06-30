@@ -58,6 +58,13 @@ import java.util.Locale
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.ClickableSpan
+import android.text.style.ForegroundColorSpan
+import android.text.TextWatcher
+import android.text.Editable
+import android.view.MotionEvent
 
 class EditNoteActivity : AppCompatActivity() {
 
@@ -408,6 +415,9 @@ class EditNoteActivity : AppCompatActivity() {
         binding.drawingButton?.setOnClickListener {
             openDrawingActivity()
         }
+        
+        // Setup clickable checkboxes in editor
+        setupClickableCheckboxes()
     }
 
     private fun insertBulletList() {
@@ -527,6 +537,84 @@ class EditNoteActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e("EditNoteActivity", "Error applying checkbox list: ${e.message}", e)
             Toast.makeText(this, "Error formatting text", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun setupClickableCheckboxes() {
+        // Add text change listener to make checkboxes clickable
+        binding.editNoteContent.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                s?.let { makeCheckboxesClickableInEditor(it) }
+            }
+        })
+        
+        // Set up touch listener to handle checkbox clicks
+        binding.editNoteContent.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) {
+                val x = event.x
+                val y = event.y
+                
+                val offset = binding.editNoteContent.getOffsetForPosition(x, y)
+                val text = binding.editNoteContent.text.toString()
+                
+                // Check if the touched position is on a checkbox
+                if (offset < text.length && (text[offset] == '☐' || text[offset] == '☑')) {
+                    toggleCheckboxInEditor(offset)
+                    return@setOnTouchListener true
+                }
+            }
+            false
+        }
+    }
+    
+    private fun makeCheckboxesClickableInEditor(editable: Editable) {
+        // Remove existing spans to avoid duplicates
+        val spans = editable.getSpans(0, editable.length, ForegroundColorSpan::class.java)
+        spans.forEach { editable.removeSpan(it) }
+        
+        val text = editable.toString()
+        val checkboxPattern = "[☐☑]".toRegex()
+        val matches = checkboxPattern.findAll(text)
+        
+        for (match in matches) {
+            val start = match.range.first
+            val end = match.range.last + 1
+            val checkbox = match.value
+            
+            // Apply blue color for checked checkboxes
+            if (checkbox == "☑") {
+                val blueColor = getColor(android.R.color.holo_blue_dark)
+                editable.setSpan(
+                    ForegroundColorSpan(blueColor),
+                    start,
+                    end,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+        }
+    }
+    
+    private fun toggleCheckboxInEditor(position: Int) {
+        try {
+            val text = binding.editNoteContent.text
+            if (position < text.length) {
+                val currentChar = text[position]
+                val newChar = when (currentChar) {
+                    '☐' -> '☑'
+                    '☑' -> '☐'
+                    else -> return
+                }
+                
+                // Replace the character
+                text.replace(position, position + 1, newChar.toString())
+                
+                // Show feedback
+                Toast.makeText(this, "Checkbox ${if (newChar == '☑') "checked" else "unchecked"}", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            Log.e("EditNoteActivity", "Error toggling checkbox: ${e.message}", e)
         }
     }
 

@@ -1,6 +1,6 @@
 ---
-description:
-globs:
+description: testing-quality
+globs: 
 alwaysApply: false
 ---
 # Testing & Code Quality Guidelines

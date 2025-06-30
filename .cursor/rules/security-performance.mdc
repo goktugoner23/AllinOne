@@ -1,6 +1,6 @@
 ---
-description:
-globs:
+description: security-performance
+globs: 
 alwaysApply: false
 ---
 # Security & Performance Guidelines
