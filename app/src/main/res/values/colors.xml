@@ -67,4 +67,24 @@
     <color name="reels_background">@color/reelsCard</color>
     <color name="video_background">@color/storyCard</color>
     <color name="carousel_background">@color/albumCard</color>
+
+    <!-- Instagram Engagement Colors -->
+    <color name="excellent_green">#4CAF50</color>
+    <color name="good_orange">#FF9800</color>
+    <color name="poor_red">#F44336</color>
+
+    <!-- Instagram Media Type Colors -->
+    <color name="reels_purple">#8E24AA</color>
+    <color name="video_blue">#2196F3</color>
+    <color name="carousel_orange">#FF9800</color>
+    <color name="image_green">#4CAF50</color>
+
+    <!-- Chat Message Colors -->
+    <color name="user_message_bg">#2196F3</color>
+    <color name="ai_message_bg">#F5F5F5</color>
+    <color name="text_primary">#212121</color>
+    <color name="error_dark">#D32F2F</color>
+
+    <!-- Utility Colors -->
+    <color name="light_gray">#E0E0E0</color>
 </resources>

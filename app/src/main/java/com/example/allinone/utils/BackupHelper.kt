@@ -16,7 +16,7 @@ import com.example.allinone.data.Program
 import com.example.allinone.data.Workout
 import com.example.allinone.data.Exercise
 import com.example.allinone.firebase.FirebaseRepository
-import com.example.allinone.ui.instagram.InstagramPostsFragment.InstagramPost
+import com.example.allinone.feature.instagram.data.model.InstagramPost
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder

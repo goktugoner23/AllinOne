@@ -56,7 +56,9 @@ import com.example.allinone.workers.LogcatCaptureWorker
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.withTimeoutOrNull
 import com.google.firebase.FirebaseOptions
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedListener {
     private lateinit var binding: ActivityMainBinding
     private lateinit var drawerLayout: DrawerLayout

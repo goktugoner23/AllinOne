@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="8dp"
+    android:layout_marginTop="8dp"
+    android:layout_marginEnd="8dp"
+    android:layout_marginBottom="4dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="4dp"
+    app:strokeWidth="1dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+
+        <!-- Media Type Badge -->
+        <TextView
+            android:id="@+id/textMediaType"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@color/reels_purple"
+            android:paddingStart="8dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="4dp"
+            android:textColor="@android:color/white"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="REELS" />
+
+        <!-- Post Image -->
+        <ImageView
+            android:id="@+id/imagePost"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:layout_marginTop="8dp"
+            android:scaleType="centerCrop"
+            android:background="@color/light_gray"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/textMediaType" />
+
+        <!-- Caption -->
+        <TextView
+            android:id="@+id/textCaption"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="8dp"
+            android:ellipsize="end"
+            android:maxLines="3"
+            android:textStyle="bold"
+            android:textColor="@android:color/black"
+            android:textSize="14sp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/imagePost"
+            app:layout_constraintTop_toTopOf="@+id/imagePost"
+            tools:text="This is a sample Instagram post caption that might be quite long..." />
+
+        <!-- Date -->
+        <TextView
+            android:id="@+id/textDate"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="4dp"
+            android:alpha="0.7"
+            android:textSize="12sp"
+            app:layout_constraintStart_toEndOf="@+id/imagePost"
+            app:layout_constraintTop_toBottomOf="@+id/textCaption"
+            tools:text="Apr 08, 2023" />
+
+        <!-- Metrics Row 1 -->
+        <LinearLayout
+            android:id="@+id/metricsRow1"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/imagePost">
+
+            <TextView
+                android:id="@+id/textLikes"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="❤️ 0"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/textComments"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="💬 0"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/textReach"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="👥 0"
+                android:textSize="12sp" />
+
+        </LinearLayout>
+
+        <!-- Engagement Rate -->
+        <TextView
+            android:id="@+id/textEngagement"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="📈 0.0%"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/metricsRow1" />
+
+        <!-- Optional Metrics -->
+        <LinearLayout
+            android:id="@+id/optionalMetrics"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/textEngagement">
+
+            <TextView
+                android:id="@+id/labelImpressions"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="👁️"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/textImpressions"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:text="0"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/labelSaves"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔖"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/textSaves"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:text="0"
+                android:textSize="12sp" />
+
+        </LinearLayout>
+
+        <!-- Hashtags -->
+        <TextView
+            android:id="@+id/textHashtags"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textSize="11sp"
+            android:alpha="0.8"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/optionalMetrics"
+            tools:text="#instagram #social #marketing" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.google.android.material.card.MaterialCardView> 

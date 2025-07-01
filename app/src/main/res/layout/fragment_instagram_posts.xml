@@ -37,18 +37,37 @@
             android:textSize="14sp" />
     </ScrollView>
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerInstagramPosts"
+    <TextView
+        android:id="@+id/textLastSync"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Last sync: Never"
+        android:textSize="12sp"
+        android:alpha="0.7"
+        android:padding="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefresh"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_marginTop="8dp"
-        android:clipToPadding="false"
-        android:paddingBottom="80dp"
         app:layout_constraintBottom_toTopOf="@+id/buttonContainer"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:listitem="@layout/item_instagram_post" />
+        app:layout_constraintTop_toBottomOf="@+id/textLastSync">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerInstagramPosts"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingBottom="80dp"
+            tools:listitem="@layout/item_instagram_post" />
+
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     <TextView
         android:id="@+id/emptyStateView"

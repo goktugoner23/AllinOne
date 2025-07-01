@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="8dp">
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardMessage"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginEnd="64dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="2dp"
+        app:cardBackgroundColor="@color/ai_message_bg">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <!-- Typing Indicator -->
+            <ProgressBar
+                android:id="@+id/progressTyping"
+                style="?android:attr/progressBarStyleSmall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:visibility="gone" />
+
+            <!-- AI Message -->
+            <TextView
+                android:id="@+id/textMessage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_primary"
+                android:textSize="14sp"
+                android:lineSpacingExtra="2dp"
+                tools:text="Based on your Instagram data, your best performing posts are your Reels content..." />
+
+            <!-- Confidence Score -->
+            <TextView
+                android:id="@+id/textConfidence"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textSize="11sp"
+                android:alpha="0.8"
+                android:visibility="gone"
+                tools:text="Confidence: 85%" />
+
+            <!-- Sources -->
+            <TextView
+                android:id="@+id/textSources"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textSize="10sp"
+                android:alpha="0.7"
+                android:visibility="gone"
+                tools:text="Sources: Instagram Posts, Analytics Data" />
+
+            <!-- Timestamp -->
+            <TextView
+                android:id="@+id/textTime"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:alpha="0.7"
+                android:textColor="@color/text_primary"
+                android:textSize="10sp"
+                tools:text="10:31 AM" />
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+</LinearLayout> 
