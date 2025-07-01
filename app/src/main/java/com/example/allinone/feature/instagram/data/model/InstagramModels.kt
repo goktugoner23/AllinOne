@@ -9,7 +9,7 @@ data class InstagramPostsApiResponse(
     val count: Int,
     val source: String,
     val syncInfo: SyncInfo,
-    val timestamp: Long
+    val timestamp: String
 )
 
 // Internal posts data for ViewModel
@@ -18,7 +18,7 @@ data class InstagramPostsData(
     val count: Int,
     val source: String,
     val syncInfo: SyncInfo,
-    val timestamp: Long
+    val timestamp: String
 )
 
 // Sync information (actual API response format)
@@ -30,7 +30,7 @@ data class SyncInfo(
     val previousCount: Int? = null,
     val currentCount: Int? = null,
     val newPosts: Int? = null,
-    val processingTime: Long? = null
+    val processingTime: String? = null
 )
 
 // Instagram Post (standardized format)
@@ -128,7 +128,7 @@ data class TotalMetrics(
     val totalReach: Int,
     val totalVideoViews: Int,
     val totalEngagement: Int,
-    val totalWatchTime: Long
+    val totalWatchTime: String
 )
 
 data class AverageMetrics(
@@ -140,7 +140,7 @@ data class AverageMetrics(
     val avgVideoViews: Int,
     val avgEngagement: Int,
     val avgEngagementRate: Double,
-    val avgWatchTime: Int
+    val avgWatchTime: String
 )
 
 data class TopPerformers(
@@ -178,7 +178,15 @@ data class PostingFrequency(
 data class HashtagAnalysis(
     val totalUniqueHashtags: Int,
     val avgHashtagsPerPost: Double,
-    val topPerformingHashtags: List<String> = emptyList()
+    val topPerformingHashtags: List<HashtagPerformance> = emptyList()
+)
+
+// New data class for hashtag performance
+data class HashtagPerformance(
+    val hashtag: String,
+    val count: Int,
+    val avgEngagementRate: Double? = null,
+    val totalPosts: Int? = null
 )
 
 data class EngagementQuality(
@@ -216,7 +224,7 @@ data class MetricsSyncResponse(
     val updatedPosts: Int,
     val totalPosts: Int,
     val lastSync: String,
-    val processingTime: Long
+    val processingTime: String
 )
 
 data class MetricsUpdateResponse(
@@ -229,24 +237,53 @@ data class MetricsUpdateResponse(
 // RAG Query Models
 data class RAGQueryRequest(
     val query: String,
-    val context: String = "instagram"
+    val domain: String = "instagram",
+    val options: QueryOptions? = null
+)
+
+data class QueryOptions(
+    val topK: Int = 5,
+    val minScore: Double = 0.7
 )
 
 data class RAGQueryResponse(
     val answer: String,
+    val sources: List<AISource>,
     val confidence: Double,
-    val sources: List<String>,
-    val processingTime: Long
+    val processingTime: Long,
+    val metadata: AIMetadata
 )
 
-// Chat Message for AI functionality
+data class AISource(
+    val id: String,
+    val score: Double,
+    val content: String,
+    val metadata: AISourceMetadata
+)
+
+data class AISourceMetadata(
+    val postId: String? = null,
+    val likesCount: Int? = null,
+    val commentsCount: Int? = null,
+    val engagementRate: Double? = null,
+    val mediaType: String? = null,
+    val timestamp: String? = null,
+    val hashtags: List<String>? = null
+)
+
+data class AIMetadata(
+    val originalQuery: String,
+    val totalMatches: Int
+)
+
+// Chat functionality (Ask AI tab)
 data class ChatMessage(
     val text: String,
     val isUser: Boolean,
     val timestamp: Long,
+    val sources: List<AISource> = emptyList(),
     val confidence: Double? = null,
-    val sources: List<String>? = null,
-    val isTyping: Boolean = false,
+    val isLoading: Boolean = false,
     val isError: Boolean = false
 )
 
@@ -263,8 +300,8 @@ data class ApiResponse<T>(
     val success: Boolean,
     val data: T? = null,
     val error: String? = null,
-    val timestamp: Long,
-    val processingTime: Long? = null
+    val timestamp: String,
+    val processingTime: String? = null
 )
 
 // Result handling

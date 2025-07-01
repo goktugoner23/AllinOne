@@ -1,40 +1,27 @@
 package com.example.allinone.ui.instagram
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.core.content.FileProvider
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
+import androidx.fragment.app.viewModels
 import com.example.allinone.R
 import com.example.allinone.databinding.FragmentInstagramInsightsBinding
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.gson.GsonBuilder
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.example.allinone.feature.instagram.data.model.*
+import com.example.allinone.feature.instagram.ui.viewmodel.InstagramViewModel
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class InstagramInsightsFragment : Fragment() {
 
     private var _binding: FragmentInstagramInsightsBinding? = null
     private val binding get() = _binding!!
 
-    private val db = FirebaseFirestore.getInstance()
-    private val instagramCollection = db.collection("instagram_business")
+    private val viewModel: InstagramViewModel by viewModels()
 
     companion object {
         private const val TAG = "InstagramInsights"
@@ -51,152 +38,172 @@ class InstagramInsightsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        // Set up the FAB click listener
-        binding.fabShareInsights.setOnClickListener {
-            shareInsightsAsJson()
-        }
+        
+        observeViewModel()
+        
+        // Load analytics data
+        viewModel.loadAnalytics()
     }
 
-    private fun shareInsightsAsJson() {
-        lifecycleScope.launch {
-            try {
-                // Show a toast to indicate that we're fetching data
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Fetching Instagram insights data...", Toast.LENGTH_SHORT).show()
+    private fun observeViewModel() {
+        viewModel.analytics.observe(viewLifecycleOwner) { result ->
+            when (result) {
+                is InstagramResult.Loading -> {
+                    showLoading(true)
                 }
 
-                // Fetch data from Firebase
-                val insightsData = fetchInsightsData()
-
-                // Convert to pretty-printed JSON
-                val gson = GsonBuilder().setPrettyPrinting().create()
-                val jsonString = gson.toJson(insightsData)
-
-                // Share the JSON data
-                if (jsonString.isNotEmpty()) {
-                    shareJson(jsonString)
-                } else {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "No Instagram insights data available", Toast.LENGTH_SHORT).show()
-                    }
+                is InstagramResult.Success -> {
+                    showLoading(false)
+                    displayAnalytics(result.data)
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error sharing insights data", e)
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+
+                is InstagramResult.Error -> {
+                    showLoading(false)
+                    showError(result.message)
                 }
             }
         }
     }
 
-    private suspend fun fetchInsightsData(): Map<String, Any> {
-        return withContext(Dispatchers.IO) {
-            try {
-                // Fetch posts data from Firebase
-                val postsSnapshot = instagramCollection.get().await()
-
-                // Create a map to hold all the data
-                val insightsData = mutableMapOf<String, Any>()
-
-                // Add posts data
-                val postsList = mutableListOf<Map<String, Any>>()
-                for (document in postsSnapshot.documents) {
-                    val postData = document.data
-                    if (postData != null) {
-                        postsList.add(postData)
+    private fun displayAnalytics(analytics: InstagramAnalytics) {
+        binding.apply {
+            // Hide message and progress
+            textInsightsMessage.isVisible = false
+            progressBar.isVisible = false
+            
+            // Overview Cards
+            textTotalPosts.text = formatNumber(analytics.summary.totalPosts)
+            textTotalEngagement.text = formatNumber(analytics.summary.totalEngagement)
+            textAvgEngagementRate.text = "${String.format("%.1f", analytics.summary.avgEngagementRate)}%"
+            
+            // Total Reach from detailed metrics
+            analytics.summary.detailedMetrics?.totals?.let { totals ->
+                textTotalReach.text = formatNumber(totals.totalReach)
+            }
+            
+            // Performance Indicators
+            analytics.summary.detailedMetrics?.let { metrics ->
+                metrics.trends?.let { trends ->
+                    textEngagementTrend.text = formatTrend(trends.recentEngagementTrend)
+                    textEngagementTrend.setTextColor(getTrendColor(trends.recentEngagementTrend))
+                    
+                    textReachTrend.text = formatTrend(trends.recentReachTrend)
+                    textReachTrend.setTextColor(getTrendColor(trends.recentReachTrend))
+                }
+                
+                metrics.performance?.let { performance ->
+                    textConsistencyScore.text = "${String.format("%.1f", performance.consistencyScore)}%"
+                    textGrowthPotential.text = "${String.format("%.1f", performance.growthPotential)}%"
+                }
+            }
+            
+            // Top Performing Post
+            analytics.summary.topPerformingPost?.let { topPost ->
+                cardTopPost.isVisible = true
+                textTopPostCaption.text = if (topPost.caption.length > 100) {
+                    "${topPost.caption.take(100)}..."
+                } else topPost.caption
+                textTopPostEngagement.text = "📈 ${String.format("%.1f", topPost.metrics.engagementRate)}%"
+                textTopPostInteractions.text = "📊 ${formatNumber(topPost.metrics.totalInteractions)}"
+                
+                // Click listener for top post
+                cardTopPost.setOnClickListener {
+                    showTopPostDetails(topPost)
+                }
+            } ?: run {
+                cardTopPost.isVisible = false
+            }
+            
+            // Content Analysis
+            analytics.summary.detailedMetrics?.contentAnalysis?.let { contentAnalysis ->
+                contentAnalysis.mediaTypeBreakdown?.let { breakdown ->
+                    // Videos
+                    breakdown.videos?.let { videos ->
+                        textVideoCount.text = "${videos.count} (${String.format("%.1f", videos.percentage)}%)"
+                        textVideoEngagement.text = "${String.format("%.1f", videos.avgEngagementRate)}%"
+                    }
+                    
+                    // Images
+                    breakdown.images?.let { images ->
+                        textImageCount.text = "${images.count} (${String.format("%.1f", images.percentage)}%)"
+                        textImageEngagement.text = "${String.format("%.1f", images.avgEngagementRate)}%"
                     }
                 }
+                
+                // Posting Frequency
+                contentAnalysis.postingFrequency?.let { frequency ->
+                    textPostingFrequency.text = buildString {
+                        append("• Posts per week: ${String.format("%.1f", frequency.postsPerWeek)}\n")
+                        append("• Posts per month: ${String.format("%.1f", frequency.postsPerMonth)}\n")
+                        append("• Avg days between posts: ${String.format("%.1f", frequency.avgDaysBetweenPosts)}")
+                    }
+                }
+            }
+        }
+        
+        Log.d(TAG, "Analytics displayed successfully: ${analytics.summary.totalPosts} posts")
+    }
 
-                // Add posts to the insights data
-                insightsData["posts"] = postsList
-
-                // Add metadata
-                insightsData["metadata"] = mapOf(
-                    "timestamp" to System.currentTimeMillis(),
-                    "count" to postsList.size,
-                    "source" to "AllinOne App"
-                )
-
-                insightsData
-            } catch (e: Exception) {
-                Log.e(TAG, "Error fetching insights data", e)
-                mapOf("error" to e.message.toString())
+    private fun showLoading(isLoading: Boolean) {
+        binding.apply {
+            progressBar.isVisible = isLoading
+            if (isLoading) {
+                textInsightsMessage.isVisible = true
+                textInsightsMessage.text = "Loading Instagram insights..."
+            } else {
+                textInsightsMessage.isVisible = false
             }
         }
     }
 
-    private fun shareJson(jsonString: String) {
-        try {
-            // Create a timestamp for the filename
-            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-            val fileName = "instagram_insights_$timestamp.json"
-
-            // Get the app's external files directory
-            val storageDir = requireContext().getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
-            val jsonFile = File(storageDir, fileName)
-
-            // Write the JSON string to the file
-            jsonFile.writeText(jsonString)
-
-            // Get a content URI for the file using FileProvider
-            val fileUri = FileProvider.getUriForFile(
-                requireContext(),
-                "${requireContext().packageName}.provider",
-                jsonFile
-            )
-
-            // Create a share intent for the file
-            val shareIntent = Intent(Intent.ACTION_SEND)
-            shareIntent.type = "application/json"
-            shareIntent.putExtra(Intent.EXTRA_STREAM, fileUri)
-            shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-
-            // Add subject and text for email clients
-            shareIntent.putExtra(Intent.EXTRA_SUBJECT, "Instagram Insights Data")
-            shareIntent.putExtra(Intent.EXTRA_TEXT, "Attached is the Instagram Insights data exported from AllinOne App.")
-
-            // Show the share dialog
-            startActivity(Intent.createChooser(shareIntent, "Share Instagram Insights JSON File"))
-
-            // Also copy a shorter version to clipboard for convenience
-            val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val shortJson = if (jsonString.length > 1000) jsonString.substring(0, 1000) + "... (truncated)" else jsonString
-            val clip = ClipData.newPlainText("Instagram Insights JSON (Preview)", shortJson)
-            clipboard.setPrimaryClip(clip)
-
-            // Show a toast to indicate success
-            Toast.makeText(context, "JSON file created and ready to share", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error sharing JSON file", e)
-            Toast.makeText(context, "Error creating JSON file: ${e.message}", Toast.LENGTH_SHORT).show()
-
-            // Fall back to text sharing if file sharing fails
-            fallbackToTextSharing(jsonString)
+    private fun showError(message: String) {
+        binding.apply {
+            progressBar.isVisible = false
+            textInsightsMessage.isVisible = true
+            textInsightsMessage.text = "Error loading insights: $message"
+        }
+        Toast.makeText(context, "Failed to load insights: $message", Toast.LENGTH_LONG).show()
+        Log.e(TAG, "Analytics load failed: $message")
+    }
+    
+    private fun formatNumber(number: Int): String {
+        return when {
+            number >= 1_000_000 -> "${String.format("%.1f", number / 1_000_000.0)}M"
+            number >= 1_000 -> "${String.format("%.1f", number / 1_000.0)}K"
+            else -> java.text.NumberFormat.getNumberInstance().format(number)
         }
     }
-
-    private fun fallbackToTextSharing(jsonString: String) {
-        try {
-            // Create a share intent for plain text
-            val shareIntent = Intent(Intent.ACTION_SEND)
-            shareIntent.type = "text/plain"
-            shareIntent.putExtra(Intent.EXTRA_SUBJECT, "Instagram Insights Data")
-            shareIntent.putExtra(Intent.EXTRA_TEXT, jsonString)
-
-            // Show the share dialog
-            startActivity(Intent.createChooser(shareIntent, "Share Instagram Insights Data (Text)"))
-
-            // Copy to clipboard
-            val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val clip = ClipData.newPlainText("Instagram Insights JSON", jsonString)
-            clipboard.setPrimaryClip(clip)
-
-            Toast.makeText(context, "Sharing as text instead. JSON copied to clipboard.", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in fallback text sharing", e)
-            Toast.makeText(context, "Could not share data: ${e.message}", Toast.LENGTH_SHORT).show()
+    
+    private fun formatTrend(trend: Double): String {
+        val sign = if (trend >= 0) "+" else ""
+        return "$sign${String.format("%.1f", trend)}%"
+    }
+    
+    private fun getTrendColor(trend: Double): Int {
+        return androidx.core.content.ContextCompat.getColor(
+            requireContext(),
+            when {
+                trend > 0 -> R.color.excellent_green
+                trend < 0 -> R.color.poor_red
+                else -> android.R.color.black
+            }
+        )
+    }
+    
+    private fun showTopPostDetails(topPost: TopPerformingPost) {
+        val details = buildString {
+            append("🏆 TOP PERFORMING POST\n\n")
+            append("📝 Caption: ${topPost.caption}\n\n")
+            append("📊 PERFORMANCE:\n")
+            append("📈 Engagement Rate: ${String.format("%.1f", topPost.metrics.engagementRate)}%\n")
+            append("📊 Total Interactions: ${formatNumber(topPost.metrics.totalInteractions)}\n")
         }
+
+        androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle("Top Performing Post")
+            .setMessage(details)
+            .setPositiveButton("Close", null)
+            .show()
     }
 
     override fun onDestroyView() {

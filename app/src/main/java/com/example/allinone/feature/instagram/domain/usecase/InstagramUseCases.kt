@@ -32,8 +32,24 @@ class GetInstagramAnalyticsUseCase @Inject constructor(
 class QueryInstagramAIUseCase @Inject constructor(
     private val repository: InstagramRepository
 ) {
-    suspend operator fun invoke(query: String, context: String = "instagram"): InstagramResult<RAGQueryResponse> {
-        val request = RAGQueryRequest(query = query, context = context)
+    suspend operator fun invoke(
+        query: String, 
+        domain: String = "instagram",
+        topK: Int = 15, // Increased default for better coverage
+        minScore: Double = 0.3 // Lowered default for more matches
+    ): InstagramResult<RAGQueryResponse> {
+        // Enhanced query options for better RAG results
+        val options = QueryOptions(
+            topK = topK,
+            minScore = minScore
+        )
+        
+        val request = RAGQueryRequest(
+            query = query,
+            domain = domain,
+            options = options
+        )
+        
         return repository.queryRAG(request)
     }
 }

@@ -80,11 +80,18 @@
     <color name="image_green">#4CAF50</color>
 
     <!-- Chat Message Colors -->
-    <color name="user_message_bg">#2196F3</color>
-    <color name="ai_message_bg">#F5F5F5</color>
     <color name="text_primary">#212121</color>
     <color name="error_dark">#D32F2F</color>
 
     <!-- Utility Colors -->
-    <color name="light_gray">#E0E0E0</color>
+    <color name="light_gray">#F0F0F0</color>
+
+    <!-- User Interface Colors -->
+    <color name="background_color">#F5F5F5</color>
+    <color name="surface_color">#FFFFFF</color>
+    <color name="on_surface_color">#212121</color>
+    
+    <!-- Chat colors -->
+    <color name="user_message_bg">#007AFF</color>
+    <color name="ai_message_bg">#E8E8E8</color>
 </resources>

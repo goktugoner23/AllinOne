@@ -104,25 +104,33 @@ class PostsAdapter(
                 // Click listener
                 root.setOnClickListener { onPostClick(post) }
                 
-                // Load image if available
-                if (post.mediaUrl != null) {
-                    imagePost.isVisible = true
-                    Glide.with(itemView.context)
-                        .load(post.mediaUrl)
-                        .placeholder(R.drawable.placeholder_image)
-                        .error(R.drawable.error_image)
-                        .centerCrop()
-                        .into(imagePost)
-                } else if (post.thumbnailUrl != null) {
-                    imagePost.isVisible = true
-                    Glide.with(itemView.context)
-                        .load(post.thumbnailUrl)
-                        .placeholder(R.drawable.placeholder_image)
-                        .error(R.drawable.error_image)
-                        .centerCrop()
-                        .into(imagePost)
-                } else {
-                    imagePost.isVisible = false
+                // Load image if available - improved error handling
+                when {
+                    !post.mediaUrl.isNullOrBlank() -> {
+                        imagePost.isVisible = true
+                        Glide.with(itemView.context)
+                            .load(post.mediaUrl)
+                            .placeholder(R.drawable.placeholder_image)
+                            .error(R.drawable.error_image)
+                            .centerCrop()
+                            .into(imagePost)
+                    }
+                    !post.thumbnailUrl.isNullOrBlank() -> {
+                        imagePost.isVisible = true
+                        Glide.with(itemView.context)
+                            .load(post.thumbnailUrl)
+                            .placeholder(R.drawable.placeholder_image)
+                            .error(R.drawable.error_image)
+                            .centerCrop()
+                            .into(imagePost)
+                    }
+                    else -> {
+                        // Show a default image instead of hiding
+                        imagePost.isVisible = true
+                        Glide.with(itemView.context)
+                            .load(R.drawable.ic_instagram_posts)
+                            .into(imagePost)
+                    }
                 }
             }
         }

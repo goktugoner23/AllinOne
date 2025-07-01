@@ -104,7 +104,7 @@ class InstagramRepositoryImpl @Inject constructor() : InstagramRepository {
      */
     override suspend fun queryRAG(request: RAGQueryRequest): InstagramResult<RAGQueryResponse> {
         return try {
-            Log.d(TAG, "Querying RAG system: ${request.query}")
+            Log.d(TAG, "Querying RAG system with: query='${request.query}', domain='${request.domain}', topK=${request.options?.topK}, minScore=${request.options?.minScore}")
             
             val response = withContext(Dispatchers.IO) {
                 apiService.queryRAG(request)
@@ -112,20 +112,32 @@ class InstagramRepositoryImpl @Inject constructor() : InstagramRepository {
             
             if (response.isSuccessful) {
                 val apiResponse = response.body()
+                Log.d(TAG, "RAG API response: success=${apiResponse?.success}, data=${apiResponse?.data != null}")
+                
                 if (apiResponse?.success == true && apiResponse.data != null) {
-                    Log.d(TAG, "RAG query successful, confidence: ${apiResponse.data.confidence}")
+                    Log.d(TAG, "RAG query successful - confidence: ${apiResponse.data.confidence}, sources: ${apiResponse.data.sources.size}, answer length: ${apiResponse.data.answer.length}")
+                    
+                    // Log first few sources for debugging
+                    apiResponse.data.sources.take(3).forEachIndexed { index, source ->
+                        Log.d(TAG, "Source $index: score=${source.score}, postId=${source.metadata.postId}, engagementRate=${source.metadata.engagementRate}")
+                    }
+                    
                     InstagramResult.Success(apiResponse.data)
                 } else {
                     val errorMsg = apiResponse?.error ?: "Unknown error querying RAG"
+                    Log.e(TAG, "RAG query failed: $errorMsg")
                     InstagramResult.Error(errorMsg)
                 }
             } else {
                 val errorMsg = "HTTP ${response.code()}: ${response.message()}"
+                val responseBody = response.errorBody()?.string()
+                Log.e(TAG, "RAG query API error: $errorMsg")
+                Log.e(TAG, "RAG query error body: $responseBody")
                 InstagramResult.Error("Failed to query RAG: $errorMsg")
             }
             
         } catch (e: Exception) {
-            Log.e(TAG, "RAG query exception", e)
+            Log.e(TAG, "RAG query exception: ${e.message}", e)
             InstagramResult.Error("Failed to query RAG: ${e.message}", e)
         }
     }

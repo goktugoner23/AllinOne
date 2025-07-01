@@ -1,21 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
     android:padding="8dp">
 
+    <!-- AI Avatar -->
+    <TextView
+        android:id="@+id/avatarAI"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginEnd="8dp"
+        android:background="@drawable/circle_background"
+        android:gravity="center"
+        android:text="🤖"
+        android:textSize="16sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cardMessage"
+        android:id="@+id/cardAIMessage"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
         android:layout_marginEnd="64dp"
-        app:cardCornerRadius="16dp"
+        app:cardBackgroundColor="@color/light_gray"
+        app:cardCornerRadius="18dp"
         app:cardElevation="2dp"
-        app:cardBackgroundColor="@color/ai_message_bg">
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/avatarAI"
+        app:layout_constraintTop_toTopOf="parent">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -23,60 +37,109 @@
             android:orientation="vertical"
             android:padding="12dp">
 
-            <!-- Typing Indicator -->
-            <ProgressBar
-                android:id="@+id/progressTyping"
-                style="?android:attr/progressBarStyleSmall"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:visibility="gone" />
-
-            <!-- AI Message -->
             <TextView
-                android:id="@+id/textMessage"
+                android:id="@+id/textAIMessage"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/text_primary"
-                android:textSize="14sp"
+                android:textColor="@android:color/black"
+                android:textSize="16sp"
                 android:lineSpacingExtra="2dp"
-                tools:text="Based on your Instagram data, your best performing posts are your Reels content..." />
+                tools:text="Based on your Instagram data, your best performing posts are those with high engagement rates..." />
 
             <!-- Confidence Score -->
-            <TextView
-                android:id="@+id/textConfidence"
+            <LinearLayout
+                android:id="@+id/layoutConfidence"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:textSize="11sp"
-                android:alpha="0.8"
+                android:orientation="horizontal"
                 android:visibility="gone"
-                tools:text="Confidence: 85%" />
+                tools:visibility="visible">
 
-            <!-- Sources -->
-            <TextView
-                android:id="@+id/textSources"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🎯 Confidence: "
+                    android:textSize="12sp"
+                    android:alpha="0.7" />
+
+                <TextView
+                    android:id="@+id/textConfidence"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/excellent_green"
+                    tools:text="92%" />
+            </LinearLayout>
+
+            <!-- Sources Section -->
+            <LinearLayout
+                android:id="@+id/layoutSources"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:textSize="10sp"
-                android:alpha="0.7"
+                android:layout_marginTop="8dp"
+                android:orientation="vertical"
                 android:visibility="gone"
-                tools:text="Sources: Instagram Posts, Analytics Data" />
+                tools:visibility="visible">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📊 Sources:"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:alpha="0.8" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recyclerSources"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:nestedScrollingEnabled="false"
+                    tools:itemCount="2"
+                    tools:listitem="@layout/item_chat_source" />
+            </LinearLayout>
 
             <!-- Timestamp -->
             <TextView
-                android:id="@+id/textTime"
-                android:layout_width="match_parent"
+                android:id="@+id/textAITimestamp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="end"
                 android:layout_marginTop="4dp"
-                android:alpha="0.7"
-                android:textColor="@color/text_primary"
-                android:textSize="10sp"
-                tools:text="10:31 AM" />
-
+                android:alpha="0.6"
+                android:textColor="@android:color/black"
+                android:textSize="11sp"
+                tools:text="2:31 PM" />
         </LinearLayout>
-
     </com.google.android.material.card.MaterialCardView>
 
-</LinearLayout> 
+    <!-- Typing Indicator (for loading state) -->
+    <LinearLayout
+        android:id="@+id/layoutTyping"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:visibility="gone"
+        app:layout_constraintStart_toEndOf="@+id/avatarAI"
+        app:layout_constraintTop_toBottomOf="@+id/cardAIMessage">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="AI is thinking"
+            android:textSize="12sp"
+            android:alpha="0.7" />
+
+        <ProgressBar
+            style="?android:attr/progressBarStyleSmall"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout> 

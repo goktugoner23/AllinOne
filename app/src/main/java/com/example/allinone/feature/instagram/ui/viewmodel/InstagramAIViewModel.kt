@@ -15,175 +15,214 @@ class InstagramAIViewModel @Inject constructor(
     private val queryInstagramAIUseCase: QueryInstagramAIUseCase
 ) : ViewModel() {
     
+    // Chat messages state
     private val _chatMessages = MutableLiveData<List<ChatMessage>>(emptyList())
     val chatMessages: LiveData<List<ChatMessage>> = _chatMessages
     
-    private val _isTyping = MutableLiveData(false)
-    val isTyping: LiveData<Boolean> = _isTyping
+    // Loading state
+    private val _isLoading = MutableLiveData(false)
+    val isLoading: LiveData<Boolean> = _isLoading
     
-    private val _isInitialized = MutableLiveData(false)
-    val isInitialized: LiveData<Boolean> = _isInitialized
+    // Error state
+    private val _error = MutableLiveData<String?>()
+    val error: LiveData<String?> = _error
     
-    init {
-        initializeChat()
+    companion object {
+        private const val TAG = "InstagramAIViewModel"
     }
     
     /**
-     * Initialize chat with welcome message
+     * Ask a question to the Instagram AI
      */
-    private fun initializeChat() {
-        val welcomeMessage = ChatMessage(
-            text = "Hi! I'm your Instagram AI assistant. Ask me anything about your Instagram performance, content strategy, or analytics!\n\nHere are some things you can ask:\n• What's my best performing post?\n• How is my engagement trending?\n• Which hashtags work best?\n• What time should I post?\n• Analyze my content strategy",
-            isUser = false,
-            timestamp = System.currentTimeMillis()
-        )
+    fun askQuestion(question: String) {
+        if (question.isBlank()) return
         
-        _chatMessages.value = listOf(welcomeMessage)
-        _isInitialized.value = true
-    }
-    
-    /**
-     * Send a message to the AI
-     */
-    fun sendMessage(message: String) {
-        if (message.trim().isEmpty()) return
-        
-        val currentMessages = _chatMessages.value?.toMutableList() ?: mutableListOf()
-        
-        // Add user message
-        val userMessage = ChatMessage(
-            text = message.trim(),
-            isUser = true,
-            timestamp = System.currentTimeMillis()
-        )
-        
-        currentMessages.add(userMessage)
-        _chatMessages.value = currentMessages
-        
-        // Start AI processing
-        queryAI(message.trim())
-    }
-    
-    /**
-     * Query the AI system
-     */
-    private fun queryAI(query: String) {
         viewModelScope.launch {
             try {
-                _isTyping.value = true
+                _isLoading.value = true
+                _error.value = null
                 
-                // Add typing indicator
-                val currentMessages = _chatMessages.value?.toMutableList() ?: mutableListOf()
-                val typingMessage = ChatMessage(
-                    text = "AI is analyzing your Instagram data...",
+                // Add user message immediately
+                val userMessage = ChatMessage(
+                    text = question,
+                    isUser = true,
+                    timestamp = System.currentTimeMillis()
+                )
+                addMessage(userMessage)
+                
+                // Add loading AI message
+                val loadingMessage = ChatMessage(
+                    text = "",
                     isUser = false,
                     timestamp = System.currentTimeMillis(),
-                    isTyping = true
+                    isLoading = true
+                )
+                addMessage(loadingMessage)
+                
+                // Enhance the query to improve RAG matching
+                val enhancedQuery = enhanceQueryForInstagram(question)
+                
+                // Query the AI with optimized parameters for Instagram content
+                val result = queryInstagramAIUseCase(
+                    query = enhancedQuery,
+                    domain = "instagram",
+                    topK = 15, // More sources for better coverage
+                    minScore = 0.3 // Much lower threshold to catch more content
                 )
                 
-                currentMessages.add(typingMessage)
-                _chatMessages.value = currentMessages
+                // Remove loading message
+                removeLastMessage()
                 
-                // Query the AI
-                val result = queryInstagramAIUseCase(query)
-                
-                // Remove typing indicator
-                val updatedMessages = _chatMessages.value?.toMutableList() ?: mutableListOf()
-                val typingIndex = updatedMessages.indexOfLast { it.isTyping }
-                if (typingIndex != -1) {
-                    updatedMessages.removeAt(typingIndex)
-                }
-                
-                // Add AI response
                 when (result) {
                     is InstagramResult.Success -> {
                         val aiMessage = ChatMessage(
                             text = result.data.answer,
                             isUser = false,
                             timestamp = System.currentTimeMillis(),
+                            sources = result.data.sources,
                             confidence = result.data.confidence,
-                            sources = result.data.sources
+                            isLoading = false
                         )
-                        updatedMessages.add(aiMessage)
+                        addMessage(aiMessage)
                     }
                     
                     is InstagramResult.Error -> {
                         val errorMessage = ChatMessage(
-                            text = "Sorry, I couldn't process your request right now. Please try again.\n\nError: ${result.message}",
+                            text = "Sorry, I couldn't process your question. ${result.message}",
                             isUser = false,
                             timestamp = System.currentTimeMillis(),
                             isError = true
                         )
-                        updatedMessages.add(errorMessage)
+                        addMessage(errorMessage)
+                        _error.value = result.message
                     }
                     
                     is InstagramResult.Loading -> {
-                        // This shouldn't happen in this flow, but handle it just in case
-                        val loadingMessage = ChatMessage(
+                        // This shouldn't happen in our use case, but handle it
+                        val processingMessage = ChatMessage(
                             text = "Processing your request...",
                             isUser = false,
                             timestamp = System.currentTimeMillis(),
-                            isTyping = true
+                            isLoading = true
                         )
-                        updatedMessages.add(loadingMessage)
+                        addMessage(processingMessage)
                     }
                 }
                 
-                _chatMessages.value = updatedMessages
-                
             } catch (e: Exception) {
-                // Handle any unexpected errors
-                val currentMessages = _chatMessages.value?.toMutableList() ?: mutableListOf()
-                
-                // Remove typing indicator if present
-                val typingIndex = currentMessages.indexOfLast { it.isTyping }
-                if (typingIndex != -1) {
-                    currentMessages.removeAt(typingIndex)
-                }
+                // Remove loading message if there was an error
+                removeLastMessage()
                 
                 val errorMessage = ChatMessage(
-                    text = "An unexpected error occurred. Please check your connection and try again.",
+                    text = "Sorry, something went wrong. Please try again.",
                     isUser = false,
                     timestamp = System.currentTimeMillis(),
                     isError = true
                 )
-                
-                currentMessages.add(errorMessage)
-                _chatMessages.value = currentMessages
+                addMessage(errorMessage)
+                _error.value = e.message
                 
             } finally {
-                _isTyping.value = false
+                _isLoading.value = false
             }
         }
+    }
+    
+    /**
+     * Enhance queries to better match Instagram content
+     * Adds relevant Instagram and martial arts terms to improve RAG matching
+     */
+    private fun enhanceQueryForInstagram(originalQuery: String): String {
+        val lowerQuery = originalQuery.lowercase()
+        
+        // Add Instagram-specific context terms
+        val instagramTerms = mutableListOf<String>()
+        
+        // Performance-related queries
+        when {
+            lowerQuery.contains("best") || lowerQuery.contains("top") || lowerQuery.contains("performing") -> {
+                instagramTerms.addAll(listOf("engagement", "likes", "comments", "performance", "metrics"))
+            }
+            lowerQuery.contains("hashtag") -> {
+                instagramTerms.addAll(listOf("#wingchun", "#martialarts", "#selfdefense", "#escrima", "#ebmas"))
+            }
+            lowerQuery.contains("engagement") || lowerQuery.contains("rate") -> {
+                instagramTerms.addAll(listOf("engagementRate", "likesCount", "commentsCount"))
+            }
+            lowerQuery.contains("content") || lowerQuery.contains("post") -> {
+                instagramTerms.addAll(listOf("video", "caption", "mediaType", "post"))
+            }
+            lowerQuery.contains("martial") || lowerQuery.contains("wing") || lowerQuery.contains("defense") -> {
+                instagramTerms.addAll(listOf("wingchun", "escrima", "martialarts", "selfdefense", "bıçak", "karşılama"))
+            }
+        }
+        
+        // Add relevant context without overwhelming the query
+        val contextTerms = instagramTerms.take(3).joinToString(" ")
+        
+        return if (contextTerms.isNotEmpty()) {
+            "$originalQuery $contextTerms Instagram posts metrics"
+        } else {
+            "$originalQuery Instagram posts engagement"
+        }
+    }
+    
+    /**
+     * Ask a suggested question
+     */
+    fun askSuggestedQuestion(question: String) {
+        askQuestion(question)
     }
     
     /**
      * Clear chat history
      */
     fun clearChat() {
-        initializeChat()
+        _chatMessages.value = emptyList()
+        _error.value = null
     }
     
     /**
-     * Send a quick suggestion
-     */
-    fun sendQuickSuggestion(suggestion: String) {
-        sendMessage(suggestion)
-    }
-    
-    /**
-     * Get suggested questions for UI
+     * Get suggested questions
      */
     fun getSuggestedQuestions(): List<String> {
         return listOf(
-            "What's my best performing post?",
-            "How is my engagement trending?",
-            "Which hashtags work best?",
-            "What time should I post?",
-            "Analyze my content strategy",
-            "Show me my reach statistics",
-            "What content gets the most saves?",
-            "How do my Reels perform vs posts?"
+            "What are my best performing martial arts posts?",
+            "Which Wing Chun or Escrima posts have highest engagement?",
+            "Show me metrics for my self-defense content",
+            "What hashtags work best for my martial arts videos?",
+            "How do my knife defense posts perform?",
+            "What's my average engagement on training videos?",
+            "Which posts get the most comments and likes?",
+            "Show me my most engaging self-defense content",
+            "What type of martial arts content performs best?",
+            "How do my Turkish vs English posts compare?"
         )
+    }
+    
+    /**
+     * Get current message count
+     */
+    fun getMessageCount(): Int {
+        return _chatMessages.value?.size ?: 0
+    }
+    
+    /**
+     * Check if there are any messages
+     */
+    fun hasMessages(): Boolean {
+        return getMessageCount() > 0
+    }
+    
+    private fun addMessage(message: ChatMessage) {
+        val currentMessages = _chatMessages.value ?: emptyList()
+        _chatMessages.value = currentMessages + message
+    }
+    
+    private fun removeLastMessage() {
+        val currentMessages = _chatMessages.value ?: emptyList()
+        if (currentMessages.isNotEmpty()) {
+            _chatMessages.value = currentMessages.dropLast(1)
+        }
     }
 } 
