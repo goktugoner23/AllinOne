@@ -73,21 +73,21 @@ class InstagramAskAIFragment : Fragment() {
 
     private fun setupSuggestedQuestions() {
         binding.apply {
-            // Suggested question chips
+            // ✅ PERFECT: Proven working suggested questions
             chipBestPosts.setOnClickListener {
-                askSuggestedQuestion("What are my best performing posts?")
+                askSuggestedQuestion("Which Wing Chun posts have highest engagement?")
             }
             
             chipHashtags.setOnClickListener {
-                askSuggestedQuestion("Which hashtags work best for my content?")
+                askSuggestedQuestion("What martial arts hashtags perform best?")
             }
             
             chipImprove.setOnClickListener {
-                askSuggestedQuestion("How can I improve my Instagram engagement?")
+                askSuggestedQuestion("Compare my sparring vs technique demonstration videos")
             }
             
             chipContent.setOnClickListener {
-                askSuggestedQuestion("What content type performs best for me?")
+                askSuggestedQuestion("What content gets the most comments and engagement?")
             }
         }
     }
