@@ -365,7 +365,8 @@ class InstagramAskAIFragment : Fragment() {
     // ✅ NEW: Utility methods
     private fun getFileName(uri: Uri): String {
         // In a real implementation, query the content resolver
-        return "file_${System.currentTimeMillis()}"
+        // For now, use the URI path or a timestamp-based name
+        return uri.lastPathSegment ?: "file_${System.currentTimeMillis()}"
     }
     
     private fun getMimeType(uri: Uri): String {
@@ -418,7 +419,7 @@ class InstagramAskAIFragment : Fragment() {
         }
         
         // ✅ NEW: Multimodal suggestions (could be used for dynamic suggestions)
-        viewModel.multimodalSuggestions.observe(viewLifecycleOwner) { suggestions ->
+        viewModel.multimodalSuggestions.observe(viewLifecycleOwner) { _ ->
             // Could implement dynamic suggestion chips based on content type
         }
     }

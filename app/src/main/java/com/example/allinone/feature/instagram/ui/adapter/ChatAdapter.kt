@@ -229,9 +229,6 @@ class ChatAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
         }
         
         private fun showAICopyOptions(message: ChatMessage) {
-            val context = binding.root.context
-            val options = mutableListOf<String>()
-            
             // Build copyable content options
             val fullResponse = buildString {
                 append("🤖 AI Response:\n")

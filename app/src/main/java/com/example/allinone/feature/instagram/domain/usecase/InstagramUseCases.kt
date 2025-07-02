@@ -129,7 +129,7 @@ class UploadFileForAnalysisUseCase @Inject constructor(
             
             // For now, we'll pass the file URI as content
             // In a real implementation, you'd upload the file to your backend first
-            val query = "Analyze this $contentType file ($fileName) for Instagram insights: $analysisQuery"
+            val query = "Analyze this $contentType file ($fileName) located at $fileUri for Instagram insights: $analysisQuery"
             
             val request = RAGQueryRequest(
                 query = query,
@@ -163,7 +163,7 @@ class AnalyzeInstagramURLUseCase @Inject constructor(
             }
             
             val analysisType = getInstagramURLType(url)
-            val query = customQuery ?: getDefaultAnalysisQuery(url, analysisType)
+            val query = customQuery ?: getDefaultAnalysisQuery(analysisType)
             
             val request = RAGQueryRequest(
                 query = "Analyze this Instagram URL and provide strategic insights: $url. $query",
@@ -195,7 +195,7 @@ class AnalyzeInstagramURLUseCase @Inject constructor(
         }
     }
     
-    private fun getDefaultAnalysisQuery(url: String, type: String): String {
+    private fun getDefaultAnalysisQuery(type: String): String {
         return when (type) {
             "Post" -> "Why did this post perform well/poorly? What can I learn for my content strategy?"
             "Reel" -> "What makes this reel engaging? How can I apply these insights to my content?"
