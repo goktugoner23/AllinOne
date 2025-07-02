@@ -78,6 +78,7 @@
     <color name="video_blue">#2196F3</color>
     <color name="carousel_orange">#FF9800</color>
     <color name="image_green">#4CAF50</color>
+    <color name="light_blue">#E3F2FD</color>  <!-- Light blue for image upload cards -->
 
     <!-- Chat Message Colors -->
     <color name="text_primary">#212121</color>

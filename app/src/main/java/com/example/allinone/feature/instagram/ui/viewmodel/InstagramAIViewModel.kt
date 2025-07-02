@@ -5,14 +5,20 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.allinone.feature.instagram.data.model.*
-import com.example.allinone.feature.instagram.domain.usecase.QueryInstagramAIUseCase
+import com.example.allinone.feature.instagram.domain.usecase.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
+import java.util.*
 import javax.inject.Inject
 
 @HiltViewModel
 class InstagramAIViewModel @Inject constructor(
-    private val queryInstagramAIUseCase: QueryInstagramAIUseCase
+    private val queryInstagramAIUseCase: QueryInstagramAIUseCase,
+    private val analyzeMultimodalContentUseCase: AnalyzeMultimodalContentUseCase,
+    private val uploadFileForAnalysisUseCase: UploadFileForAnalysisUseCase,
+    private val analyzeInstagramURLUseCase: AnalyzeInstagramURLUseCase,
+    private val processAudioRecordingUseCase: ProcessAudioRecordingUseCase,
+    private val getMultimodalSuggestionsUseCase: GetMultimodalSuggestionsUseCase
 ) : ViewModel() {
     
     // Chat messages state
@@ -27,27 +33,61 @@ class InstagramAIViewModel @Inject constructor(
     private val _error = MutableLiveData<String?>()
     val error: LiveData<String?> = _error
     
+    // ✅ NEW: Audio recording state
+    private val _audioRecordingState = MutableLiveData<AudioRecordingState>()
+    val audioRecordingState: LiveData<AudioRecordingState> = _audioRecordingState
+    
+    // ✅ NEW: File upload state
+    private val _uploadProgress = MutableLiveData<Map<String, Int>>()
+    val uploadProgress: LiveData<Map<String, Int>> = _uploadProgress
+    
+    // ✅ NEW: Multimodal suggestions
+    private val _multimodalSuggestions = MutableLiveData<List<MultimodalSuggestion>>()
+    val multimodalSuggestions: LiveData<List<MultimodalSuggestion>> = _multimodalSuggestions
+    
+    // ✅ NEW: Attachment preview state
+    private val _attachmentPreview = MutableLiveData<MessageAttachment?>()
+    val attachmentPreview: LiveData<MessageAttachment?> = _attachmentPreview
+    
     companion object {
         private const val TAG = "InstagramAIViewModel"
     }
     
+    init {
+        // Load multimodal suggestions
+        _multimodalSuggestions.value = getMultimodalSuggestionsUseCase()
+        _audioRecordingState.value = AudioRecordingState()
+    }
+    
     /**
-     * Ask a question to the Instagram AI - Enhanced Version
+     * ✅ ENHANCED: Ask a question with optional attachments - Multimodal Support
      */
-    fun askQuestion(question: String) {
-        if (question.isBlank()) return
+    fun askQuestion(
+        question: String, 
+        attachments: List<MessageAttachment> = emptyList()
+    ) {
+        if (question.isBlank() && attachments.isEmpty()) return
         
         viewModelScope.launch {
             try {
                 _isLoading.value = true
                 _error.value = null
                 
-                // Add user message immediately
-                val preprocessedQuestion = preprocessUserQuery(question)
+                // Determine content type
+                val contentType = when {
+                    attachments.isNotEmpty() && question.isNotBlank() -> ContentType.MULTIMODAL
+                    attachments.isNotEmpty() -> getContentTypeFromAttachments(attachments)
+                    question.contains("http") && question.contains("instagram.com") -> ContentType.URL
+                    else -> ContentType.TEXT
+                }
+                
+                // Add user message immediately with attachments
                 val userMessage = ChatMessage(
-                    text = preprocessedQuestion,
+                    text = question.ifBlank { "Analyze this content" },
                     isUser = true,
-                    timestamp = System.currentTimeMillis()
+                    timestamp = System.currentTimeMillis(),
+                    contentType = contentType,
+                    attachments = attachments
                 )
                 addMessage(userMessage)
                 
@@ -56,15 +96,19 @@ class InstagramAIViewModel @Inject constructor(
                     text = "",
                     isUser = false,
                     timestamp = System.currentTimeMillis(),
-                    isLoading = true
+                    isLoading = true,
+                    isTyping = true
                 )
                 addMessage(loadingMessage)
                 
-                // ✅ IMPROVED: Simpler query optimization
-                val optimizedQuery = optimizeQueryForRAG(preprocessedQuestion)
-                
-                // ✅ IMPROVED: Try query with fallback
-                val result = queryWithFallback(optimizedQuery)
+                // Process based on content type
+                val result = when (contentType) {
+                    ContentType.MULTIMODAL -> processMultimodalQuery(question, attachments)
+                    ContentType.URL -> processURLQuery(question)
+                    ContentType.IMAGE, ContentType.AUDIO, ContentType.PDF -> 
+                        processFileQuery(question, attachments.first())
+                    else -> processTextQuery(question)
+                }
                 
                 removeLastMessage()
                 handleResult(result)
@@ -75,6 +119,190 @@ class InstagramAIViewModel @Inject constructor(
             } finally {
                 _isLoading.value = false
             }
+        }
+    }
+    
+    /**
+     * ✅ NEW: Process multimodal queries with mixed content
+     */
+    private suspend fun processMultimodalQuery(
+        question: String, 
+        attachments: List<MessageAttachment>
+    ): InstagramResult<RAGQueryResponse> {
+        // For multimodal content, we'll analyze each attachment separately and combine results
+        val attachmentDescriptions = attachments.map { attachment ->
+            "${attachment.type.name.lowercase()}: ${attachment.fileName ?: attachment.uri}"
+        }.joinToString(", ")
+        
+        val enhancedQuery = "Analyze this multimodal content for Instagram insights. " +
+                "Attachments: $attachmentDescriptions. Question: $question"
+        
+        return queryInstagramAIUseCase(
+            query = enhancedQuery,
+            domain = "instagram",
+            topK = 5,
+            minScore = 0.7
+        )
+    }
+    
+    /**
+     * ✅ NEW: Process URL queries for Instagram analysis
+     */
+    private suspend fun processURLQuery(question: String): InstagramResult<RAGQueryResponse> {
+        val urlPattern = Regex("https?://[^\\s]+")
+        val url = urlPattern.find(question)?.value
+        
+        return if (url != null) {
+            val customQuery = question.replace(url, "").trim()
+            analyzeInstagramURLUseCase(url, customQuery.ifBlank { null })
+        } else {
+            queryInstagramAIUseCase(question, "instagram", 5, 0.7)
+        }
+    }
+    
+    /**
+     * ✅ NEW: Process file-based queries
+     */
+    private suspend fun processFileQuery(
+        question: String, 
+        attachment: MessageAttachment
+    ): InstagramResult<RAGQueryResponse> {
+        return when (attachment.type) {
+            AttachmentType.VOICE_RECORDING -> {
+                processAudioRecordingUseCase(
+                    audioFilePath = attachment.uri,
+                    analysisQuery = question,
+                    duration = attachment.duration ?: 0L
+                )
+            }
+            else -> {
+                uploadFileForAnalysisUseCase(
+                    fileUri = attachment.uri,
+                    fileName = attachment.fileName ?: "file",
+                    mimeType = attachment.mimeType ?: "application/octet-stream",
+                    analysisQuery = question
+                )
+            }
+        }
+    }
+    
+    /**
+     * ✅ ENHANCED: Process text queries with better optimization
+     */
+    private suspend fun processTextQuery(question: String): InstagramResult<RAGQueryResponse> {
+        val preprocessedQuestion = preprocessUserQuery(question)
+        val optimizedQuery = optimizeQueryForRAG(preprocessedQuestion)
+        return queryWithFallback(optimizedQuery)
+    }
+    
+    /**
+     * ✅ NEW: Add attachment to preview
+     */
+    fun addAttachment(attachment: MessageAttachment) {
+        _attachmentPreview.value = attachment
+    }
+    
+    /**
+     * ✅ NEW: Remove attachment preview
+     */
+    fun removeAttachmentPreview() {
+        _attachmentPreview.value = null
+    }
+    
+    /**
+     * ✅ NEW: Start audio recording
+     */
+    fun startAudioRecording() {
+        _audioRecordingState.value = _audioRecordingState.value?.copy(
+            isRecording = true,
+            duration = 0L,
+            error = null
+        )
+        // In a real implementation, start MediaRecorder here
+    }
+    
+    /**
+     * ✅ NEW: Stop audio recording
+     */
+    fun stopAudioRecording(): String? {
+        val currentState = _audioRecordingState.value
+        if (currentState?.isRecording == true) {
+            val recordingPath = "/storage/audio_${System.currentTimeMillis()}.wav"
+            _audioRecordingState.value = currentState.copy(
+                isRecording = false,
+                filePath = recordingPath
+            )
+            return recordingPath
+        }
+        return null
+    }
+    
+    /**
+     * ✅ NEW: Update recording duration and amplitude
+     */
+    fun updateRecordingState(duration: Long, amplitude: Float) {
+        _audioRecordingState.value = _audioRecordingState.value?.copy(
+            duration = duration,
+            amplitude = amplitude
+        )
+    }
+    
+    /**
+     * ✅ NEW: Send attachment as message
+     */
+    fun sendAttachmentMessage(attachment: MessageAttachment, question: String = "") {
+        askQuestion(question, listOf(attachment))
+        removeAttachmentPreview()
+    }
+    
+    /**
+     * ✅ NEW: Analyze Instagram URL directly
+     */
+    fun analyzeInstagramURL(url: String, customQuery: String? = null) {
+        val question = customQuery ?: "Analyze this Instagram URL"
+        askQuestion("$question $url")
+    }
+    
+    /**
+     * ✅ NEW: Get suggested questions for content type
+     */
+    fun getSuggestedQuestionsForContentType(contentType: ContentType): List<String> {
+        return when (contentType) {
+            ContentType.IMAGE -> listOf(
+                "What can I learn from this Instagram screenshot?",
+                "How can I improve my profile based on this image?",
+                "Analyze the visual strategy in this content"
+            )
+            ContentType.AUDIO -> listOf(
+                "Transcribe and analyze this audio for Instagram insights",
+                "What content ideas are mentioned in this recording?",
+                "Extract Instagram strategy tips from this audio"
+            )
+            ContentType.PDF -> listOf(
+                "What insights are in this analytics report?",
+                "Summarize this Instagram marketing document",
+                "Extract actionable tips from this PDF"
+            )
+            ContentType.URL -> listOf(
+                "What can I learn from this account's strategy?",
+                "How does this post perform compared to my content?",
+                "What makes this Instagram content successful?"
+            )
+            else -> listOf(
+                "What are my best performing posts?",
+                "How can I improve my engagement?",
+                "What content should I post more?"
+            )
+        }
+    }
+    
+    // ✅ Helper methods
+    private fun getContentTypeFromAttachments(attachments: List<MessageAttachment>): ContentType {
+        return when (attachments.first().type) {
+            AttachmentType.IMAGE -> ContentType.IMAGE
+            AttachmentType.AUDIO, AttachmentType.VOICE_RECORDING -> ContentType.AUDIO
+            AttachmentType.PDF -> ContentType.PDF
+            AttachmentType.VIDEO -> ContentType.IMAGE // Treat as image for now
         }
     }
     
@@ -129,7 +357,7 @@ class InstagramAIViewModel @Inject constructor(
     }
     
     /**
-     * ✅ Enhanced error handling
+     * ✅ Enhanced error handling with multimodal support
      */
     private fun handleResult(result: InstagramResult<RAGQueryResponse>) {
         when (result) {
@@ -140,7 +368,8 @@ class InstagramAIViewModel @Inject constructor(
                     timestamp = System.currentTimeMillis(),
                     sources = result.data.sources,
                     confidence = result.data.confidence,
-                    isLoading = false
+                    isLoading = false,
+                    processingTime = result.data.processingTime
                 )
                 addMessage(aiMessage)
             }
@@ -151,6 +380,8 @@ class InstagramAIViewModel @Inject constructor(
                         "I couldn't find that specific information. Try asking about general performance or different posts."
                     result.message.contains("timeout") -> 
                         "Search took too long. Try a simpler question."
+                    result.message.contains("Invalid") -> 
+                        result.message // Show validation errors directly
                     else -> 
                         "I'm having trouble with that question. Try rephrasing or ask about your top posts."
                 }
@@ -166,7 +397,6 @@ class InstagramAIViewModel @Inject constructor(
             }
             
             is InstagramResult.Loading -> {
-                // This shouldn't happen in our use case, but handle it
                 val processingMessage = ChatMessage(
                     text = "Processing your request...",
                     isUser = false,
@@ -236,14 +466,16 @@ class InstagramAIViewModel @Inject constructor(
     }
     
     private fun addMessage(message: ChatMessage) {
-        val currentMessages = _chatMessages.value ?: emptyList()
-        _chatMessages.value = currentMessages + message
+        val currentMessages = _chatMessages.value?.toMutableList() ?: mutableListOf()
+        currentMessages.add(message)
+        _chatMessages.value = currentMessages
     }
     
     private fun removeLastMessage() {
-        val currentMessages = _chatMessages.value ?: emptyList()
+        val currentMessages = _chatMessages.value?.toMutableList() ?: mutableListOf()
         if (currentMessages.isNotEmpty()) {
-            _chatMessages.value = currentMessages.dropLast(1)
+            currentMessages.removeLastOrNull()
+            _chatMessages.value = currentMessages
         }
     }
 } 

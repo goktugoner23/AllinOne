@@ -276,7 +276,7 @@ data class AIMetadata(
     val totalMatches: Int
 )
 
-// Chat functionality (Ask AI tab)
+// Chat functionality (Ask AI tab) - ENHANCED FOR MULTIMODAL
 data class ChatMessage(
     val text: String,
     val isUser: Boolean,
@@ -284,7 +284,111 @@ data class ChatMessage(
     val sources: List<AISource> = emptyList(),
     val confidence: Double? = null,
     val isLoading: Boolean = false,
-    val isError: Boolean = false
+    val isError: Boolean = false,
+    // ✅ NEW: Multimodal support
+    val contentType: ContentType = ContentType.TEXT,
+    val attachments: List<MessageAttachment> = emptyList(),
+    val isTyping: Boolean = false,
+    val processingTime: Long? = null
+)
+
+// Content types supported by the multimodal AI
+enum class ContentType {
+    TEXT,       // Regular text messages
+    IMAGE,      // Image uploads
+    AUDIO,      // Audio recordings or uploads
+    PDF,        // PDF document uploads
+    URL,        // URL analysis
+    MULTIMODAL  // Mixed content (text + attachments)
+}
+
+// Message attachments for multimodal content
+data class MessageAttachment(
+    val id: String,
+    val type: AttachmentType,
+    val uri: String,                    // Local file URI or remote URL
+    val fileName: String? = null,       // Original file name
+    val fileSize: Long? = null,         // File size in bytes
+    val mimeType: String? = null,       // MIME type
+    val duration: Long? = null,         // For audio/video (milliseconds)
+    val thumbnailUri: String? = null,   // Thumbnail for images/videos
+    val uploadStatus: UploadStatus = UploadStatus.PENDING,
+    val uploadProgress: Int = 0,        // 0-100
+    val analysisQuery: String? = null   // Custom analysis query for this attachment
+)
+
+// Attachment types matching MULTIMODAL_GUIDE.md
+enum class AttachmentType {
+    IMAGE,          // Instagram screenshots, competitor analysis, brand logos
+    AUDIO,          // Reel audio, voice memos, podcast clips  
+    PDF,            // Analytics reports, strategy documents, research papers
+    VIDEO,          // Video content for analysis
+    VOICE_RECORDING // Live audio recording from device
+}
+
+// Upload status tracking
+enum class UploadStatus {
+    PENDING,        // Not yet uploaded
+    UPLOADING,      // Currently uploading
+    PROCESSING,     // Being processed by AI
+    COMPLETED,      // Successfully processed
+    FAILED,         // Upload or processing failed
+    CANCELLED       // User cancelled
+}
+
+// Multimodal analysis request (matches API_REFERENCE.md)
+data class MultimodalAnalysisRequest(
+    val query: String,
+    val contentType: String,           // 'image', 'audio', 'pdf', 'text'
+    val domain: String = "instagram",
+    val content: String? = null,       // File content or URL
+    val options: QueryOptions? = null
+)
+
+// File upload request for external API
+data class FileUploadRequest(
+    val file: ByteArray,
+    val fileName: String,
+    val contentType: String,
+    val analysisQuery: String? = null
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+        other as FileUploadRequest
+        if (!file.contentEquals(other.file)) return false
+        if (fileName != other.fileName) return false
+        if (contentType != other.contentType) return false
+        if (analysisQuery != other.analysisQuery) return false
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = file.contentHashCode()
+        result = 31 * result + fileName.hashCode()
+        result = 31 * result + contentType.hashCode()
+        result = 31 * result + (analysisQuery?.hashCode() ?: 0)
+        return result
+    }
+}
+
+// Audio recording state
+data class AudioRecordingState(
+    val isRecording: Boolean = false,
+    val duration: Long = 0,          // Current recording duration in milliseconds
+    val amplitude: Float = 0f,       // Current audio amplitude for visualization
+    val filePath: String? = null,    // Path to recorded file
+    val error: String? = null        // Recording error if any
+)
+
+// Suggested actions for multimodal content
+data class MultimodalSuggestion(
+    val title: String,
+    val description: String,
+    val contentType: ContentType,
+    val icon: String,                // Emoji or icon resource
+    val exampleQuery: String,
+    val acceptedFileTypes: List<String> = emptyList()  // MIME types
 )
 
 // Raw Instagram Data (for backward compatibility)

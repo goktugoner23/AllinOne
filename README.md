@@ -79,16 +79,49 @@ AllInOne is an Android application designed to centralize various aspects of per
 - **Progress Reports**: Generate detailed progress reports for students
 - **Certification Management**: Track and issue rank certificates
 
-### Instagram Business
+### Instagram Business Intelligence
 - **Posts Management**: View and analyze Instagram business posts with detailed metrics
 - **Post Insights**: Track engagement metrics including likes, comments, shares, and reach
 - **Reels Analytics**: Monitor performance of Reels content including average watch time
 - **Content Organization**: Posts are displayed in a clean, organized feed format
 - **Metrics Visualization**: Clear presentation of key performance indicators with appropriate icons
-- **API Integration**: Direct connection with Instagram Graph API for real-time data
+
+#### Multimodal AI Assistant (Ask AI Tab)
+- **ChatGPT-like Interface**: Modern chat UI with plus icon for attachment menu
+- **Image Analysis**: 
+  - Upload Instagram screenshots for profile/post analysis
+  - Competitor content analysis
+  - Visual content optimization recommendations
+- **Audio Processing**:
+  - Voice memo recording and transcription
+  - Audio content analysis from Reels/Stories
+  - Voice command for content ideas
+- **PDF Analytics**: 
+  - Upload Instagram analytics reports for insights
+  - Marketing strategy document analysis
+  - Performance report interpretation
+- **Instagram URL Analysis**:
+  - Profile analysis and strategy recommendations
+  - Post performance breakdown
+  - Reel engagement insights
+  - Automatic URL type detection (Profile/Post/Reel)
+- **Smart Content Suggestions**: Dynamic suggestions based on content type
+- **Copy Functionality**: 
+  - Copy complete AI responses with metadata
+  - Copy individual sources and insights
+  - Export analysis results
+- **Processing Metrics**: 
+  - Real-time processing time tracking
+  - Confidence scoring for AI responses
+  - Source reliability indicators
+
+#### External API Integration
+- **Allinone-External Backend**: Integration with dedicated backend service
+- **RAG System**: Retrieval-Augmented Generation for context-aware responses
+- **Real-time Data**: Direct connection with Instagram Graph API for up-to-date metrics
 - **Offline Access**: View previously fetched Instagram data without internet connection
 - **Data Synchronization**: Automatic syncing with Firebase for cross-device access
-- **Coming Soon Features**: Dedicated Insights dashboard and AI-powered content recommendations
+- **Smart Caching**: Efficient data caching for better performance
 
 ### Firebase Integration
 - **Real-time Synchronization**: Instant data updates across all devices
@@ -136,22 +169,34 @@ AllInOne is an Android application designed to centralize various aspects of per
 
 - **Kotlin**: 100% Kotlin codebase with coroutines for asynchronous operations
 - **MVVM Architecture**: Clean separation of UI, business logic, and data layers
+- **Clean Architecture**: Feature-based modular architecture with domain/data/ui layers
 - **Jetpack Components**:
   - ViewModel & LiveData for reactive UI updates
   - ViewBinding for type-safe view access
   - Navigation Component for fragment management
   - WorkManager for background tasks
   - Paging for efficient large dataset handling
-- **Dependency Injection**: Hilt for dependency management
+- **Dependency Injection**: Hilt for dependency management and modular architecture
 - **Firebase Suite**:
   - Firestore for NoSQL database
   - Firebase Storage for binary data
   - Firebase Authentication for user identity
   - Firebase Crashlytics for error reporting
+- **External API Integration**:
+  - Retrofit for REST API communication
+  - OkHttp for HTTP client with logging
+  - Custom API client for allinone-external backend
+  - RAG (Retrieval-Augmented Generation) system integration
+- **AI/ML Features**:
+  - Multimodal content analysis
+  - Instagram-specific RAG system
+  - Audio processing and transcription
+  - Image analysis and insights
 - **Custom Components**:
   - ColorPickerView for interactive color selection
   - DrawingView for canvas-based drawing functionality
   - KnifeText for rich text editing
+  - ChatAdapter for AI conversation interface
 - **Third-Party Libraries**:
   - Glide for image loading and caching
   - MPAndroidChart for data visualization
@@ -191,9 +236,26 @@ AllInOne is an Android application designed to centralize various aspects of per
 4. Select a location for your storage
 5. Upload the security rules from `firebase_rules/storage.rules`
 
+## External API Configuration
+
+The app integrates with the `allinone-external` backend service for advanced Instagram AI features.
+
+### Backend Service Setup
+
+1. Deploy the `allinone-external` service (see [allinone-external repository](https://github.com/goktugoner23/allinone-external))
+2. Update API endpoints in the app configuration
+3. Ensure the backend has proper Instagram Graph API credentials
+
+### API Integration Features
+
+- **RAG System**: Advanced retrieval-augmented generation for contextual responses
+- **Multimodal Processing**: Support for images, audio, PDFs, and URLs
+- **Instagram Specific**: Optimized for Instagram business intelligence
+- **Real-time Processing**: Live content analysis and insights
+
 ## Project Structure
 
-The project follows a modular structure organized by feature and layer:
+The project follows a modular Clean Architecture structure organized by feature and layer:
 
 ```
 allinone/
@@ -211,6 +273,15 @@ allinone/
 ├── views/         # Custom views
 └── workers/       # WorkManager background tasks
 ```
+
+├── feature/       # Feature modules organized by Clean Architecture
+│   ├── instagram/ # Instagram business intelligence feature
+│   │   ├── data/  # Data layer (repositories, API clients, models)
+│   │   ├── domain/# Domain layer (use cases, repository interfaces)
+│   │   └── ui/    # UI layer (fragments, adapters, viewmodels)
+│   ├── notes/     # Note-taking feature
+│   ├── transactions/ # Financial tracking feature
+│   └── ...        # Other features
 
 ## Building the App
 
@@ -392,6 +463,28 @@ The project includes comprehensive tests:
 This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Recent Changes
+
+### Instagram Multimodal AI Assistant (Latest Update)
+- **Multimodal Content Analysis**: Revolutionary AI-powered analysis supporting images, audio, PDFs, and Instagram URLs
+- **ChatGPT-like Interface**: Modern conversational UI with plus icon attachment menu featuring:
+  - 📱 Image Upload (Instagram screenshots, competitor analysis)
+  - 🎤 Voice Recording (real-time transcription and analysis)  
+  - 🎵 Audio Upload (Reels content analysis)
+  - 📄 PDF Upload (analytics reports processing)
+  - 🔗 URL Analysis (Instagram profiles, posts, reels)
+- **Smart Copy Functionality**: 
+  - Copy complete AI responses with confidence scores and processing time
+  - Copy individual sources and insights
+  - Copy specific post analysis data
+  - Export analysis results for reports
+- **Real-time Audio Recording**: Live voice memo capture with duration timer and amplitude visualization
+- **File Attachment System**: Preview functionality with file type indicators and easy removal
+- **URL Auto-detection**: Automatic Instagram URL recognition with dynamic hint updates
+- **External API Integration**: Full integration with allinone-external backend service
+- **RAG System**: Advanced Retrieval-Augmented Generation for context-aware Instagram insights
+- **Clean Architecture Implementation**: Proper separation of data/domain/ui layers with dependency injection
+- **Enhanced Error Handling**: Comprehensive error management with user-friendly feedback
+- **Processing Metrics**: Real-time confidence scoring and source reliability indicators
 
 ### Media Handling Improvements
 - **Enhanced Image Management**:

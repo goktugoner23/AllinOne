@@ -36,6 +36,30 @@ Follow these steps to properly configure Firebase for this application.
 
 Ensure that you replace all placeholder values in `google-services.json` with real values from your Firebase project.
 
+## Features Using Firebase
+
+The application leverages Firebase for several key features:
+
+### Core Data Storage
+- **Transactions**: Financial tracking with real-time sync
+- **Notes**: Rich text notes with media attachments
+- **Investments**: Portfolio tracking and performance data
+- **Workouts**: Exercise programs and session tracking
+- **Wing Tzun**: Student management and progress tracking
+
+### Instagram Business Intelligence
+- **Post Analytics**: Cached Instagram post metrics and insights
+- **AI Chat History**: Conversation history for the multimodal AI assistant
+- **Content Analysis**: Results from RAG (Retrieval-Augmented Generation) system
+- **Media Attachments**: Screenshots, audio recordings, and PDF uploads for analysis
+
+### Firebase Storage Usage
+- **Note Attachments**: Images, videos, and drawings embedded in notes
+- **Instagram Media**: Screenshots and content uploads for AI analysis
+- **Audio Recordings**: Voice memos for Instagram strategy discussions
+- **PDF Reports**: Analytics reports for Instagram insights
+- **Backup Files**: Encrypted backup archives for data portability
+
 ## Common Issues
 
 ### Permission Denied Errors
