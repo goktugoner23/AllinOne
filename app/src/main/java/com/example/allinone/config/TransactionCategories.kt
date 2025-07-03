@@ -12,6 +12,7 @@ object TransactionCategories {
         "Salary",
         "Investment",
         "Wing Tzun",
+        "Work",
         "Sports",
         "General",
         "Shopping",
@@ -25,7 +26,8 @@ object TransactionCategories {
     val INCOME_CATEGORIES = arrayOf(
         "Salary",
         "Investment",
-        "Wing Tzun"
+        "Wing Tzun",
+        "Work"
     )
 
     // Expense-specific categories (can expand in the future if needed)
@@ -37,6 +39,7 @@ object TransactionCategories {
         "Food",
         "Transport",
         "Wing Tzun",
+        "Work",
         "Game"
     )
 
@@ -45,6 +48,7 @@ object TransactionCategories {
         "Wing Tzun Adjustment",
         "Salary Adjustment",
         "Investment Adjustment",
+        "Work Adjustment",
         "General Adjustment"
     )
 
@@ -54,6 +58,7 @@ object TransactionCategories {
         "Salary" to R.drawable.ic_category_salary,
         "Investment" to R.drawable.ic_category_investment,
         "Wing Tzun" to R.drawable.ic_category_wing_tzun,
+        "Work" to R.drawable.ic_tasks,
         "Sports" to R.drawable.ic_category_sports,
         "General" to R.drawable.ic_category_general,
         "Shopping" to R.drawable.ic_category_shopping,
