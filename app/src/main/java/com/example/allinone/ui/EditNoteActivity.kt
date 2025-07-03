@@ -65,6 +65,7 @@ import android.text.style.ForegroundColorSpan
 import android.text.TextWatcher
 import android.text.Editable
 import android.view.MotionEvent
+import android.text.style.RelativeSizeSpan
 
 class EditNoteActivity : AppCompatActivity() {
 
@@ -594,16 +595,24 @@ class EditNoteActivity : AppCompatActivity() {
             val end = match.range.last + 1
             val checkbox = match.value
             
-            // Apply blue color for checked checkboxes
+            // Apply green color for checked checkboxes and make them bigger
             if (checkbox == "☑") {
-                val blueColor = getColor(android.R.color.holo_blue_dark)
+                val greenColor = getColor(android.R.color.holo_green_dark)
                 editable.setSpan(
-                    ForegroundColorSpan(blueColor),
+                    ForegroundColorSpan(greenColor),
                     start,
                     end,
                     Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
             }
+            
+            // Make all checkboxes bigger
+            editable.setSpan(
+                RelativeSizeSpan(1.3f),
+                start,
+                end,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
         }
     }
     

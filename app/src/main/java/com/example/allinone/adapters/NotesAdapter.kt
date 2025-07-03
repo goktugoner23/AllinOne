@@ -490,9 +490,11 @@ class NotesAdapter(
                     override fun updateDrawState(ds: android.text.TextPaint) {
                         super.updateDrawState(ds)
                         ds.isUnderlineText = false // Remove underline from checkboxes
-                        // Make checked checkboxes blue, unchecked ones default color
+                        // Make checkboxes bigger
+                        ds.textSize = ds.textSize * 1.3f
+                        // Make checked checkboxes green, unchecked ones default color
                         ds.color = if (checkbox == "☑") {
-                            itemView.context.getColor(android.R.color.holo_blue_dark)
+                            itemView.context.getColor(android.R.color.holo_green_dark)
                         } else {
                             // Use appropriate color based on theme
                             val isNightMode = itemView.context.resources.configuration.uiMode and

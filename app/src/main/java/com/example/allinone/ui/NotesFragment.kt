@@ -51,6 +51,7 @@ import android.text.style.ForegroundColorSpan
 import android.text.TextWatcher
 import android.text.Editable
 import android.view.MotionEvent
+import android.text.style.RelativeSizeSpan
 
 // Extension property to get HTML content from KnifeText
 val KnifeText.html: String
@@ -479,16 +480,24 @@ class NotesFragment : Fragment() {
             val end = match.range.last + 1
             val checkbox = match.value
             
-            // Apply blue color for checked checkboxes
+            // Apply green color for checked checkboxes and make them bigger
             if (checkbox == "☑") {
-                val blueColor = ContextCompat.getColor(requireContext(), android.R.color.holo_blue_dark)
+                val greenColor = ContextCompat.getColor(requireContext(), android.R.color.holo_green_dark)
                 editable.setSpan(
-                    ForegroundColorSpan(blueColor),
+                    ForegroundColorSpan(greenColor),
                     start,
                     end,
                     Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
             }
+            
+            // Make all checkboxes bigger
+            editable.setSpan(
+                RelativeSizeSpan(1.3f),
+                start,
+                end,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
         }
     }
     
