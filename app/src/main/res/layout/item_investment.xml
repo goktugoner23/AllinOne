@@ -44,6 +44,20 @@
                     android:layout_height="wrap_content"
                     android:textAppearance="?attr/textAppearanceBody1"
                     android:textStyle="bold"/>
+                
+                <TextView
+                    android:id="@+id/investmentCurrentValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="?attr/textAppearanceBody2"
+                    android:textColor="?attr/colorPrimary"/>
+                
+                <TextView
+                    android:id="@+id/investmentProfitLoss"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="?attr/textAppearanceBody2"
+                    android:textStyle="bold"/>
             </LinearLayout>
 
             <TextView

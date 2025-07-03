@@ -42,6 +42,7 @@ import com.google.firebase.storage.FirebaseStorage
 import com.bumptech.glide.Glide
 import com.example.allinone.adapters.FullscreenImageAdapter
 import com.example.allinone.firebase.DataChangeNotifier
+import com.example.allinone.utils.NumberFormatUtils
 
 class InvestmentsFragment : Fragment() {
     private var _binding: FragmentInvestmentsBinding? = null
@@ -594,13 +595,16 @@ class InvestmentsFragment : Fragment() {
     }
 
     fun showDeleteConfirmation(investment: Investment) {
-        val options = arrayOf("Delete", "Liquidate")
+        val options = arrayOf("Add Profit/Loss", "Delete", "Liquidate")
         
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Investment Options")
             .setItems(options) { _, which ->
                 when (which) {
-                    0 -> { // Delete
+                    0 -> { // Add Profit/Loss
+                        showProfitLossDialog(investment)
+                    }
+                    1 -> { // Delete
                         MaterialAlertDialogBuilder(requireContext())
                             .setTitle("Delete Investment")
                             .setMessage("Are you sure you want to delete '${investment.name}'?")
@@ -611,7 +615,7 @@ class InvestmentsFragment : Fragment() {
                             .setNegativeButton("Cancel", null)
                             .show()
                     }
-                    1 -> { // Liquidate
+                    2 -> { // Liquidate
                         MaterialAlertDialogBuilder(requireContext())
                             .setTitle("Liquidate Investment")
                             .setMessage("Are you sure you want to liquidate '${investment.name}'? This will remove the investment without affecting your transaction history.")
@@ -625,6 +629,43 @@ class InvestmentsFragment : Fragment() {
                 }
             }
             .show()
+    }
+
+    private fun showProfitLossDialog(investment: Investment) {
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_profit_loss, null)
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Add Profit/Loss to ${investment.name}")
+            .setView(dialogView)
+            .setPositiveButton("Add", null)
+            .setNegativeButton("Cancel", null)
+            .create()
+
+        dialog.setOnShowListener {
+            val positiveButton = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+            positiveButton.setOnClickListener {
+                val amountInput = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.profitLossAmountInput)
+                val profitRadio = dialogView.findViewById<com.google.android.material.radiobutton.MaterialRadioButton>(R.id.profitRadio)
+                
+                val amount = amountInput.text.toString().toDoubleOrNull()
+                
+                if (amount == null || amount <= 0) {
+                    amountInput.error = "Please enter a valid amount"
+                    return@setOnClickListener
+                }
+                
+                val isProfit = profitRadio.isChecked
+                
+                viewModel.addProfitLossToInvestment(investment, amount, isProfit)
+                
+                Toast.makeText(requireContext(), 
+                    "${if (isProfit) "Profit" else "Loss"} of ${NumberFormatUtils.formatAmount(amount)} added to ${investment.name}", 
+                    Toast.LENGTH_SHORT).show()
+                
+                dialog.dismiss()
+            }
+        }
+
+        dialog.show()
     }
     
     private fun liquidateInvestment(investment: Investment) {

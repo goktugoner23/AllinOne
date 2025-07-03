@@ -10,5 +10,7 @@ data class Investment(
     val description: String?,
     val imageUri: String?,
     val date: Date,
-    val isPast: Boolean = false
+    val isPast: Boolean = false,
+    val profitLoss: Double = 0.0, // Tracks profit/loss without affecting transaction balance
+    val currentValue: Double = 0.0 // Current market value of the investment
 ) 

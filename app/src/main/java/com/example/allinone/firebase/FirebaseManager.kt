@@ -168,6 +168,8 @@ class FirebaseManager(private val context: Context? = null) {
             "date" to investment.date,
             "imageUri" to uploadedImageUrl,
             "isPast" to investment.isPast,
+            "profitLoss" to investment.profitLoss,
+            "currentValue" to investment.currentValue,
             "deviceId" to deviceId
         )
 
@@ -189,8 +191,10 @@ class FirebaseManager(private val context: Context? = null) {
                     val date = doc.getDate("date") ?: Date()
                     val imageUri = doc.getString("imageUri")
                     val isPast = doc.getBoolean("isPast") ?: false
+                    val profitLoss = doc.getDouble("profitLoss") ?: 0.0
+                    val currentValue = doc.getDouble("currentValue") ?: amount
 
-                    Investment(id, name, amount, type, description, imageUri, date, isPast)
+                    Investment(id, name, amount, type, description, imageUri, date, isPast, profitLoss, currentValue)
                 }
                 Log.d(TAG, "Fetched ${investments.size} investments from Firebase")
                 investments
@@ -1007,7 +1011,9 @@ class FirebaseManager(private val context: Context? = null) {
                 "description" to (investmentWithId.description ?: ""),
                 "imageUri" to (investmentWithId.imageUri ?: ""),
                 "date" to investmentWithId.date,
-                "isPast" to investmentWithId.isPast
+                "isPast" to investmentWithId.isPast,
+                "profitLoss" to investmentWithId.profitLoss,
+                "currentValue" to investmentWithId.currentValue
             )
 
             // Save to Firestore

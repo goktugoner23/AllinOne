@@ -62,9 +62,28 @@ class InvestmentAdapter(
             binding.apply {
                 investmentName.text = investment.name
                 investmentType.text = investment.type
-                investmentAmount.text = NumberFormatUtils.formatAmount(investment.amount)
+                investmentAmount.text = "Initial: ${NumberFormatUtils.formatAmount(investment.amount)}"
                 investmentDate.text = dateFormat.format(investment.date)
                 investmentDescription.text = investment.description
+
+                // Display current value
+                investmentCurrentValue.text = "Current: ${NumberFormatUtils.formatAmount(investment.currentValue)}"
+
+                // Display profit/loss with appropriate color
+                when {
+                    investment.profitLoss > 0 -> {
+                        investmentProfitLoss.text = "Profit: +${NumberFormatUtils.formatAmount(investment.profitLoss)}"
+                        investmentProfitLoss.setTextColor(ContextCompat.getColor(itemView.context, android.R.color.holo_green_dark))
+                    }
+                    investment.profitLoss < 0 -> {
+                        investmentProfitLoss.text = "Loss: ${NumberFormatUtils.formatAmount(investment.profitLoss)}"
+                        investmentProfitLoss.setTextColor(ContextCompat.getColor(itemView.context, android.R.color.holo_red_dark))
+                    }
+                    else -> {
+                        investmentProfitLoss.text = "P/L: ${NumberFormatUtils.formatAmount(investment.profitLoss)}"
+                        investmentProfitLoss.setTextColor(ContextCompat.getColor(itemView.context, android.R.color.darker_gray))
+                    }
+                }
 
                 // Clear previous images
                 imageContainer.removeAllViews()

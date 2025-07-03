@@ -88,7 +88,9 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
                     description = description,
                     imageUri = imageUri,
                     date = Date(),
-                    isPast = isPast
+                    isPast = isPast,
+                    profitLoss = 0.0,
+                    currentValue = amount // Initially, current value equals invested amount
                 )
 
                 // Save to Firebase
@@ -96,7 +98,7 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
 
                 // Also create a transaction for the investment (unless it's marked as past)
                 if (!isPast) {
-                    // Create a corresponding expense transaction
+                    // Create a corresponding expense transaction - this DEDUCTS from balance
                     val transaction = Transaction(
                         id = 0, // Will be auto-generated
                         amount = amount,
@@ -104,11 +106,11 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
                         description = "Investment in $name",
                         category = type,
                         date = Date(),
-                        isIncome = false // Investments are expenses
+                        isIncome = false // This is EXPENSE - deducts from balance
                     )
 
                     repository.insertTransaction(transaction)
-                    Log.d("InvestmentsViewModel", "Created expense transaction for investment: $amount")
+                    Log.d("InvestmentsViewModel", "Created EXPENSE transaction for investment: $amount (this DEDUCTS from balance)")
                 } else {
                     Log.d("InvestmentsViewModel", "Past investment - no transaction created")
                 }
@@ -134,11 +136,24 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
                 // First find the old investment to check if isPast status changed
                 val oldInvestment = repository.getInvestmentById(investment.id)
 
-                repository.updateInvestment(investment)
-
-                // Handle transactions based on isPast status changes
                 if (oldInvestment != null) {
-                    updateInvestmentAndTransaction(oldInvestment, investment)
+                    // Preserve profit/loss and current value if not explicitly updated
+                    val updatedInvestment = investment.copy(
+                        profitLoss = if (investment.profitLoss == 0.0) oldInvestment.profitLoss else investment.profitLoss,
+                        currentValue = if (investment.currentValue == 0.0) oldInvestment.currentValue else investment.currentValue
+                    )
+                    
+                    repository.updateInvestment(updatedInvestment)
+
+                    // Handle transactions based on isPast status changes and amount differences
+                    updateInvestmentAndTransaction(oldInvestment, updatedInvestment)
+                } else {
+                    // New investment - set default values
+                    val updatedInvestment = investment.copy(
+                        profitLoss = 0.0,
+                        currentValue = investment.amount
+                    )
+                    repository.updateInvestment(updatedInvestment)
                 }
 
                 // Notify about data change
@@ -229,12 +244,10 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
 
                         // Always update the description and category to reflect any name/type changes
                         val updatedTransaction = if (amountDifference != 0.0) {
-                            // If there's a difference in amount, create a new transaction for just the difference
-                            Log.d("InvestmentsViewModel", "Amount changed by $amountDifference, creating adjustment transaction")
+                            Log.d("InvestmentsViewModel", "Amount changed by $amountDifference")
 
-                            // For amount increases, always create an expense transaction
+                            // For amount increases, create an expense transaction (deducts from balance)
                             if (amountDifference > 0) {
-                                // Create a new transaction for the additional investment
                                 val adjustmentTransaction = Transaction(
                                     id = 0, // Will be auto-generated
                                     amount = Math.abs(amountDifference),
@@ -242,15 +255,26 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
                                     description = "Additional investment in ${newInvestment.name}",
                                     category = newInvestment.type,
                                     date = Date(),
-                                    isIncome = false // Additional investments are expenses
+                                    isIncome = false // Additional investments are expenses - DEDUCTS from balance
                                 )
 
-                                // Insert the adjustment transaction
                                 repository.insertTransaction(adjustmentTransaction)
-                                Log.d("InvestmentsViewModel", "Created expense transaction for additional investment: ${adjustmentTransaction.description} with amount: ${adjustmentTransaction.amount}")
+                                Log.d("InvestmentsViewModel", "Created expense transaction for additional investment: ${adjustmentTransaction.description} with amount: ${adjustmentTransaction.amount} (DEDUCTS from balance)")
+                            } else {
+                                // For amount decreases, create an income transaction (adds to balance)
+                                val returnTransaction = Transaction(
+                                    id = 0, // Will be auto-generated
+                                    amount = Math.abs(amountDifference),
+                                    type = "Investment",
+                                    description = "Return from investment: ${newInvestment.name}",
+                                    category = newInvestment.type,
+                                    date = Date(),
+                                    isIncome = true // Returns are income - ADDS to balance
+                                )
+
+                                repository.insertTransaction(returnTransaction)
+                                Log.d("InvestmentsViewModel", "Created income transaction for investment reduction: ${returnTransaction.description} with amount: ${returnTransaction.amount} (ADDS to balance)")
                             }
-                            // For amount decreases, we don't automatically create an income transaction
-                            // This is now handled by updateInvestmentWithAmountReduction method
 
                             // Keep the original transaction unchanged, just update description and category
                             matchingTransaction.copy(
@@ -389,11 +413,17 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
      */
     suspend fun addInvestmentAndGetId(investment: Investment): Long? {
         return try {
-            val id = repository.insertInvestmentAndGetId(investment)
+            // Ensure proper default values
+            val investmentWithDefaults = investment.copy(
+                profitLoss = 0.0,
+                currentValue = investment.amount
+            )
+            
+            val id = repository.insertInvestmentAndGetId(investmentWithDefaults)
 
             // Also create a transaction for the investment (unless it's marked as past)
             if (!investment.isPast) {
-                // Create a corresponding expense transaction
+                // Create a corresponding expense transaction - this DEDUCTS from balance
                 val transaction = Transaction(
                     id = 0, // Will be auto-generated
                     amount = investment.amount,
@@ -401,11 +431,11 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
                     description = "Investment in ${investment.name}",
                     category = investment.type,
                     date = Date(),
-                    isIncome = false // Investments are expenses
+                    isIncome = false // Investments are expenses - DEDUCTS from balance
                 )
 
                 repository.insertTransaction(transaction)
-                Log.d("InvestmentsViewModel", "Created expense transaction for investment: ${investment.amount}")
+                Log.d("InvestmentsViewModel", "Created expense transaction for investment: ${investment.amount} (DEDUCTS from balance)")
 
                 // Notify about transaction data change
                 DataChangeNotifier.notifyTransactionsChanged()
@@ -562,6 +592,41 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
                 _updateStatus.value = UpdateStatus.SUCCESS
             } catch (e: Exception) {
                 Log.e("InvestmentsViewModel", "Error updating investment with amount reduction: ${e.message}", e)
+                _updateStatus.value = UpdateStatus.ERROR
+                _errorMessage.value = "Error updating investment: ${e.message}"
+            }
+        }
+    }
+
+    /**
+     * Add profit/loss to an investment without affecting the transaction balance
+     * This is purely for tracking investment performance
+     */
+    fun addProfitLossToInvestment(investment: Investment, profitLossAmount: Double, isProfit: Boolean) {
+        viewModelScope.launch {
+            try {
+                val updatedProfitLoss = if (isProfit) {
+                    investment.profitLoss + profitLossAmount
+                } else {
+                    investment.profitLoss - profitLossAmount
+                }
+
+                val updatedInvestment = investment.copy(
+                    profitLoss = updatedProfitLoss,
+                    currentValue = investment.amount + updatedProfitLoss // Update current value
+                )
+
+                repository.updateInvestment(updatedInvestment)
+
+                // Notify about data change
+                DataChangeNotifier.notifyInvestmentsChanged()
+
+                refreshData()
+                _updateStatus.value = UpdateStatus.SUCCESS
+                
+                Log.d("InvestmentsViewModel", "Added ${if (isProfit) "profit" else "loss"} of $profitLossAmount to ${investment.name}")
+            } catch (e: Exception) {
+                Log.e("InvestmentsViewModel", "Error adding profit/loss to investment: ${e.message}", e)
                 _updateStatus.value = UpdateStatus.ERROR
                 _errorMessage.value = "Error updating investment: ${e.message}"
             }
