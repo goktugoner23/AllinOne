@@ -24,6 +24,8 @@ import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ClickableSpan
 import android.widget.Toast
+import android.text.util.Linkify
+import android.text.method.LinkMovementMethod
 
 class NotesAdapter(
     private val onNoteClick: (Note) -> Unit,
@@ -72,15 +74,15 @@ class NotesAdapter(
                     val hasCheckboxes = note.content.contains("☐") || note.content.contains("☑")
                     
                     if (hasCheckboxes) {
-                        // For content with checkboxes, make them clickable without HTML processing
-                        val spannableText = makeCheckboxesClickable(note.content, note)
+                        // For content with checkboxes, make them clickable and also handle links
+                        val spannableText = makeCheckboxesAndLinksClickable(note.content, note)
                         contentTextView.text = spannableText
-                        contentTextView.movementMethod = android.text.method.LinkMovementMethod.getInstance()
+                        contentTextView.movementMethod = LinkMovementMethod.getInstance()
                         
                         // Ensure proper text encoding for Turkish characters
                         ensureProperTextEncoding(contentTextView)
                     } else {
-                        // For content without checkboxes, process as HTML for formatting
+                        // For content without checkboxes, process as HTML and make links clickable
                         val processedContent = processNoteContent(note.content)
                         val htmlContent = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
                             Html.fromHtml(processedContent, Html.FROM_HTML_MODE_COMPACT)
@@ -89,7 +91,10 @@ class NotesAdapter(
                             Html.fromHtml(processedContent)
                         }
                         contentTextView.text = htmlContent
-                        contentTextView.movementMethod = null
+                        
+                        // Enable link clicking
+                        Linkify.addLinks(contentTextView, Linkify.WEB_URLS or Linkify.EMAIL_ADDRESSES)
+                        contentTextView.movementMethod = LinkMovementMethod.getInstance()
                         
                         // Ensure proper text encoding for Turkish characters
                         ensureProperTextEncoding(contentTextView)
@@ -97,6 +102,9 @@ class NotesAdapter(
                 } catch (e: Exception) {
                     Log.e("NotesAdapter", "Error rendering note content: ${e.message}", e)
                     contentTextView.text = note.content
+                    // Even for fallback, try to make links clickable
+                    Linkify.addLinks(contentTextView, Linkify.WEB_URLS or Linkify.EMAIL_ADDRESSES)
+                    contentTextView.movementMethod = LinkMovementMethod.getInstance()
                 }
             } else {
                 contentTextView.text = ""
@@ -359,8 +367,8 @@ class NotesAdapter(
             }
         }
 
-        private fun makeCheckboxesClickable(content: String, note: Note): SpannableString {
-            // Apply basic formatting while preserving checkboxes
+        private fun makeCheckboxesAndLinksClickable(content: String, note: Note): SpannableString {
+            // Apply basic formatting while preserving checkboxes and links
             var processedContent = content
             
             // Make "Attached Images:" text bold (preserve Turkish characters)
@@ -380,42 +388,11 @@ class NotesAdapter(
             // Apply basic formatting manually
             applyBasicFormatting(spannableString)
             
-            // Find all checkbox patterns (☐ and ☑)
-            val checkboxPattern = "[☐☑]".toRegex()
-            val matches = checkboxPattern.findAll(processedContent)
+            // Handle links first (URLs and email addresses)
+            makeLinksClickable(spannableString)
             
-            for (match in matches) {
-                val start = match.range.first
-                val end = match.range.last + 1
-                val checkbox = match.value
-                
-                val clickableSpan = object : ClickableSpan() {
-                    override fun onClick(widget: View) {
-                        toggleCheckbox(note, start, checkbox, processedContent)
-                    }
-                    
-                    override fun updateDrawState(ds: android.text.TextPaint) {
-                        super.updateDrawState(ds)
-                        ds.isUnderlineText = false // Remove underline from clickable text
-                        // Make checked checkboxes blue, unchecked ones default color
-                        ds.color = if (checkbox == "☑") {
-                            itemView.context.getColor(android.R.color.holo_blue_dark)
-                        } else {
-                            // Use appropriate color based on theme
-                            val isNightMode = itemView.context.resources.configuration.uiMode and
-                                android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
-                                android.content.res.Configuration.UI_MODE_NIGHT_YES
-                            if (isNightMode) {
-                                itemView.context.getColor(android.R.color.white)
-                            } else {
-                                itemView.context.getColor(android.R.color.black)
-                            }
-                        }
-                    }
-                }
-                
-                spannableString.setSpan(clickableSpan, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-            }
+            // Then handle checkboxes (they take priority over links if they overlap)
+            makeCheckboxesClickable(spannableString, note, processedContent)
             
             return spannableString
         }
@@ -439,6 +416,136 @@ class NotesAdapter(
             
             // Note: In a real implementation, you'd remove the ** markers and adjust spans
             // For simplicity, keeping this basic for now
+        }
+        
+        private fun makeLinksClickable(spannableString: SpannableString) {
+            val text = spannableString.toString()
+            
+            // Pattern for URLs (http, https, www) - simplified
+            val urlPattern = "(?i)\\b(?:https?://|www\\.|[a-z0-9.-]+\\.com|[a-z0-9.-]+\\.org|[a-z0-9.-]+\\.net)[^\\s]*".toRegex()
+            
+            // Pattern for email addresses
+            val emailPattern = "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}".toRegex()
+            
+            // Find and make URLs clickable
+            val urlMatches = urlPattern.findAll(text)
+            for (match in urlMatches) {
+                val start = match.range.first
+                val end = match.range.last + 1
+                val url = match.value
+                
+                val clickableSpan = object : ClickableSpan() {
+                    override fun onClick(widget: View) {
+                        openUrl(widget.context, url)
+                    }
+                    
+                    override fun updateDrawState(ds: android.text.TextPaint) {
+                        super.updateDrawState(ds)
+                        ds.color = itemView.context.getColor(android.R.color.holo_blue_dark)
+                        ds.isUnderlineText = true // Keep underline for links
+                    }
+                }
+                
+                spannableString.setSpan(clickableSpan, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            
+            // Find and make email addresses clickable
+            val emailMatches = emailPattern.findAll(text)
+            for (match in emailMatches) {
+                val start = match.range.first
+                val end = match.range.last + 1
+                val email = match.value
+                
+                val clickableSpan = object : ClickableSpan() {
+                    override fun onClick(widget: View) {
+                        openEmail(widget.context, email)
+                    }
+                    
+                    override fun updateDrawState(ds: android.text.TextPaint) {
+                        super.updateDrawState(ds)
+                        ds.color = itemView.context.getColor(android.R.color.holo_blue_dark)
+                        ds.isUnderlineText = true // Keep underline for email links
+                    }
+                }
+                
+                spannableString.setSpan(clickableSpan, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
+        
+        private fun makeCheckboxesClickable(spannableString: SpannableString, note: Note, processedContent: String) {
+            // Find all checkbox patterns (☐ and ☑)
+            val checkboxPattern = "[☐☑]".toRegex()
+            val matches = checkboxPattern.findAll(processedContent)
+            
+            for (match in matches) {
+                val start = match.range.first
+                val end = match.range.last + 1
+                val checkbox = match.value
+                
+                val clickableSpan = object : ClickableSpan() {
+                    override fun onClick(widget: View) {
+                        toggleCheckbox(note, start, checkbox, processedContent)
+                    }
+                    
+                    override fun updateDrawState(ds: android.text.TextPaint) {
+                        super.updateDrawState(ds)
+                        ds.isUnderlineText = false // Remove underline from checkboxes
+                        // Make checked checkboxes blue, unchecked ones default color
+                        ds.color = if (checkbox == "☑") {
+                            itemView.context.getColor(android.R.color.holo_blue_dark)
+                        } else {
+                            // Use appropriate color based on theme
+                            val isNightMode = itemView.context.resources.configuration.uiMode and
+                                android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+                                android.content.res.Configuration.UI_MODE_NIGHT_YES
+                            if (isNightMode) {
+                                itemView.context.getColor(android.R.color.white)
+                            } else {
+                                itemView.context.getColor(android.R.color.black)
+                            }
+                        }
+                    }
+                }
+                
+                // Use SPAN_EXCLUSIVE_EXCLUSIVE and higher priority for checkboxes
+                spannableString.setSpan(clickableSpan, start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE or Spannable.SPAN_PRIORITY)
+            }
+        }
+        
+        private fun openUrl(context: android.content.Context, url: String) {
+            try {
+                val formattedUrl = if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                    "http://$url"
+                } else {
+                    url
+                }
+                
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(formattedUrl))
+                if (intent.resolveActivity(context.packageManager) != null) {
+                    context.startActivity(intent)
+                } else {
+                    Toast.makeText(context, "No browser found to open link", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e("NotesAdapter", "Error opening URL: ${e.message}", e)
+                Toast.makeText(context, "Error opening link", Toast.LENGTH_SHORT).show()
+            }
+        }
+        
+        private fun openEmail(context: android.content.Context, email: String) {
+            try {
+                val intent = Intent(Intent.ACTION_SENDTO).apply {
+                    data = Uri.parse("mailto:$email")
+                }
+                if (intent.resolveActivity(context.packageManager) != null) {
+                    context.startActivity(intent)
+                } else {
+                    Toast.makeText(context, "No email app found", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e("NotesAdapter", "Error opening email: ${e.message}", e)
+                Toast.makeText(context, "Error opening email", Toast.LENGTH_SHORT).show()
+            }
         }
         
         private fun toggleCheckbox(note: Note, checkboxPosition: Int, @Suppress("UNUSED_PARAMETER") currentCheckbox: String, processedContent: String) {

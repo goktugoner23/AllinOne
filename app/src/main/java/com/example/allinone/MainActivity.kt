@@ -671,9 +671,6 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             R.id.nav_wt_registry -> {
                 binding.bottomNavigation.visibility = View.VISIBLE
             }
-            R.id.nav_schedule -> {
-                binding.bottomNavigation.visibility = View.VISIBLE
-            }
             R.id.nav_calendar -> {
                 binding.bottomNavigation.visibility = View.VISIBLE
             }
@@ -738,7 +735,6 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
             R.id.nav_transaction_report -> "Reports"
             R.id.nav_notes -> "Notes"
             R.id.nav_wt_registry -> "Wing Tzun Registry"
-            R.id.nav_schedule -> "Daily Schedule"
             R.id.nav_calendar -> "Calendar"
             R.id.nav_instagram_business -> "Instagram Business"
             R.id.nav_workout -> "Workout"
@@ -861,11 +857,6 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                 }
                 R.id.nav_wt_registry -> {
                     navController.navigate(R.id.nav_wt_registry)
-                    drawerLayout.closeDrawers()
-                    true
-                }
-                R.id.nav_schedule -> {
-                    navController.navigate(R.id.nav_schedule)
                     drawerLayout.closeDrawers()
                     true
                 }

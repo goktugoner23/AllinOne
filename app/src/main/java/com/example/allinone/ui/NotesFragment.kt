@@ -360,8 +360,8 @@ class NotesFragment : Fragment() {
             getContent.launch("image/*")
         }
         
-        // Setup clickable checkboxes in dialog editor
-        setupClickableCheckboxesInDialog(dialogBinding)
+        // Setup clickable elements in dialog editor
+        setupClickableElementsInDialog(dialogBinding)
     }
 
     private fun applyCheckboxList(editor: KnifeText) {
@@ -425,17 +425,20 @@ class NotesFragment : Fragment() {
         }
     }
     
-    private fun setupClickableCheckboxesInDialog(dialogBinding: DialogEditNoteBinding) {
-        // Add text change listener to make checkboxes clickable
+    private fun setupClickableElementsInDialog(dialogBinding: DialogEditNoteBinding) {
+        // Add text change listener to make checkboxes and links clickable
         dialogBinding.editNoteContent.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
-                s?.let { makeCheckboxesClickableInDialogEditor(it) }
+                s?.let { 
+                    makeCheckboxesClickableInDialogEditor(it)
+                    makeLinksClickableInDialogEditor(it)
+                }
             }
         })
         
-        // Set up touch listener to handle checkbox clicks
+        // Set up touch listener to handle checkbox and link clicks
         dialogBinding.editNoteContent.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_DOWN) {
                 val x = event.x
@@ -447,6 +450,14 @@ class NotesFragment : Fragment() {
                 // Check if the touched position is on a checkbox
                 if (offset < text.length && (text[offset] == '☐' || text[offset] == '☑')) {
                     toggleCheckboxInDialogEditor(dialogBinding, offset)
+                    return@setOnTouchListener true
+                }
+                
+                // Check if the touched position is on a link
+                val linkPosition = findLinkAtPositionInDialog(text, offset)
+                if (linkPosition != null) {
+                    val link = text.substring(linkPosition.first, linkPosition.second)
+                    openLinkFromDialog(link)
                     return@setOnTouchListener true
                 }
             }
@@ -500,6 +511,130 @@ class NotesFragment : Fragment() {
             }
         } catch (e: Exception) {
             Log.e("NotesFragment", "Error toggling checkbox: ${e.message}", e)
+        }
+    }
+
+    private fun makeLinksClickableInDialogEditor(editable: Editable) {
+        // Remove existing link spans to avoid duplicates
+        val linkSpans = editable.getSpans(0, editable.length, ForegroundColorSpan::class.java)
+        linkSpans.forEach { span ->
+            // Only remove blue colored spans (which are our links)
+            if (span.foregroundColor == ContextCompat.getColor(requireContext(), android.R.color.holo_blue_dark)) {
+                editable.removeSpan(span)
+            }
+        }
+        
+        val text = editable.toString()
+        
+        // Pattern for URLs (http, https, www) - simplified
+        val urlPattern = "(?i)\\b(?:https?://|www\\.|[a-z0-9.-]+\\.com|[a-z0-9.-]+\\.org|[a-z0-9.-]+\\.net)[^\\s]*".toRegex()
+        
+        // Pattern for email addresses
+        val emailPattern = "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}".toRegex()
+        
+        // Find and style URLs
+        val urlMatches = urlPattern.findAll(text)
+        for (match in urlMatches) {
+            val start = match.range.first
+            val end = match.range.last + 1
+            
+            // Apply blue color and underline for links
+            val blueColor = ContextCompat.getColor(requireContext(), android.R.color.holo_blue_dark)
+            editable.setSpan(
+                ForegroundColorSpan(blueColor),
+                start,
+                end,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            editable.setSpan(
+                android.text.style.UnderlineSpan(),
+                start,
+                end,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+        
+        // Find and style email addresses
+        val emailMatches = emailPattern.findAll(text)
+        for (match in emailMatches) {
+            val start = match.range.first
+            val end = match.range.last + 1
+            
+            // Apply blue color and underline for email links
+            val blueColor = ContextCompat.getColor(requireContext(), android.R.color.holo_blue_dark)
+            editable.setSpan(
+                ForegroundColorSpan(blueColor),
+                start,
+                end,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            editable.setSpan(
+                android.text.style.UnderlineSpan(),
+                start,
+                end,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+    }
+    
+    private fun findLinkAtPositionInDialog(text: String, position: Int): Pair<Int, Int>? {
+        // Pattern for URLs (http, https, www) - simplified
+        val urlPattern = "(?i)\\b(?:https?://|www\\.|[a-z0-9.-]+\\.com|[a-z0-9.-]+\\.org|[a-z0-9.-]+\\.net)[^\\s]*".toRegex()
+        
+        // Pattern for email addresses
+        val emailPattern = "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}".toRegex()
+        
+        // Check URLs
+        val urlMatches = urlPattern.findAll(text)
+        for (match in urlMatches) {
+            if (position >= match.range.first && position <= match.range.last) {
+                return Pair(match.range.first, match.range.last + 1)
+            }
+        }
+        
+        // Check email addresses
+        val emailMatches = emailPattern.findAll(text)
+        for (match in emailMatches) {
+            if (position >= match.range.first && position <= match.range.last) {
+                return Pair(match.range.first, match.range.last + 1)
+            }
+        }
+        
+        return null
+    }
+    
+    private fun openLinkFromDialog(link: String) {
+        try {
+            // Check if it's an email address
+            val emailPattern = "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}".toRegex()
+            if (emailPattern.matches(link)) {
+                // Open email client
+                val intent = Intent(Intent.ACTION_SENDTO).apply {
+                    data = Uri.parse("mailto:$link")
+                }
+                if (intent.resolveActivity(requireContext().packageManager) != null) {
+                    startActivity(intent)
+                } else {
+                    Toast.makeText(requireContext(), "No email app found", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                // Open web browser
+                val formattedUrl = if (!link.startsWith("http://") && !link.startsWith("https://")) {
+                    "http://$link"
+                } else {
+                    link
+                }
+                
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(formattedUrl))
+                if (intent.resolveActivity(requireContext().packageManager) != null) {
+                    startActivity(intent)
+                } else {
+                    Toast.makeText(requireContext(), "No browser found to open link", Toast.LENGTH_SHORT).show()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("NotesFragment", "Error opening link: ${e.message}", e)
+            Toast.makeText(requireContext(), "Error opening link", Toast.LENGTH_SHORT).show()
         }
     }
 
