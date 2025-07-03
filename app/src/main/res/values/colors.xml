@@ -95,4 +95,7 @@
     <!-- Chat colors -->
     <color name="user_message_bg">#007AFF</color>
     <color name="ai_message_bg">#E8E8E8</color>
+    
+    <!-- Task colors -->
+    <color name="task_checkbox_color">#4CAF50</color>  <!-- Green for task completion -->
 </resources>

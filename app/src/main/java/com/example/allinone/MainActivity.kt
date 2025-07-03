@@ -870,6 +870,11 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
                     drawerLayout.closeDrawers()
                     true
                 }
+                R.id.nav_tasks -> {
+                    navController.navigate(R.id.nav_tasks)
+                    drawerLayout.closeDrawers()
+                    true
+                }
                 R.id.nav_instagram_business -> {
                     navController.navigate(R.id.nav_instagram_business)
                     drawerLayout.closeDrawers()

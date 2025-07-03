@@ -11,6 +11,7 @@ import androidx.lifecycle.MutableLiveData
 import com.example.allinone.AllinOneApplication
 import com.example.allinone.data.Investment
 import com.example.allinone.data.Note
+import com.example.allinone.data.Task
 import com.example.allinone.data.Transaction
 import com.example.allinone.data.WTStudent
 import com.example.allinone.data.Event
@@ -66,6 +67,7 @@ class FirebaseRepository(private val context: Context) {
     private val _transactions = MutableStateFlow<List<Transaction>>(emptyList())
     private val _investments = MutableStateFlow<List<Investment>>(emptyList())
     private val _notes = MutableStateFlow<List<Note>>(emptyList())
+    private val _tasks = MutableStateFlow<List<Task>>(emptyList())
     private val _students = MutableStateFlow<List<WTStudent>>(emptyList())
     private val _events = MutableStateFlow<List<Event>>(emptyList())
     private val _wtLessons = MutableStateFlow<List<WTLesson>>(emptyList())
@@ -77,6 +79,7 @@ class FirebaseRepository(private val context: Context) {
     val transactions: StateFlow<List<Transaction>> = _transactions
     val investments: StateFlow<List<Investment>> = _investments
     val notes: StateFlow<List<Note>> = _notes
+    val tasks: StateFlow<List<Task>> = _tasks
     val students: StateFlow<List<WTStudent>> = _students
     val events: StateFlow<List<Event>> = _events
     val wtLessons: StateFlow<List<WTLesson>> = _wtLessons
@@ -192,6 +195,13 @@ class FirebaseRepository(private val context: Context) {
             if (cachedNotes.isNotEmpty()) {
                 _notes.value = cachedNotes
                 Log.d(TAG, "Loaded ${cachedNotes.size} notes from cache")
+            }
+
+            // Load tasks
+            val cachedTasks = cacheManager.getCachedTasks()
+            if (cachedTasks.isNotEmpty()) {
+                _tasks.value = cachedTasks
+                Log.d(TAG, "Loaded ${cachedTasks.size} tasks from cache")
             }
 
             // Load students
@@ -346,6 +356,7 @@ class FirebaseRepository(private val context: Context) {
                     OfflineQueue.DataType.TRANSACTION -> processTransactionQueueItem(queueItem)
                     OfflineQueue.DataType.INVESTMENT -> processInvestmentQueueItem(queueItem)
                     OfflineQueue.DataType.NOTE -> processNoteQueueItem(queueItem)
+                    OfflineQueue.DataType.TASK -> processTaskQueueItem(queueItem)
                     OfflineQueue.DataType.STUDENT -> processStudentQueueItem(queueItem)
                     OfflineQueue.DataType.EVENT -> processEventQueueItem(queueItem)
                     OfflineQueue.DataType.WT_LESSON -> processWTLessonQueueItem(queueItem)
@@ -404,6 +415,21 @@ class FirebaseRepository(private val context: Context) {
             OfflineQueue.Operation.DELETE -> {
                 val note = gson.fromJson(queueItem.jsonData, Note::class.java)
                 firebaseManager.deleteNote(note)
+                true
+            }
+        }
+    }
+
+    private suspend fun processTaskQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
+        return when (queueItem.operation) {
+            OfflineQueue.Operation.INSERT, OfflineQueue.Operation.UPDATE -> {
+                val task = gson.fromJson(queueItem.jsonData, Task::class.java)
+                firebaseManager.saveTask(task)
+                true
+            }
+            OfflineQueue.Operation.DELETE -> {
+                val task = gson.fromJson(queueItem.jsonData, Task::class.java)
+                firebaseManager.deleteTask(task)
                 true
             }
         }
@@ -530,6 +556,7 @@ class FirebaseRepository(private val context: Context) {
             refreshTransactions()
             refreshInvestments()
             refreshNotes()
+            refreshTasks()
             refreshStudents()
             refreshEvents()
             refreshWTLessons()
@@ -586,6 +613,7 @@ class FirebaseRepository(private val context: Context) {
                 _transactions.value = emptyList()
                 _investments.value = emptyList()
                 _notes.value = emptyList()
+                _tasks.value = emptyList()
                 _students.value = emptyList()
                 _events.value = emptyList()
                 _wtLessons.value = emptyList()
@@ -1043,6 +1071,107 @@ class FirebaseRepository(private val context: Context) {
             }
         } catch (e: Exception) {
             _errorMessage.postValue("Error deleting note: ${e.message}")
+        }
+    }
+
+    // Task methods
+    suspend fun refreshTasks() {
+        withContext(Dispatchers.IO) {
+            try {
+                _isLoading.postValue(true)
+                val tasks = firebaseManager.getTasks()
+                _tasks.value = tasks
+                cacheManager.cacheTasks(tasks)
+                _isLoading.postValue(false)
+
+                // Notify other components
+                DataChangeNotifier.notifyTasksChanged()
+            } catch (e: Exception) {
+                _errorMessage.postValue("Error refreshing tasks: ${e.message}")
+                _isLoading.postValue(false)
+            }
+        }
+    }
+
+    suspend fun insertTask(task: Task) {
+        try {
+            // Update local cache immediately
+            val currentTasks = _tasks.value.toMutableList()
+            currentTasks.add(task)
+            _tasks.value = currentTasks
+
+            // Then update Firebase if network is available
+            if (networkUtils.isActiveNetworkConnected()) {
+                firebaseManager.saveTask(task)
+            } else {
+                // Add to offline queue
+                offlineQueue.enqueue(
+                    OfflineQueue.DataType.TASK,
+                    OfflineQueue.Operation.INSERT,
+                    gson.toJson(task)
+                )
+                _errorMessage.postValue("Task saved locally. Will sync when network is available.")
+                updatePendingOperationsCount()
+            }
+        } catch (e: Exception) {
+            _errorMessage.postValue("Error saving task: ${e.message}")
+        }
+    }
+
+    suspend fun updateTask(task: Task) {
+        try {
+            // Update local cache immediately
+            val currentTasks = _tasks.value.toMutableList()
+            val index = currentTasks.indexOfFirst { it.id == task.id }
+
+            if (index != -1) {
+                currentTasks[index] = task
+            } else {
+                currentTasks.add(task)
+            }
+
+            _tasks.value = currentTasks
+
+            // Save to Firebase if network is available
+            if (networkUtils.isActiveNetworkConnected()) {
+                firebaseManager.saveTask(task)
+            } else {
+                // Add to offline queue
+                offlineQueue.enqueue(
+                    OfflineQueue.DataType.TASK,
+                    OfflineQueue.Operation.UPDATE,
+                    gson.toJson(task)
+                )
+                _errorMessage.postValue("Task updated locally. Will sync when network is available.")
+                updatePendingOperationsCount()
+            }
+        } catch (e: Exception) {
+            _errorMessage.postValue("Error updating task: ${e.message}")
+        }
+    }
+
+    suspend fun deleteTask(task: Task) {
+        try {
+            // Update local cache immediately
+            val currentTasks = _tasks.value.toMutableList()
+            currentTasks.removeIf { it.id == task.id }
+            _tasks.value = currentTasks
+
+            // Then delete from Firebase if network is available
+            if (networkUtils.isActiveNetworkConnected()) {
+                firebaseManager.deleteTask(task)
+            } else {
+                // Add to offline queue
+                offlineQueue.enqueue(
+                    OfflineQueue.DataType.TASK,
+                    OfflineQueue.Operation.DELETE,
+                    gson.toJson(task)
+                )
+                _errorMessage.postValue("Task deleted locally. Will sync when network is available.")
+                updatePendingOperationsCount()
+            }
+        } catch (e: Exception) {
+            _errorMessage.postValue("Error deleting task: ${e.message}")
         }
     }
 
@@ -1998,6 +2127,6 @@ class FirebaseRepository(private val context: Context) {
      * @return The next sequential ID
      */
     suspend fun getNextId(resourceType: String): Long {
-        return firebaseManager.idManager.getNextId(resourceType)
+        return idManager.getNextId(resourceType)
     }
 }

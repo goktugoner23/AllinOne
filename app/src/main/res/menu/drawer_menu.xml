@@ -18,6 +18,10 @@
             android:icon="@drawable/ic_notes"
             android:title="Notes" />
         <item
+            android:id="@+id/nav_tasks"
+            android:icon="@drawable/ic_tasks"
+            android:title="@string/tasks" />
+        <item
             android:id="@+id/nav_instagram_business"
             android:icon="@drawable/ic_instagram"
             android:title="Instagram Business" />

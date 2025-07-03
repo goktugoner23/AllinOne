@@ -20,6 +20,9 @@ object DataChangeNotifier {
     private val _notesChanged = MutableLiveData<Boolean>()
     val notesChanged: LiveData<Boolean> = _notesChanged
     
+    private val _tasksChanged = MutableLiveData<Boolean>()
+    val tasksChanged: LiveData<Boolean> = _tasksChanged
+    
     private val _studentsChanged = MutableLiveData<Boolean>()
     val studentsChanged: LiveData<Boolean> = _studentsChanged
     
@@ -50,6 +53,10 @@ object DataChangeNotifier {
     
     fun notifyNotesChanged() {
         _notesChanged.postValue(true)
+    }
+    
+    fun notifyTasksChanged() {
+        _tasksChanged.postValue(true)
     }
     
     fun notifyStudentsChanged() {
@@ -86,6 +93,7 @@ object DataChangeNotifier {
             "transactions" -> notifyTransactionsChanged()
             "investments" -> notifyInvestmentsChanged()
             "notes" -> notifyNotesChanged()
+            "tasks" -> notifyTasksChanged()
             "students" -> notifyStudentsChanged()
             "events" -> notifyEventsChanged()
             "wtLessons" -> notifyLessonsChanged()

@@ -33,6 +33,12 @@
         tools:layout="@layout/fragment_notes" />
 
     <fragment
+        android:id="@+id/nav_tasks"
+        android:name="com.example.allinone.ui.TasksFragment"
+        android:label="Tasks"
+        tools:layout="@layout/fragment_tasks" />
+
+    <fragment
         android:id="@+id/nav_database_management"
         android:name="com.example.allinone.ui.DatabaseManagementFragment"
         android:label="Database"
