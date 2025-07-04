@@ -12,6 +12,7 @@ import com.example.allinone.AllinOneApplication
 import com.example.allinone.data.Investment
 import com.example.allinone.data.Note
 import com.example.allinone.data.Task
+import com.example.allinone.data.TaskGroup
 import com.example.allinone.data.Transaction
 import com.example.allinone.data.WTStudent
 import com.example.allinone.data.Event
@@ -68,6 +69,7 @@ class FirebaseRepository(private val context: Context) {
     private val _investments = MutableStateFlow<List<Investment>>(emptyList())
     private val _notes = MutableStateFlow<List<Note>>(emptyList())
     private val _tasks = MutableStateFlow<List<Task>>(emptyList())
+    private val _taskGroups = MutableStateFlow<List<TaskGroup>>(emptyList())
     private val _students = MutableStateFlow<List<WTStudent>>(emptyList())
     private val _events = MutableStateFlow<List<Event>>(emptyList())
     private val _wtLessons = MutableStateFlow<List<WTLesson>>(emptyList())
@@ -80,6 +82,7 @@ class FirebaseRepository(private val context: Context) {
     val investments: StateFlow<List<Investment>> = _investments
     val notes: StateFlow<List<Note>> = _notes
     val tasks: StateFlow<List<Task>> = _tasks
+    val taskGroups: StateFlow<List<TaskGroup>> = _taskGroups
     val students: StateFlow<List<WTStudent>> = _students
     val events: StateFlow<List<Event>> = _events
     val wtLessons: StateFlow<List<WTLesson>> = _wtLessons
@@ -202,6 +205,13 @@ class FirebaseRepository(private val context: Context) {
             if (cachedTasks.isNotEmpty()) {
                 _tasks.value = cachedTasks
                 Log.d(TAG, "Loaded ${cachedTasks.size} tasks from cache")
+            }
+
+            // Load task groups
+            val cachedTaskGroups = cacheManager.getCachedTaskGroups()
+            if (cachedTaskGroups.isNotEmpty()) {
+                _taskGroups.value = cachedTaskGroups
+                Log.d(TAG, "Loaded ${cachedTaskGroups.size} task groups from cache")
             }
 
             // Load students
@@ -357,6 +367,7 @@ class FirebaseRepository(private val context: Context) {
                     OfflineQueue.DataType.INVESTMENT -> processInvestmentQueueItem(queueItem)
                     OfflineQueue.DataType.NOTE -> processNoteQueueItem(queueItem)
                     OfflineQueue.DataType.TASK -> processTaskQueueItem(queueItem)
+                    OfflineQueue.DataType.TASK_GROUP -> processTaskGroupQueueItem(queueItem)
                     OfflineQueue.DataType.STUDENT -> processStudentQueueItem(queueItem)
                     OfflineQueue.DataType.EVENT -> processEventQueueItem(queueItem)
                     OfflineQueue.DataType.WT_LESSON -> processWTLessonQueueItem(queueItem)
@@ -430,6 +441,21 @@ class FirebaseRepository(private val context: Context) {
             OfflineQueue.Operation.DELETE -> {
                 val task = gson.fromJson(queueItem.jsonData, Task::class.java)
                 firebaseManager.deleteTask(task)
+                true
+            }
+        }
+    }
+
+    private suspend fun processTaskGroupQueueItem(queueItem: OfflineQueue.QueueItem): Boolean {
+        return when (queueItem.operation) {
+            OfflineQueue.Operation.INSERT, OfflineQueue.Operation.UPDATE -> {
+                val taskGroup = gson.fromJson(queueItem.jsonData, TaskGroup::class.java)
+                firebaseManager.saveTaskGroup(taskGroup)
+                true
+            }
+            OfflineQueue.Operation.DELETE -> {
+                val taskGroup = gson.fromJson(queueItem.jsonData, TaskGroup::class.java)
+                firebaseManager.deleteTaskGroup(taskGroup)
                 true
             }
         }
@@ -557,6 +583,7 @@ class FirebaseRepository(private val context: Context) {
             refreshInvestments()
             refreshNotes()
             refreshTasks()
+            refreshTaskGroups()
             refreshStudents()
             refreshEvents()
             refreshWTLessons()
@@ -614,6 +641,7 @@ class FirebaseRepository(private val context: Context) {
                 _investments.value = emptyList()
                 _notes.value = emptyList()
                 _tasks.value = emptyList()
+                _taskGroups.value = emptyList()
                 _students.value = emptyList()
                 _events.value = emptyList()
                 _wtLessons.value = emptyList()
@@ -1172,6 +1200,107 @@ class FirebaseRepository(private val context: Context) {
             }
         } catch (e: Exception) {
             _errorMessage.postValue("Error deleting task: ${e.message}")
+        }
+    }
+
+    // Task Group methods
+    suspend fun refreshTaskGroups() {
+        withContext(Dispatchers.IO) {
+            try {
+                _isLoading.postValue(true)
+                val taskGroups = firebaseManager.getTaskGroups()
+                _taskGroups.value = taskGroups
+                cacheManager.cacheTaskGroups(taskGroups)
+                _isLoading.postValue(false)
+
+                // Notify other components
+                DataChangeNotifier.notifyTaskGroupsChanged()
+            } catch (e: Exception) {
+                _errorMessage.postValue("Error refreshing task groups: ${e.message}")
+                _isLoading.postValue(false)
+            }
+        }
+    }
+
+    suspend fun insertTaskGroup(taskGroup: TaskGroup) {
+        try {
+            // Update local cache immediately
+            val currentTaskGroups = _taskGroups.value.toMutableList()
+            currentTaskGroups.add(taskGroup)
+            _taskGroups.value = currentTaskGroups
+
+            // Then update Firebase if network is available
+            if (networkUtils.isActiveNetworkConnected()) {
+                firebaseManager.saveTaskGroup(taskGroup)
+            } else {
+                // Add to offline queue
+                offlineQueue.enqueue(
+                    OfflineQueue.DataType.TASK_GROUP,
+                    OfflineQueue.Operation.INSERT,
+                    gson.toJson(taskGroup)
+                )
+                _errorMessage.postValue("Task group saved locally. Will sync when network is available.")
+                updatePendingOperationsCount()
+            }
+        } catch (e: Exception) {
+            _errorMessage.postValue("Error saving task group: ${e.message}")
+        }
+    }
+
+    suspend fun updateTaskGroup(taskGroup: TaskGroup) {
+        try {
+            // Update local cache immediately
+            val currentTaskGroups = _taskGroups.value.toMutableList()
+            val index = currentTaskGroups.indexOfFirst { it.id == taskGroup.id }
+
+            if (index != -1) {
+                currentTaskGroups[index] = taskGroup
+            } else {
+                currentTaskGroups.add(taskGroup)
+            }
+
+            _taskGroups.value = currentTaskGroups
+
+            // Save to Firebase if network is available
+            if (networkUtils.isActiveNetworkConnected()) {
+                firebaseManager.saveTaskGroup(taskGroup)
+            } else {
+                // Add to offline queue
+                offlineQueue.enqueue(
+                    OfflineQueue.DataType.TASK_GROUP,
+                    OfflineQueue.Operation.UPDATE,
+                    gson.toJson(taskGroup)
+                )
+                _errorMessage.postValue("Task group updated locally. Will sync when network is available.")
+                updatePendingOperationsCount()
+            }
+        } catch (e: Exception) {
+            _errorMessage.postValue("Error updating task group: ${e.message}")
+        }
+    }
+
+    suspend fun deleteTaskGroup(taskGroup: TaskGroup) {
+        try {
+            // Update local cache immediately
+            val currentTaskGroups = _taskGroups.value.toMutableList()
+            currentTaskGroups.removeIf { it.id == taskGroup.id }
+            _taskGroups.value = currentTaskGroups
+
+            // Then delete from Firebase if network is available
+            if (networkUtils.isActiveNetworkConnected()) {
+                firebaseManager.deleteTaskGroup(taskGroup)
+            } else {
+                // Add to offline queue
+                offlineQueue.enqueue(
+                    OfflineQueue.DataType.TASK_GROUP,
+                    OfflineQueue.Operation.DELETE,
+                    gson.toJson(taskGroup)
+                )
+                _errorMessage.postValue("Task group deleted locally. Will sync when network is available.")
+                updatePendingOperationsCount()
+            }
+        } catch (e: Exception) {
+            _errorMessage.postValue("Error deleting task group: ${e.message}")
         }
     }
 

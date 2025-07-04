@@ -34,40 +34,94 @@
             android:background="@android:color/white" />
     </com.google.android.material.textfield.TextInputLayout>
 
-    <TextView
-        android:id="@+id/dueDateLabel"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Due Date (optional)"
-        android:textAppearance="?attr/textAppearanceBody1"
-        android:layout_marginTop="12dp"/>
-
+    <!-- Group Selection Section -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:orientation="vertical"
+        android:layout_marginTop="16dp"
+        android:background="@drawable/dialog_rounded_bg"
+        android:padding="16dp">
 
         <TextView
-            android:id="@+id/dueDateText"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Not set"
-            android:textAppearance="?attr/textAppearanceBody2"/>
-
-        <Button
-            android:id="@+id/pickDueDateButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Pick Date/Time"/>
+            android:text="@string/select_group"
+            android:textAppearance="?attr/textAppearanceBody1"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"/>
 
-        <Button
-            android:id="@+id/clearDueDateButton"
+        <Spinner
+            android:id="@+id/groupSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:background="@android:color/white"
+            android:minHeight="48dp" />
+
+    </LinearLayout>
+
+    <!-- Due Date Section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="16dp"
+        android:background="@drawable/dialog_rounded_bg"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/dueDateLabel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Clear"
-            android:layout_marginStart="8dp"/>
+            android:text="Due Date (optional)"
+            android:textAppearance="?attr/textAppearanceBody1"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:minHeight="48dp">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_calendar"
+                android:layout_marginEnd="12dp"
+                android:contentDescription="Calendar icon"/>
+
+            <TextView
+                android:id="@+id/dueDateText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Not set"
+                android:textAppearance="?attr/textAppearanceBody2"
+                android:textColor="?attr/colorOnSurface"
+                android:gravity="center_vertical"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/pickDueDateButton"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="Pick Date/Time"
+                android:textSize="12sp"
+                android:textAllCaps="false"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_marginEnd="8dp"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/clearDueDateButton"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="Clear"
+                android:textSize="12sp"
+                android:textAllCaps="false"
+                style="@style/Widget.MaterialComponents.Button.TextButton"/>
+        </LinearLayout>
     </LinearLayout>
 
 </LinearLayout> 

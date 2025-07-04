@@ -1,7 +1,6 @@
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
-    id 'kotlin-kapt'
     id 'com.google.devtools.ksp'
     id 'com.google.gms.google-services'
     id 'com.google.firebase.crashlytics'
@@ -105,8 +104,10 @@ android {
         abortOnError = false
     }
 
-    kapt {
-        correctErrorTypes = true
+    // KSP configuration for better performance
+    ksp {
+        arg("correctErrorTypes", "true")
+        arg("dagger.hilt.android.internal.disableAndroidSuperclassValidation", "true")
     }
 }
 

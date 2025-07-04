@@ -44,6 +44,8 @@ The application leverages Firebase for several key features:
 - **Transactions**: Financial tracking with real-time sync
 - **Notes**: Rich text notes with media attachments
 - **Investments**: Portfolio tracking and performance data
+- **Tasks**: Task management with due dates, completion tracking, and group organization
+- **Task Groups**: Organizational categories for tasks with color coding and progress tracking
 - **Workouts**: Exercise programs and session tracking
 - **Wing Tzun**: Student management and progress tracking
 

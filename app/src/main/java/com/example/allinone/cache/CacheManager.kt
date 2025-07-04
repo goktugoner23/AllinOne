@@ -24,6 +24,7 @@ class CacheManager(private val context: Context) {
         private const val KEY_INVESTMENTS = "cache_investments"
         private const val KEY_NOTES = "cache_notes"
         private const val KEY_TASKS = "cache_tasks"
+        private const val KEY_TASK_GROUPS = "cache_task_groups"
         private const val KEY_STUDENTS = "cache_students"
         private const val KEY_EVENTS = "cache_events"
         private const val KEY_LESSONS = "cache_lessons"
@@ -36,6 +37,7 @@ class CacheManager(private val context: Context) {
         private const val KEY_INVESTMENTS_UPDATED = "cache_investments_updated"
         private const val KEY_NOTES_UPDATED = "cache_notes_updated"
         private const val KEY_TASKS_UPDATED = "cache_tasks_updated"
+        private const val KEY_TASK_GROUPS_UPDATED = "cache_task_groups_updated"
         private const val KEY_STUDENTS_UPDATED = "cache_students_updated"
         private const val KEY_EVENTS_UPDATED = "cache_events_updated"
         private const val KEY_LESSONS_UPDATED = "cache_lessons_updated"
@@ -55,6 +57,7 @@ class CacheManager(private val context: Context) {
     private var investmentCacheExpiration = DEFAULT_CACHE_EXPIRATION_MS
     private var noteCacheExpiration = DEFAULT_CACHE_EXPIRATION_MS
     private var taskCacheExpiration = DEFAULT_CACHE_EXPIRATION_MS
+    private var taskGroupCacheExpiration = DEFAULT_CACHE_EXPIRATION_MS
     private var studentCacheExpiration = DEFAULT_CACHE_EXPIRATION_MS
     private var eventCacheExpiration = DEFAULT_CACHE_EXPIRATION_MS
     private var lessonCacheExpiration = DEFAULT_CACHE_EXPIRATION_MS
@@ -71,6 +74,7 @@ class CacheManager(private val context: Context) {
             "investments" -> investmentCacheExpiration = expirationMs
             "notes" -> noteCacheExpiration = expirationMs
             "tasks" -> taskCacheExpiration = expirationMs
+            "taskGroups" -> taskGroupCacheExpiration = expirationMs
             "students" -> studentCacheExpiration = expirationMs
             "events" -> eventCacheExpiration = expirationMs
             "lessons" -> lessonCacheExpiration = expirationMs
@@ -98,6 +102,7 @@ class CacheManager(private val context: Context) {
             KEY_INVESTMENTS -> investmentCacheExpiration
             KEY_NOTES -> noteCacheExpiration
             KEY_TASKS -> taskCacheExpiration
+            KEY_TASK_GROUPS -> taskGroupCacheExpiration
             KEY_STUDENTS -> studentCacheExpiration
             KEY_EVENTS -> eventCacheExpiration
             KEY_LESSONS -> lessonCacheExpiration
@@ -114,6 +119,7 @@ class CacheManager(private val context: Context) {
             KEY_INVESTMENTS -> KEY_INVESTMENTS_UPDATED
             KEY_NOTES -> KEY_NOTES_UPDATED
             KEY_TASKS -> KEY_TASKS_UPDATED
+            KEY_TASK_GROUPS -> KEY_TASK_GROUPS_UPDATED
             KEY_STUDENTS -> KEY_STUDENTS_UPDATED
             KEY_EVENTS -> KEY_EVENTS_UPDATED
             KEY_LESSONS -> KEY_LESSONS_UPDATED
@@ -166,6 +172,17 @@ class CacheManager(private val context: Context) {
         // More explicit TypeToken creation that's safer for ProGuard
         val listType = object : TypeToken<ArrayList<Task>>() {}.type
         return getCachedData(KEY_TASKS, listType) ?: emptyList()
+    }
+
+    // Cache TaskGroup data
+    fun cacheTaskGroups(taskGroups: List<TaskGroup>) {
+        cacheData(KEY_TASK_GROUPS, taskGroups)
+    }
+
+    fun getCachedTaskGroups(): List<TaskGroup> {
+        // More explicit TypeToken creation that's safer for ProGuard
+        val listType = object : TypeToken<ArrayList<TaskGroup>>() {}.type
+        return getCachedData(KEY_TASK_GROUPS, listType) ?: emptyList()
     }
 
     // Cache Student data

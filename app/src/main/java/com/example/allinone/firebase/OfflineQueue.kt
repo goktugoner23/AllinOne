@@ -45,6 +45,7 @@ class OfflineQueue(context: Context) {
         INVESTMENT,
         NOTE,
         TASK,
+        TASK_GROUP,
         STUDENT,
         EVENT,
         WT_LESSON,

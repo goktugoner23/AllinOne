@@ -68,6 +68,37 @@ AllInOne is an Android application designed to centralize various aspects of per
 - **Real-time Preview**: See changes immediately as you draw
 - **Non-destructive Editing**: Add to existing drawings without losing previous work
 
+### Task Management & Organization
+- **Comprehensive Task Tracking**: Create, edit, and delete tasks with rich metadata including name, description, and optional due dates
+- **Task Completion Management**: Mark tasks as completed or incomplete with visual feedback and strike-through styling
+- **Due Date Management**: 
+  - Optional due date and time assignment with intuitive date/time picker
+  - Visual indicators for overdue tasks (red card backgrounds for due today)
+  - Clear display of due dates in task cards
+- **Task Groups & Organization**:
+  - Create custom task groups with titles, descriptions, and color coding
+  - Assign tasks to groups during creation or editing
+  - Support for ungrouped (standalone) tasks
+  - Group management with full CRUD operations
+- **Advanced UI Features**:
+  - **Dual View Modes**: Toggle between simple list view and organized grouped view
+  - **Expandable Group Headers**: 
+    - Collapsible sections showing group title, task count, and completion progress
+    - Visual progress bars showing completion percentage
+    - Color-coded indicators matching group colors
+  - **Intelligent Display**: Tasks are indented under their respective groups for clear hierarchy
+  - **Context Menus**: Long-press actions for both tasks and groups (edit, delete)
+- **Group Customization**:
+  - **Color Picker**: Choose from 5 Material Design colors (Blue, Green, Red, Orange, Purple)
+  - **Visual Indicators**: Group headers display color-coded bars for easy identification
+  - **Progress Tracking**: Real-time completion status (e.g., "3/5 completed")
+- **Smart Organization**:
+  - Groups are optional - users can mix grouped and ungrouped tasks
+  - "No Group" section automatically handles standalone tasks
+  - Flexible workflow supporting both simple task lists and complex project organization
+- **Material Design 3**: Modern UI with smooth animations, proper theming, and accessible design
+- **Seamless Integration**: Full Firebase sync with offline support and cross-device availability
+
 ### Wing Tzun Student Management
 - **Student Profiles**: Comprehensive student information including contact details and training history
 - **Attendance Tracking**: Record attendance for classes, seminars, and private lessons
@@ -202,6 +233,7 @@ AllInOne is an Android application designed to centralize various aspects of per
   - MPAndroidChart for data visualization
   - Timber for enhanced logging
   - PhotoView for image interaction
+  - Material Design Components for modern UI elements and theming
 
 ## Firebase Setup
 
@@ -325,6 +357,8 @@ The app uses the following collections in Firestore:
 - `investments`: Investment records including name, value, returns, and history
 - `binance_futures`: Cached Binance Futures account data and position information
 - `notes`: Text notes with rich formatting and optional images
+- `tasks`: Task records with name, description, due dates, completion status, and group assignments
+- `taskgroups`: Task group definitions with titles, descriptions, colors, and metadata
 - `students`: Wing Tzun student records with attendance and progress tracking
 - `programs`: Workout programs with exercises, sets, reps, and weight information
 - `workouts`: Recorded workout sessions with start/end times, exercises, and completion status
@@ -464,7 +498,34 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Recent Changes
 
-### Instagram Multimodal AI Assistant (Latest Update)
+### Task Management & Organization System (Latest Update)
+- **Complete Task Management Solution**: Full-featured task tracking with name, description, and optional due dates
+- **Smart Task Organization**: 
+  - Create custom task groups with color-coded organization
+  - Choose from 5 Material Design colors for visual distinction
+  - Flexible assignment - tasks can be grouped or remain standalone
+- **Advanced UI Features**:
+  - **Dual View System**: Toggle between simple list view and organized grouped view
+  - **Expandable Group Headers**: Show/hide tasks within groups with visual progress indicators
+  - **Progress Tracking**: Real-time completion percentage for each group
+  - **Visual Feedback**: Overdue tasks highlighted with red backgrounds
+- **Modern Architecture**:
+  - Clean Architecture implementation with data/domain/ui separation
+  - Full Firebase integration with offline support and real-time sync
+  - Comprehensive CRUD operations for both tasks and groups
+  - Material Design 3 components with proper theming
+- **Enhanced User Experience**:
+  - Intuitive date/time picker for due dates
+  - Context menus for quick actions (edit, delete)
+  - Smart organization with "No Group" handling for ungrouped tasks
+  - Smooth animations and transitions
+- **Developer Features**:
+  - Complete caching system for offline access
+  - Sequential ID generation for user-friendly task references
+  - MenuProvider pattern for modern Android development
+  - Comprehensive error handling and validation
+
+### Instagram Multimodal AI Assistant (Previous Update)
 - **Multimodal Content Analysis**: Revolutionary AI-powered analysis supporting images, audio, PDFs, and Instagram URLs
 - **ChatGPT-like Interface**: Modern conversational UI with plus icon attachment menu featuring:
   - 📱 Image Upload (Instagram screenshots, competitor analysis)

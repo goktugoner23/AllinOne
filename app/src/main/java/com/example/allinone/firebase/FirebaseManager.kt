@@ -32,6 +32,7 @@ class FirebaseManager(private val context: Context? = null) {
     private val investmentsCollection = firestore.collection("investments")
     private val notesCollection = firestore.collection("notes")
     private val tasksCollection = firestore.collection("tasks")
+    private val taskGroupsCollection = firestore.collection("taskGroups")
     private val studentsCollection = firestore.collection("students")
     private val eventsCollection = firestore.collection("events")
     private val wtLessonsCollection = firestore.collection("wtLessons")
@@ -504,6 +505,7 @@ class FirebaseManager(private val context: Context? = null) {
                     val completed = doc.getBoolean("completed") ?: false
                     val date = doc.getDate("date") ?: Date()
                     val dueDate = doc.getDate("dueDate")
+                    val groupId = doc.getLong("groupId")
 
                     com.example.allinone.data.Task(
                         id = id,
@@ -511,7 +513,8 @@ class FirebaseManager(private val context: Context? = null) {
                         description = description,
                         completed = completed,
                         date = date,
-                        dueDate = dueDate
+                        dueDate = dueDate,
+                        groupId = groupId
                     )
                 }
             } catch (e: Exception) {
@@ -530,6 +533,7 @@ class FirebaseManager(private val context: Context? = null) {
                 "completed" to task.completed,
                 "date" to task.date,
                 "dueDate" to task.dueDate,
+                "groupId" to task.groupId,
                 "deviceId" to deviceId
             )
             tasksCollection.document(task.id.toString()).set(taskMap).await()
@@ -543,6 +547,78 @@ class FirebaseManager(private val context: Context? = null) {
             tasksCollection.document(task.id.toString()).delete().await()
         } catch (e: Exception) {
             Log.e(TAG, "Error deleting task: ${e.message}", e)
+        }
+    }
+
+    // Task Groups
+    suspend fun getTaskGroups(): List<com.example.allinone.data.TaskGroup> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val snapshot = taskGroupsCollection.whereEqualTo("deviceId", deviceId).get().await()
+                snapshot.documents.mapNotNull { doc ->
+                    val id = doc.getLong("id") ?: return@mapNotNull null
+                    val title = doc.getString("title") ?: ""
+                    val description = doc.getString("description")
+                    val color = doc.getString("color") ?: "#2196F3"
+                    val createdAt = doc.getDate("createdAt") ?: Date()
+                    val isCompleted = doc.getBoolean("isCompleted") ?: false
+
+                    com.example.allinone.data.TaskGroup(
+                        id = id,
+                        title = title,
+                        description = description,
+                        color = color,
+                        createdAt = createdAt,
+                        isCompleted = isCompleted
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching task groups: ${e.message}", e)
+                emptyList()
+            }
+        }
+    }
+
+    suspend fun saveTaskGroup(taskGroup: com.example.allinone.data.TaskGroup) {
+        try {
+            val taskGroupMap = mapOf(
+                "id" to taskGroup.id,
+                "title" to taskGroup.title,
+                "description" to taskGroup.description,
+                "color" to taskGroup.color,
+                "createdAt" to taskGroup.createdAt,
+                "isCompleted" to taskGroup.isCompleted,
+                "deviceId" to deviceId
+            )
+            taskGroupsCollection.document(taskGroup.id.toString()).set(taskGroupMap).await()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving task group: ${e.message}", e)
+        }
+    }
+
+    suspend fun deleteTaskGroup(taskGroup: com.example.allinone.data.TaskGroup) {
+        try {
+            // First, remove the groupId from all tasks that belong to this group
+            val tasksSnapshot = tasksCollection
+                .whereEqualTo("deviceId", deviceId)
+                .whereEqualTo("groupId", taskGroup.id)
+                .get()
+                .await()
+
+            // Update tasks to remove group association
+            tasksSnapshot.documents.forEach { doc ->
+                val taskId = doc.getLong("id")
+                if (taskId != null) {
+                    tasksCollection.document(taskId.toString())
+                        .update("groupId", null)
+                        .await()
+                }
+            }
+
+            // Then delete the group
+            taskGroupsCollection.document(taskGroup.id.toString()).delete().await()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting task group: ${e.message}", e)
         }
     }
 
@@ -674,6 +750,9 @@ class FirebaseManager(private val context: Context? = null) {
 
             // Delete all tasks (including those without deviceId)
             deleteAllDocumentsInCollection(tasksCollection)
+
+            // Delete all task groups (including those without deviceId)
+            deleteAllDocumentsInCollection(taskGroupsCollection)
 
             // Delete all students (including those without deviceId)
             deleteAllDocumentsInCollection(studentsCollection)
