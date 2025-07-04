@@ -479,7 +479,11 @@ class NotesFragment : Fragment() {
             val start = match.range.first
             val end = match.range.last + 1
             val checkbox = match.value
-            
+
+            // Remove any existing RelativeSizeSpan from this range
+            val sizeSpans = editable.getSpans(start, end, android.text.style.RelativeSizeSpan::class.java)
+            sizeSpans.forEach { editable.removeSpan(it) }
+
             // Apply green color for checked checkboxes and make them bigger
             if (checkbox == "☑") {
                 val greenColor = ContextCompat.getColor(requireContext(), android.R.color.holo_green_dark)
@@ -491,9 +495,9 @@ class NotesFragment : Fragment() {
                 )
             }
             
-            // Make all checkboxes bigger
+            // Make all checkboxes bigger (only once)
             editable.setSpan(
-                RelativeSizeSpan(1.3f),
+                android.text.style.RelativeSizeSpan(1.3f),
                 start,
                 end,
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE

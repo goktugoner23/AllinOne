@@ -79,6 +79,31 @@ class NotesAdapter(
                         contentTextView.text = spannableText
                         contentTextView.movementMethod = LinkMovementMethod.getInstance()
                         
+                        // Allow parent to handle clicks when not on specific clickable elements
+                        contentTextView.setOnTouchListener { view, event ->
+                            val textView = view as TextView
+                            val spannedText = textView.text as? Spannable
+                            
+                            if (spannedText != null && event.action == android.view.MotionEvent.ACTION_DOWN) {
+                                val x = event.x.toInt()
+                                val y = event.y.toInt()
+                                
+                                val offset = textView.getOffsetForPosition(x.toFloat(), y.toFloat())
+                                val clickableSpans = spannedText.getSpans(offset, offset, ClickableSpan::class.java)
+                                
+                                // If there are clickable spans (links/checkboxes), let TextView handle it
+                                if (clickableSpans.isNotEmpty()) {
+                                    false // Let TextView handle the click
+                                } else {
+                                    // No clickable spans, delegate to parent by performing click
+                                    itemView.performClick()
+                                    true // We handled the click
+                                }
+                            } else {
+                                false // Let TextView handle other events
+                            }
+                        }
+                        
                         // Ensure proper text encoding for Turkish characters
                         ensureProperTextEncoding(contentTextView)
                     } else {
@@ -96,6 +121,31 @@ class NotesAdapter(
                         Linkify.addLinks(contentTextView, Linkify.WEB_URLS or Linkify.EMAIL_ADDRESSES)
                         contentTextView.movementMethod = LinkMovementMethod.getInstance()
                         
+                        // Allow parent to handle clicks when not on links
+                        contentTextView.setOnTouchListener { view, event ->
+                            val textView = view as TextView
+                            val spannedText = textView.text as? Spannable
+                            
+                            if (spannedText != null && event.action == android.view.MotionEvent.ACTION_DOWN) {
+                                val x = event.x.toInt()
+                                val y = event.y.toInt()
+                                
+                                val offset = textView.getOffsetForPosition(x.toFloat(), y.toFloat())
+                                val urlSpans = spannedText.getSpans(offset, offset, android.text.style.URLSpan::class.java)
+                                
+                                // If there are URL spans, let TextView handle it
+                                if (urlSpans.isNotEmpty()) {
+                                    false // Let TextView handle the click
+                                } else {
+                                    // No URL spans, delegate to parent by performing click
+                                    itemView.performClick()
+                                    true // We handled the click
+                                }
+                            } else {
+                                false // Let TextView handle other events
+                            }
+                        }
+                        
                         // Ensure proper text encoding for Turkish characters
                         ensureProperTextEncoding(contentTextView)
                     }
@@ -105,9 +155,37 @@ class NotesAdapter(
                     // Even for fallback, try to make links clickable
                     Linkify.addLinks(contentTextView, Linkify.WEB_URLS or Linkify.EMAIL_ADDRESSES)
                     contentTextView.movementMethod = LinkMovementMethod.getInstance()
+                    
+                    // Allow parent to handle clicks when not on links (fallback case)
+                    contentTextView.setOnTouchListener { view, event ->
+                        val textView = view as TextView
+                        val spannedText = textView.text as? Spannable
+                        
+                        if (spannedText != null && event.action == android.view.MotionEvent.ACTION_DOWN) {
+                            val x = event.x.toInt()
+                            val y = event.y.toInt()
+                            
+                            val offset = textView.getOffsetForPosition(x.toFloat(), y.toFloat())
+                            val urlSpans = spannedText.getSpans(offset, offset, android.text.style.URLSpan::class.java)
+                            
+                            // If there are URL spans, let TextView handle it
+                            if (urlSpans.isNotEmpty()) {
+                                false // Let TextView handle the click
+                            } else {
+                                // No URL spans, delegate to parent by performing click
+                                itemView.performClick()
+                                true // We handled the click
+                            }
+                        } else {
+                            false // Let TextView handle other events
+                        }
+                    }
                 }
             } else {
                 contentTextView.text = ""
+                // Clear any movement method and touch listener for empty content
+                contentTextView.movementMethod = null
+                contentTextView.setOnTouchListener(null)
             }
 
             // Handle voice notes if present

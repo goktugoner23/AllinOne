@@ -493,52 +493,48 @@ class FirebaseManager(private val context: Context? = null) {
     }
 
     // Tasks
-    suspend fun saveTask(task: com.example.allinone.data.Task): Boolean {
-        try {
-            Log.d(TAG, "Starting to save task with ID: ${task.id}, deviceId: $deviceId")
-
-            val taskMap = hashMapOf(
-                "id" to task.id,
-                "description" to task.description,
-                "completed" to task.completed,
-                "date" to task.date,
-                "deviceId" to deviceId
-            )
-
-            Log.d(TAG, "Setting task document with ID: ${task.id}")
-
-            // Use a task with timeout
-            val firestoreTask = tasksCollection.document(task.id.toString()).set(taskMap)
-            com.google.android.gms.tasks.Tasks.await(firestoreTask, 15, TimeUnit.SECONDS)
-
-            return true
-        } catch (e: Exception) {
-            Log.e(TAG, "Error saving task: ${e.message}", e)
-            return false
-        }
-    }
-
     suspend fun getTasks(): List<com.example.allinone.data.Task> {
         return withContext(Dispatchers.IO) {
             try {
                 val snapshot = tasksCollection.whereEqualTo("deviceId", deviceId).get().await()
                 snapshot.documents.mapNotNull { doc ->
                     val id = doc.getLong("id") ?: return@mapNotNull null
-                    val description = doc.getString("description") ?: ""
+                    val name = doc.getString("name") ?: ""
+                    val description = doc.getString("description")
                     val completed = doc.getBoolean("completed") ?: false
                     val date = doc.getDate("date") ?: Date()
+                    val dueDate = doc.getDate("dueDate")
 
                     com.example.allinone.data.Task(
                         id = id,
+                        name = name,
                         description = description,
                         completed = completed,
-                        date = date
+                        date = date,
+                        dueDate = dueDate
                     )
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error fetching tasks: ${e.message}", e)
                 emptyList()
             }
+        }
+    }
+
+    suspend fun saveTask(task: com.example.allinone.data.Task) {
+        try {
+            val taskMap = mapOf(
+                "id" to task.id,
+                "name" to task.name,
+                "description" to task.description,
+                "completed" to task.completed,
+                "date" to task.date,
+                "dueDate" to task.dueDate,
+                "deviceId" to deviceId
+            )
+            tasksCollection.document(task.id.toString()).set(taskMap).await()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error saving task: ${e.message}", e)
         }
     }
 

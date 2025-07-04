@@ -45,3 +45,18 @@
 -keepclassmembers,allowobfuscation class * {
   @com.google.gson.annotations.SerializedName <fields>;
 }
+
+# SLF4J rules - suppress warnings for missing implementation classes
+-dontwarn org.slf4j.**
+-dontwarn org.slf4j.impl.**
+-keep class org.slf4j.** { *; }
+
+# WebSocket library rules
+-dontwarn org.java_websocket.**
+-keep class org.java_websocket.** { *; }
+
+# OkHttp and Retrofit rules
+-dontwarn okhttp3.**
+-dontwarn retrofit2.**
+-keep class okhttp3.** { *; }
+-keep class retrofit2.** { *; }

@@ -594,7 +594,11 @@ class EditNoteActivity : AppCompatActivity() {
             val start = match.range.first
             val end = match.range.last + 1
             val checkbox = match.value
-            
+
+            // Remove any existing RelativeSizeSpan from this range
+            val sizeSpans = editable.getSpans(start, end, RelativeSizeSpan::class.java)
+            sizeSpans.forEach { editable.removeSpan(it) }
+
             // Apply green color for checked checkboxes and make them bigger
             if (checkbox == "☑") {
                 val greenColor = getColor(android.R.color.holo_green_dark)
@@ -606,7 +610,7 @@ class EditNoteActivity : AppCompatActivity() {
                 )
             }
             
-            // Make all checkboxes bigger
+            // Make all checkboxes bigger (only once)
             editable.setSpan(
                 RelativeSizeSpan(1.3f),
                 start,

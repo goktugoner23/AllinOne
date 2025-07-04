@@ -118,19 +118,51 @@ class TasksFragment : Fragment() {
     }
 
     private fun showAddTaskDialog() {
-        val editText = EditText(requireContext()).apply {
-            hint = getString(R.string.task_description)
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_add_task, null)
+        val nameInput = dialogView.findViewById<android.widget.EditText>(R.id.taskNameInput)
+        val descInput = dialogView.findViewById<android.widget.EditText>(R.id.taskDescriptionInput)
+        val dueDateText = dialogView.findViewById<android.widget.TextView>(R.id.dueDateText)
+        val pickDueDateButton = dialogView.findViewById<android.widget.Button>(R.id.pickDueDateButton)
+        val clearDueDateButton = dialogView.findViewById<android.widget.Button>(R.id.clearDueDateButton)
+
+        var dueDate: java.util.Date? = null
+
+        fun updateDueDateText() {
+            dueDateText.text = dueDate?.let {
+                java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(it)
+            } ?: getString(R.string.not_set)
+        }
+        updateDueDateText()
+
+        pickDueDateButton.setOnClickListener {
+            val now = java.util.Calendar.getInstance()
+            val datePicker = android.app.DatePickerDialog(requireContext(), { _, year, month, dayOfMonth ->
+                val timePicker = android.app.TimePickerDialog(requireContext(), { _, hour, minute ->
+                    val cal = java.util.Calendar.getInstance()
+                    cal.set(year, month, dayOfMonth, hour, minute, 0)
+                    dueDate = cal.time
+                    updateDueDateText()
+                }, now.get(java.util.Calendar.HOUR_OF_DAY), now.get(java.util.Calendar.MINUTE), true)
+                timePicker.show()
+            }, now.get(java.util.Calendar.YEAR), now.get(java.util.Calendar.MONTH), now.get(java.util.Calendar.DAY_OF_MONTH))
+            datePicker.show()
+        }
+        clearDueDateButton.setOnClickListener {
+            dueDate = null
+            updateDueDateText()
         }
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(getString(R.string.new_task))
-            .setMessage(getString(R.string.enter_task_description))
-            .setView(editText)
+            .setView(dialogView)
             .setPositiveButton(getString(R.string.add_task)) { _, _ ->
-                val description = editText.text.toString().trim()
-                if (description.isNotEmpty()) {
-                    viewModel.addTask(description)
+                val name = nameInput.text.toString().trim()
+                val description = descInput.text.toString().trim().ifEmpty { null }
+                if (name.isNotEmpty()) {
+                    viewModel.addTask(name, description, dueDate)
                     Toast.makeText(requireContext(), getString(R.string.task_added), Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(requireContext(), getString(R.string.please_enter_title), Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton(getString(R.string.cancel), null)
@@ -138,19 +170,53 @@ class TasksFragment : Fragment() {
     }
 
     private fun showEditTaskDialog(task: Task) {
-        val editText = EditText(requireContext()).apply {
-            setText(task.description)
-            hint = getString(R.string.task_description)
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_add_task, null)
+        val nameInput = dialogView.findViewById<android.widget.EditText>(R.id.taskNameInput)
+        val descInput = dialogView.findViewById<android.widget.EditText>(R.id.taskDescriptionInput)
+        val dueDateText = dialogView.findViewById<android.widget.TextView>(R.id.dueDateText)
+        val pickDueDateButton = dialogView.findViewById<android.widget.Button>(R.id.pickDueDateButton)
+        val clearDueDateButton = dialogView.findViewById<android.widget.Button>(R.id.clearDueDateButton)
+        nameInput.setText(task.name)
+        descInput.setText(task.description ?: "")
+
+        var dueDate: java.util.Date? = task.dueDate
+        fun updateDueDateText() {
+            dueDateText.text = dueDate?.let {
+                java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(it)
+            } ?: getString(R.string.not_set)
+        }
+        updateDueDateText()
+
+        pickDueDateButton.setOnClickListener {
+            val calInit = java.util.Calendar.getInstance()
+            if (dueDate != null) calInit.time = dueDate!!
+            val datePicker = android.app.DatePickerDialog(requireContext(), { _, year, month, dayOfMonth ->
+                val timePicker = android.app.TimePickerDialog(requireContext(), { _, hour, minute ->
+                    val cal = java.util.Calendar.getInstance()
+                    cal.set(year, month, dayOfMonth, hour, minute, 0)
+                    dueDate = cal.time
+                    updateDueDateText()
+                }, calInit.get(java.util.Calendar.HOUR_OF_DAY), calInit.get(java.util.Calendar.MINUTE), true)
+                timePicker.show()
+            }, calInit.get(java.util.Calendar.YEAR), calInit.get(java.util.Calendar.MONTH), calInit.get(java.util.Calendar.DAY_OF_MONTH))
+            datePicker.show()
+        }
+        clearDueDateButton.setOnClickListener {
+            dueDate = null
+            updateDueDateText()
         }
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(getString(R.string.edit_task))
-            .setView(editText)
+            .setView(dialogView)
             .setPositiveButton(getString(R.string.save)) { _, _ ->
-                val description = editText.text.toString().trim()
-                if (description.isNotEmpty()) {
-                    viewModel.editTask(task, description)
+                val name = nameInput.text.toString().trim()
+                val description = descInput.text.toString().trim().ifEmpty { null }
+                if (name.isNotEmpty()) {
+                    viewModel.editTask(task, name, description, dueDate)
                     Toast.makeText(requireContext(), getString(R.string.task_updated), Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(requireContext(), getString(R.string.please_enter_title), Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton(getString(R.string.cancel), null)

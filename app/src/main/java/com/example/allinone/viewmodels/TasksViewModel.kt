@@ -39,13 +39,15 @@ class TasksViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Add a new task
      */
-    fun addTask(description: String) = viewModelScope.launch {
+    fun addTask(name: String, description: String?, dueDate: Date?) = viewModelScope.launch {
         val newId = idManager.getNextId("tasks")
         val task = Task(
             id = newId,
+            name = name,
             description = description,
             completed = false,
-            date = Date()
+            date = Date(),
+            dueDate = dueDate
         )
         repository.insertTask(task)
     }
@@ -59,10 +61,10 @@ class TasksViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     /**
-     * Update task description
+     * Update task name and description
      */
-    fun editTask(task: Task, newDescription: String) = viewModelScope.launch {
-        val updatedTask = task.copy(description = newDescription)
+    fun editTask(task: Task, newName: String, newDescription: String?, newDueDate: Date?) = viewModelScope.launch {
+        val updatedTask = task.copy(name = newName, description = newDescription, dueDate = newDueDate)
         repository.updateTask(updatedTask)
     }
     

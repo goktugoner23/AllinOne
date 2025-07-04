@@ -307,4 +307,10 @@
 
     <!-- Image Viewer -->
     <string name="image_counter">%1$d/%2$d</string>
+
+    <!-- New string from the code block -->
+    <string name="task_name">Task name</string>
+
+    <!-- New string from the code block -->
+    <string name="not_set">Not set</string>
 </resources>

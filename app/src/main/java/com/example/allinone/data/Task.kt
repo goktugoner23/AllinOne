@@ -4,7 +4,9 @@ import java.util.Date
 
 data class Task(
     val id: Long = 0,
-    val description: String,
+    val name: String,
+    val description: String? = null,
     val completed: Boolean = false,
-    val date: Date = Date()  // Creation or due date
+    val date: Date = Date(),  // Creation or due date
+    val dueDate: Date? = null // Optional due date
 ) 

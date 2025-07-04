@@ -52,11 +52,36 @@ class TasksAdapter(
         }
         
         fun bind(task: Task) {
-            // Set task description
-            binding.taskDescription.text = task.description
+            // Set task name and description
+            binding.taskDescription.text = task.name
+            binding.taskDescription.setTypeface(null, android.graphics.Typeface.BOLD)
+            if (!task.description.isNullOrBlank()) {
+                binding.taskDescription.append("\n" + task.description)
+                binding.taskDescription.setTypeface(null, android.graphics.Typeface.NORMAL)
+            }
+
+            // Show due date if set
+            if (task.dueDate != null) {
+                binding.taskDescription.append("\nDue: " + java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(task.dueDate))
+            }
             
             // Set checkbox state
             binding.taskCheckbox.isChecked = task.completed
+            
+            // Make card red if due today
+            if (task.dueDate != null) {
+                val now = java.util.Calendar.getInstance()
+                val due = java.util.Calendar.getInstance().apply { time = task.dueDate }
+                val sameDay = now.get(java.util.Calendar.YEAR) == due.get(java.util.Calendar.YEAR) &&
+                        now.get(java.util.Calendar.DAY_OF_YEAR) == due.get(java.util.Calendar.DAY_OF_YEAR)
+                if (sameDay) {
+                    binding.root.setCardBackgroundColor(android.graphics.Color.RED)
+                } else {
+                    binding.root.setCardBackgroundColor(android.graphics.Color.WHITE)
+                }
+            } else {
+                binding.root.setCardBackgroundColor(android.graphics.Color.WHITE)
+            }
             
             // Apply styling based on completion status
             if (task.completed) {
