@@ -26,7 +26,7 @@ class NoteLocalDataSourceImpl @Inject constructor(
         return try {
             noteDao.getAllNotes().map { entities ->
                 entities.map { it.toNote() }
-            }.let { flow ->
+            }.let { _ ->
                 // For immediate use, we'd need to collect from Flow
                 // This is a simplified approach - in practice, use Flow
                 emptyList()

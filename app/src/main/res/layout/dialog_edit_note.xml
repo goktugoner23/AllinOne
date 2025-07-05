@@ -99,19 +99,13 @@
         </HorizontalScrollView>
 
         <!-- Rich Text Editor -->
-        <EditText
+        <jp.wasabeef.richeditor.RichEditor
             android:id="@+id/editNoteContent"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="200dp"
             android:layout_marginTop="8dp"
             android:background="@android:color/transparent"
-            android:gravity="top|start"
-            android:hint="Note content"
-            android:inputType="textMultiLine"
-            android:minHeight="200dp"
-            android:padding="8dp"
-            android:scrollbars="vertical"
-            android:textSize="16sp" />
+            android:padding="8dp" />
 
         <!-- Image Attachments -->
         <TextView

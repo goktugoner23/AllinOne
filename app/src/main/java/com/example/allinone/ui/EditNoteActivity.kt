@@ -4,8 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.text.Html
 import android.util.Log
+import jp.wasabeef.richeditor.RichEditor
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -58,14 +58,7 @@ import java.util.Locale
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import android.text.Spannable
-import android.text.SpannableString
-import android.text.style.ClickableSpan
-import android.text.style.ForegroundColorSpan
-import android.text.TextWatcher
-import android.text.Editable
-import android.view.MotionEvent
-import android.text.style.RelativeSizeSpan
+// Removed EditText-specific imports - RichEditor handles formatting internally
 
 class EditNoteActivity : AppCompatActivity() {
 
@@ -389,231 +382,46 @@ class EditNoteActivity : AppCompatActivity() {
     }
 
     private fun setupRichTextEditor() {
-        // Simplified setup - disable all formatting for now
+        // Configure the RichEditor
+        binding.editNoteContent.setEditorHeight(300)
+        binding.editNoteContent.setEditorFontSize(16)
+        binding.editNoteContent.setPlaceholder("Write your note here...")
+        
+        // Set up text change listener for content updates
+        binding.editNoteContent.setOnTextChangeListener { text ->
+            // Content changed - we can use this for auto-save or validation
+            Log.d(TAG, "Content changed: ${text.length} characters")
+        }
+
+        // Rich text formatting buttons with RichEditor API
         binding.boldButton.setOnClickListener {
-            Toast.makeText(this, "Rich text formatting disabled", Toast.LENGTH_SHORT).show()
+            binding.editNoteContent.setBold()
         }
 
         binding.italicButton.setOnClickListener {
-            Toast.makeText(this, "Rich text formatting disabled", Toast.LENGTH_SHORT).show()
+            binding.editNoteContent.setItalic()
         }
 
         binding.underlineButton.setOnClickListener {
-            Toast.makeText(this, "Rich text formatting disabled", Toast.LENGTH_SHORT).show()
+            binding.editNoteContent.setUnderline()
         }
 
         binding.bulletListButton.setOnClickListener {
-            Toast.makeText(this, "Rich text formatting disabled", Toast.LENGTH_SHORT).show()
+            binding.editNoteContent.setBullets()
         }
 
         binding.checkboxListButton.setOnClickListener {
-            Toast.makeText(this, "Rich text formatting disabled", Toast.LENGTH_SHORT).show()
+            // Insert checkbox manually since RichEditor doesn't have built-in checkbox
+            binding.editNoteContent.insertTodo()
         }
 
         // Setup drawing button
         binding.drawingButton?.setOnClickListener {
             openDrawingActivity()
         }
-        
-        // Setup clickable elements in editor
-        setupClickableElements()
     }
 
-    // Removed insertBulletList method - rich text formatting disabled
-
-    // Removed insertCheckboxList method - rich text formatting disabled
-
-    private fun setupClickableElements() {
-        // Add text change listener to make checkboxes and links clickable
-        binding.editNoteContent.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                s?.let { 
-                    makeCheckboxesClickableInEditor(it)
-                    makeLinksClickableInEditor(it)
-                }
-            }
-        })
-        
-        // Set up touch listener to handle checkbox and link clicks
-        binding.editNoteContent.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_DOWN) {
-                val x = event.x
-                val y = event.y
-                
-                val layout = binding.editNoteContent.layout ?: return@setOnTouchListener false
-                val line = layout.getLineForVertical(y.toInt())
-                val offset = layout.getOffsetForHorizontal(line, x)
-                val text = binding.editNoteContent.text?.toString() ?: ""
-                
-                // Check if the touched position is on a checkbox
-                if (offset < text.length && (text[offset] == '☐' || text[offset] == '☑')) {
-                    toggleCheckboxInEditor(offset)
-                    return@setOnTouchListener true
-                }
-                
-                // Check if the touched position is on a link
-                val linkPosition = findLinkAtPosition(text, offset)
-                if (linkPosition != null) {
-                    val link = text.substring(linkPosition.first, linkPosition.second)
-                    openLinkFromEditor(link)
-                    return@setOnTouchListener true
-                }
-            }
-            false
-        }
-    }
-    
-    private fun makeCheckboxesClickableInEditor(editable: Editable) {
-        // Remove existing spans to avoid duplicates
-        val spans = editable.getSpans(0, editable.length, ForegroundColorSpan::class.java)
-        spans.forEach { editable.removeSpan(it) }
-        
-        val text = editable.toString()
-        val checkboxPattern = "[☐☑]".toRegex()
-        val matches = checkboxPattern.findAll(text)
-        
-        for (match in matches) {
-            val start = match.range.first
-            val end = match.range.last + 1
-            val checkbox = match.value
-
-            // Remove any existing RelativeSizeSpan from this range
-            val sizeSpans = editable.getSpans(start, end, RelativeSizeSpan::class.java)
-            sizeSpans.forEach { editable.removeSpan(it) }
-
-            // Apply green color for checked checkboxes and make them bigger
-            if (checkbox == "☑") {
-                val greenColor = getColor(android.R.color.holo_green_dark)
-                editable.setSpan(
-                    ForegroundColorSpan(greenColor),
-                    start,
-                    end,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-            }
-            
-            // Make all checkboxes bigger (only once)
-            editable.setSpan(
-                RelativeSizeSpan(1.3f),
-                start,
-                end,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
-    }
-    
-    private fun toggleCheckboxInEditor(position: Int) {
-        try {
-            val text = binding.editNoteContent.text
-            if (text != null && position < text.length) {
-                val currentChar = text[position]
-                val newChar = when (currentChar) {
-                    '☐' -> '☑'
-                    '☑' -> '☐'
-                    else -> return
-                }
-                
-                // Replace the character
-                text.replace(position, position + 1, newChar.toString())
-                
-                // Show feedback
-                Toast.makeText(this, "Checkbox ${if (newChar == '☑') "checked" else "unchecked"}", Toast.LENGTH_SHORT).show()
-            }
-        } catch (e: Exception) {
-            Log.e("EditNoteActivity", "Error toggling checkbox: ${e.message}", e)
-        }
-    }
-
-    private fun makeLinksClickableInEditor(editable: Editable) {
-        // Remove existing link spans to avoid duplicates
-        val linkSpans = editable.getSpans(0, editable.length, ForegroundColorSpan::class.java)
-        linkSpans.forEach { span ->
-            // Only remove blue colored spans (which are our links)
-            if (span.foregroundColor == getColor(android.R.color.holo_blue_dark)) {
-                editable.removeSpan(span)
-            }
-        }
-        
-        val text = editable.toString()
-        
-        // Pattern for URLs (http, https, www) - simplified
-        val urlPattern = "(?i)\\b(?:https?://|www\\.|[a-z0-9.-]+\\.com|[a-z0-9.-]+\\.org|[a-z0-9.-]+\\.net)[^\\s]*".toRegex()
-        
-        // Pattern for email addresses
-        val emailPattern = "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}".toRegex()
-        
-        // Find and style URLs
-        val urlMatches = urlPattern.findAll(text)
-        for (match in urlMatches) {
-            val start = match.range.first
-            val end = match.range.last + 1
-            
-            // Apply blue color and underline for links
-            val blueColor = getColor(android.R.color.holo_blue_dark)
-            editable.setSpan(
-                ForegroundColorSpan(blueColor),
-                start,
-                end,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-            editable.setSpan(
-                android.text.style.UnderlineSpan(),
-                start,
-                end,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
-        
-        // Find and style email addresses
-        val emailMatches = emailPattern.findAll(text)
-        for (match in emailMatches) {
-            val start = match.range.first
-            val end = match.range.last + 1
-            
-            // Apply blue color and underline for email links
-            val blueColor = getColor(android.R.color.holo_blue_dark)
-            editable.setSpan(
-                ForegroundColorSpan(blueColor),
-                start,
-                end,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-            editable.setSpan(
-                android.text.style.UnderlineSpan(),
-                start,
-                end,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
-    }
-    
-    private fun findLinkAtPosition(text: String, position: Int): Pair<Int, Int>? {
-        // Pattern for URLs (http, https, www) - simplified
-        val urlPattern = "(?i)\\b(?:https?://|www\\.|[a-z0-9.-]+\\.com|[a-z0-9.-]+\\.org|[a-z0-9.-]+\\.net)[^\\s]*".toRegex()
-        
-        // Pattern for email addresses
-        val emailPattern = "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}".toRegex()
-        
-        // Check URLs
-        val urlMatches = urlPattern.findAll(text)
-        for (match in urlMatches) {
-            if (position >= match.range.first && position <= match.range.last) {
-                return Pair(match.range.first, match.range.last + 1)
-            }
-        }
-        
-        // Check email addresses
-        val emailMatches = emailPattern.findAll(text)
-        for (match in emailMatches) {
-            if (position >= match.range.first && position <= match.range.last) {
-                return Pair(match.range.first, match.range.last + 1)
-            }
-        }
-        
-        return null
-    }
+    // RichEditor handles formatting internally - no need for manual setup
     
     private fun openLinkFromEditor(link: String) {
         try {
@@ -947,7 +755,7 @@ class EditNoteActivity : AppCompatActivity() {
                                 // For new notes, we need to immediately save the note to Firestore
                                 // to ensure the voice note URL is properly stored
                                 val title = binding.editNoteTitle.text.toString().trim()
-                                val content = binding.editNoteContent.text?.toString() ?: ""
+                                val content = binding.editNoteContent.html ?: ""
 
                                 if (title.isNotEmpty()) {
                                     // Get all voice note URLs
@@ -1128,7 +936,7 @@ class EditNoteActivity : AppCompatActivity() {
                 note?.let { foundNote ->
                     // Pre-fill the form
                     binding.editNoteTitle.setText(foundNote.title)
-                    binding.editNoteContent.setText(foundNote.content)
+                    binding.editNoteContent.html = foundNote.content
 
                     // Load images
                     selectedImages.clear()
@@ -1221,7 +1029,7 @@ class EditNoteActivity : AppCompatActivity() {
 
     private fun saveNote() {
         val title = binding.editNoteTitle.text.toString().trim()
-        val content = binding.editNoteContent.text?.toString() ?: ""
+        val content = binding.editNoteContent.html ?: ""
 
         if (title.isBlank()) {
             Toast.makeText(this, getString(R.string.please_enter_title), Toast.LENGTH_SHORT).show()

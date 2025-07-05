@@ -40,7 +40,7 @@ class InvestmentsTabFragment : Fragment() {
     private val selectedImages = mutableListOf<Uri>()
 
     private val getContent = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
-        uris?.let { selectedUris ->
+        uris.let { selectedUris ->
             selectedUris.forEach { uri ->
                 try {
                     // Take persistable permission for the URI

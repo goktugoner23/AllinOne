@@ -230,10 +230,8 @@ dependencies {
     // Charts for data visualization
     implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
 
-    // Modern rich text editor (replaced KnifeText)
-    implementation 'io.noties.markwon:core:4.6.2'
-    implementation 'io.noties.markwon:editor:4.6.2'
-    implementation 'io.noties.markwon:html:4.6.2'
+    // RichEditor for Android - WebView-based WYSIWYG editor
+    implementation 'jp.wasabeef:richeditor-android:2.0.0'
 
     // Networking - Updated for external API integration
     implementation 'com.squareup.retrofit2:retrofit:2.11.0'

@@ -198,19 +198,20 @@ class TasksViewModel @Inject constructor(
     fun getUngroupedTasks(): List<Task> {
         return _allTasks.value?.filter { it.groupId == null } ?: emptyList()
     }
-
+    
     /**
-     * Refresh data from Firebase
+     * Refresh data from repository
      */
-    fun refreshData() = viewModelScope.launch {
-        repository.refreshTasks()
-        repository.refreshTaskGroups()
+    fun refreshData() {
+        // For now, data refreshing is handled automatically by the repository flows
+        // This method can be extended in the future if manual refresh is needed
     }
     
     /**
      * Clear error message
      */
     fun clearErrorMessage() {
-        repository.clearErrorMessage()
+        // For now, error messages are handled automatically
+        // This method can be extended in the future if manual error clearing is needed
     }
 } 

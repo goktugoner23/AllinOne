@@ -65,7 +65,7 @@ class RoomCacheManager @Inject constructor(
             // In a real scenario, you'd observe the Flow
             entities.map { entityList ->
                 entityList.map { it.toTransaction() }
-            }.let { flow ->
+            }.let { _ ->
                 // For now, return empty list as we need to handle Flow properly
                 emptyList()
             }
@@ -88,7 +88,7 @@ class RoomCacheManager @Inject constructor(
         return try {
             transactionDao.getTransactionsByType(isIncome).map { entities ->
                 entities.map { it.toTransaction() }
-            }.let { flow ->
+            }.let { _ ->
                 // For reactive updates, return Flow instead
                 emptyList()
             }

@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.text.Html
 import android.text.Spanned
 import android.view.LayoutInflater
+import jp.wasabeef.richeditor.RichEditor
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
@@ -43,18 +44,6 @@ import android.widget.TextView
 import androidx.viewpager2.widget.ViewPager2
 import com.bumptech.glide.Glide
 import android.util.Log
-import android.text.Spannable
-import android.text.SpannableString
-import android.text.style.ClickableSpan
-import android.text.style.ForegroundColorSpan
-import android.text.TextWatcher
-import android.text.Editable
-import android.view.MotionEvent
-import android.text.style.RelativeSizeSpan
-
-// Extension property to get HTML content from EditText (simplified)
-val EditText.html: String
-    get() = this.text.toString()
 
 class NotesFragment : Fragment() {
 
@@ -68,7 +57,7 @@ class NotesFragment : Fragment() {
     private var allNotes: List<Note> = emptyList()
 
     private val getContent = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
-        uris?.let { selectedUris ->
+        uris.let { selectedUris ->
             selectedUris.forEach { uri ->
                 try {
                     // Take persistable permission for the URI
@@ -332,30 +321,30 @@ class NotesFragment : Fragment() {
     }
 
     private fun setupRichTextEditor(dialogBinding: DialogEditNoteBinding) {
-        // Setup formatting buttons - simplified for standard EditText
+        // Configure the RichEditor
+        dialogBinding.editNoteContent.setEditorHeight(200)
+        dialogBinding.editNoteContent.setEditorFontSize(16)
+        dialogBinding.editNoteContent.setPlaceholder("Write your note here...")
+        
+        // Setup formatting buttons with RichEditor API
         dialogBinding.boldButton.setOnClickListener {
-            // Bold formatting disabled for now - can be implemented with SpannableString if needed
-            Toast.makeText(requireContext(), "Bold formatting", Toast.LENGTH_SHORT).show()
+            dialogBinding.editNoteContent.setBold()
         }
 
         dialogBinding.italicButton.setOnClickListener {
-            // Italic formatting disabled for now - can be implemented with SpannableString if needed
-            Toast.makeText(requireContext(), "Italic formatting", Toast.LENGTH_SHORT).show()
+            dialogBinding.editNoteContent.setItalic()
         }
 
         dialogBinding.underlineButton.setOnClickListener {
-            // Underline formatting disabled for now - can be implemented with SpannableString if needed
-            Toast.makeText(requireContext(), "Underline formatting", Toast.LENGTH_SHORT).show()
+            dialogBinding.editNoteContent.setUnderline()
         }
 
         dialogBinding.bulletListButton.setOnClickListener {
-            // Bullet list formatting - simplified
-            insertBulletListInDialog(dialogBinding.editNoteContent)
+            dialogBinding.editNoteContent.setBullets()
         }
 
         dialogBinding.checkboxListButton.setOnClickListener {
-            // Apply checkbox list formatting
-            insertCheckboxListInDialog(dialogBinding.editNoteContent)
+            dialogBinding.editNoteContent.insertTodo()
         }
 
         dialogBinding.addImageButton.setOnClickListener {
@@ -363,338 +352,9 @@ class NotesFragment : Fragment() {
             // Different from attachments which are shown separately
             getContent.launch("image/*")
         }
-        
-        // Setup clickable elements in dialog editor
-        setupClickableElementsInDialog(dialogBinding)
     }
 
-    private fun insertBulletListInDialog(editor: EditText) {
-        try {
-            val start = editor.selectionStart
-            val end = editor.selectionEnd
-            
-            if (start != end) {
-                val selectedText = editor.text.toString().substring(start, end)
-                val lines = selectedText.split("\n")
-                val builder = StringBuilder()
-                
-                for (line in lines) {
-                    builder.append("• $line\n")
-                }
-                
-                editor.text.replace(start, end, builder.toString())
-                editor.setSelection(start + builder.length)
-            } else {
-                val text = editor.text.toString()
-                var lineStart = start
-                while (lineStart > 0 && text[lineStart - 1] != '\n') {
-                    lineStart--
-                }
-                
-                var lineEnd = start
-                while (lineEnd < text.length && text[lineEnd] != '\n') {
-                    lineEnd++
-                }
-                
-                val line = text.substring(lineStart, lineEnd)
-                val bulleted = "• $line"
-                editor.text.replace(lineStart, lineEnd, bulleted)
-                editor.setSelection(lineStart + bulleted.length)
-            }
-        } catch (e: Exception) {
-            Log.e("NotesFragment", "Error applying bullet list: ${e.message}", e)
-            Toast.makeText(requireContext(), "Error formatting text", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun insertCheckboxListInDialog(editor: EditText) {
-        // Simplified checkbox list implementation
-        try {
-            val selectionStart = editor.selectionStart
-            val selectionEnd = editor.selectionEnd
-            val text = editor.text.toString()
-
-            // If text is selected, apply to each line
-            if (selectionStart != selectionEnd) {
-                val selectedText = text.substring(selectionStart, selectionEnd)
-                val lines = selectedText.split("\n")
-                val builder = StringBuilder()
-
-                for (line in lines) {
-                    if (line.isNotEmpty()) {
-                        builder.append("☐ $line\n")
-                    }
-                }
-
-                // Replace the selected text with checkbox lines
-                editor.text.replace(selectionStart, selectionEnd, builder.toString())
-                editor.setSelection(selectionStart + builder.length)
-            } else {
-                // If no selection, apply to current line
-                // Find the beginning of the current line
-                var lineStart = selectionStart
-                while (lineStart > 0 && text[lineStart - 1] != '\n') {
-                    lineStart--
-                }
-
-                // Find the end of the current line
-                var lineEnd = selectionStart
-                while (lineEnd < text.length && text[lineEnd] != '\n') {
-                    lineEnd++
-                }
-
-                // Check if the line already has a checkbox
-                val line = text.substring(lineStart, lineEnd)
-                val checkboxPattern = "^[☐☑]\\s".toRegex()
-
-                if (checkboxPattern.containsMatchIn(line)) {
-                    // Toggle checkbox state
-                    val toggledLine = when {
-                        line.startsWith("☐ ") -> line.replace("☐ ", "☑ ")
-                        line.startsWith("☑ ") -> line.replace("☑ ", "☐ ")
-                        else -> line
-                    }
-                    editor.text.replace(lineStart, lineEnd, toggledLine)
-                    editor.setSelection(lineStart + toggledLine.length)
-                } else {
-                    // Add a checkbox to the line
-                    val checkboxLine = "☐ $line"
-                    editor.text.replace(lineStart, lineEnd, checkboxLine)
-                    editor.setSelection(lineStart + checkboxLine.length)
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("NotesFragment", "Error applying checkbox list: ${e.message}", e)
-            Toast.makeText(requireContext(), "Error formatting text", Toast.LENGTH_SHORT).show()
-        }
-    }
-    
-    private fun setupClickableElementsInDialog(dialogBinding: DialogEditNoteBinding) {
-        // Add text change listener to make checkboxes and links clickable
-        dialogBinding.editNoteContent.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                s?.let { 
-                    makeCheckboxesClickableInDialogEditor(it)
-                    makeLinksClickableInDialogEditor(it)
-                }
-            }
-        })
-        
-        // Set up touch listener to handle checkbox and link clicks
-        dialogBinding.editNoteContent.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_DOWN) {
-                val x = event.x
-                val y = event.y
-                
-                val layout = dialogBinding.editNoteContent.layout ?: return@setOnTouchListener false
-                val line = layout.getLineForVertical(y.toInt())
-                val offset = layout.getOffsetForHorizontal(line, x)
-                val text = dialogBinding.editNoteContent.text?.toString() ?: ""
-                
-                // Check if the touched position is on a checkbox
-                if (offset < text.length && (text[offset] == '☐' || text[offset] == '☑')) {
-                    toggleCheckboxInDialogEditor(dialogBinding, offset)
-                    return@setOnTouchListener true
-                }
-                
-                // Check if the touched position is on a link
-                val linkPosition = findLinkAtPositionInDialog(text, offset)
-                if (linkPosition != null) {
-                    val link = text.substring(linkPosition.first, linkPosition.second)
-                    openLinkFromDialog(link)
-                    return@setOnTouchListener true
-                }
-            }
-            false
-        }
-    }
-    
-    private fun makeCheckboxesClickableInDialogEditor(editable: Editable) {
-        // Remove existing spans to avoid duplicates
-        val spans = editable.getSpans(0, editable.length, ForegroundColorSpan::class.java)
-        spans.forEach { editable.removeSpan(it) }
-        
-        val text = editable.toString()
-        val checkboxPattern = "[☐☑]".toRegex()
-        val matches = checkboxPattern.findAll(text)
-        
-        for (match in matches) {
-            val start = match.range.first
-            val end = match.range.last + 1
-            val checkbox = match.value
-
-            // Remove any existing RelativeSizeSpan from this range
-            val sizeSpans = editable.getSpans(start, end, android.text.style.RelativeSizeSpan::class.java)
-            sizeSpans.forEach { editable.removeSpan(it) }
-
-            // Apply green color for checked checkboxes and make them bigger
-            if (checkbox == "☑") {
-                val greenColor = ContextCompat.getColor(requireContext(), android.R.color.holo_green_dark)
-                editable.setSpan(
-                    ForegroundColorSpan(greenColor),
-                    start,
-                    end,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
-            }
-            
-            // Make all checkboxes bigger (only once)
-            editable.setSpan(
-                android.text.style.RelativeSizeSpan(1.3f),
-                start,
-                end,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
-    }
-    
-    private fun toggleCheckboxInDialogEditor(dialogBinding: DialogEditNoteBinding, position: Int) {
-        try {
-            val text = dialogBinding.editNoteContent.text
-            if (text != null && position < text.length) {
-                val currentChar = text[position]
-                val newChar = when (currentChar) {
-                    '☐' -> '☑'
-                    '☑' -> '☐'
-                    else -> return
-                }
-                
-                // Replace the character
-                text.replace(position, position + 1, newChar.toString())
-                
-                // Show feedback
-                Toast.makeText(requireContext(), "Checkbox ${if (newChar == '☑') "checked" else "unchecked"}", Toast.LENGTH_SHORT).show()
-            }
-        } catch (e: Exception) {
-            Log.e("NotesFragment", "Error toggling checkbox: ${e.message}", e)
-        }
-    }
-
-    private fun makeLinksClickableInDialogEditor(editable: Editable) {
-        // Remove existing link spans to avoid duplicates
-        val linkSpans = editable.getSpans(0, editable.length, ForegroundColorSpan::class.java)
-        linkSpans.forEach { span ->
-            // Only remove blue colored spans (which are our links)
-            if (span.foregroundColor == ContextCompat.getColor(requireContext(), android.R.color.holo_blue_dark)) {
-                editable.removeSpan(span)
-            }
-        }
-        
-        val text = editable.toString()
-        
-        // Pattern for URLs (http, https, www) - simplified
-        val urlPattern = "(?i)\\b(?:https?://|www\\.|[a-z0-9.-]+\\.com|[a-z0-9.-]+\\.org|[a-z0-9.-]+\\.net)[^\\s]*".toRegex()
-        
-        // Pattern for email addresses
-        val emailPattern = "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}".toRegex()
-        
-        // Find and style URLs
-        val urlMatches = urlPattern.findAll(text)
-        for (match in urlMatches) {
-            val start = match.range.first
-            val end = match.range.last + 1
-            
-            // Apply blue color and underline for links
-            val blueColor = ContextCompat.getColor(requireContext(), android.R.color.holo_blue_dark)
-            editable.setSpan(
-                ForegroundColorSpan(blueColor),
-                start,
-                end,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-            editable.setSpan(
-                android.text.style.UnderlineSpan(),
-                start,
-                end,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
-        
-        // Find and style email addresses
-        val emailMatches = emailPattern.findAll(text)
-        for (match in emailMatches) {
-            val start = match.range.first
-            val end = match.range.last + 1
-            
-            // Apply blue color and underline for email links
-            val blueColor = ContextCompat.getColor(requireContext(), android.R.color.holo_blue_dark)
-            editable.setSpan(
-                ForegroundColorSpan(blueColor),
-                start,
-                end,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-            editable.setSpan(
-                android.text.style.UnderlineSpan(),
-                start,
-                end,
-                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
-    }
-    
-    private fun findLinkAtPositionInDialog(text: String, position: Int): Pair<Int, Int>? {
-        // Pattern for URLs (http, https, www) - simplified
-        val urlPattern = "(?i)\\b(?:https?://|www\\.|[a-z0-9.-]+\\.com|[a-z0-9.-]+\\.org|[a-z0-9.-]+\\.net)[^\\s]*".toRegex()
-        
-        // Pattern for email addresses
-        val emailPattern = "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}".toRegex()
-        
-        // Check URLs
-        val urlMatches = urlPattern.findAll(text)
-        for (match in urlMatches) {
-            if (position >= match.range.first && position <= match.range.last) {
-                return Pair(match.range.first, match.range.last + 1)
-            }
-        }
-        
-        // Check email addresses
-        val emailMatches = emailPattern.findAll(text)
-        for (match in emailMatches) {
-            if (position >= match.range.first && position <= match.range.last) {
-                return Pair(match.range.first, match.range.last + 1)
-            }
-        }
-        
-        return null
-    }
-    
-    private fun openLinkFromDialog(link: String) {
-        try {
-            // Check if it's an email address
-            val emailPattern = "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}".toRegex()
-            if (emailPattern.matches(link)) {
-                // Open email client
-                val intent = Intent(Intent.ACTION_SENDTO).apply {
-                    data = Uri.parse("mailto:$link")
-                }
-                if (intent.resolveActivity(requireContext().packageManager) != null) {
-                    startActivity(intent)
-                } else {
-                    Toast.makeText(requireContext(), "No email app found", Toast.LENGTH_SHORT).show()
-                }
-            } else {
-                // Open web browser
-                val formattedUrl = if (!link.startsWith("http://") && !link.startsWith("https://")) {
-                    "http://$link"
-                } else {
-                    link
-                }
-                
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(formattedUrl))
-                if (intent.resolveActivity(requireContext().packageManager) != null) {
-                    startActivity(intent)
-                } else {
-                    Toast.makeText(requireContext(), "No browser found to open link", Toast.LENGTH_SHORT).show()
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("NotesFragment", "Error opening link: ${e.message}", e)
-            Toast.makeText(requireContext(), "Error opening link", Toast.LENGTH_SHORT).show()
-        }
-    }
+    // RichEditor handles formatting internally - no need for manual methods
 
     private fun showDeleteConfirmation(note: Note) {
         MaterialAlertDialogBuilder(requireContext())

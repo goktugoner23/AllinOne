@@ -14,8 +14,8 @@ import android.widget.Spinner
 import android.widget.Toast
 import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.allinone.R
 import com.example.allinone.adapters.TasksAdapter
@@ -26,13 +26,15 @@ import com.example.allinone.databinding.FragmentTasksBinding
 import com.example.allinone.ui.dialogs.TaskGroupDialogManager
 import com.example.allinone.viewmodels.TasksViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class TasksFragment : Fragment() {
 
     private var _binding: FragmentTasksBinding? = null
     private val binding get() = _binding!!
 
-    private lateinit var viewModel: TasksViewModel
+    private val viewModel: TasksViewModel by viewModels()
     private lateinit var tasksAdapter: TasksAdapter
     private lateinit var groupedTasksAdapter: GroupedTasksAdapter
     private lateinit var taskGroupDialogManager: TaskGroupDialogManager
@@ -53,9 +55,6 @@ class TasksFragment : Fragment() {
 
         // Setup menu provider
         setupMenuProvider()
-
-        // Initialize ViewModel
-        viewModel = ViewModelProvider(this)[TasksViewModel::class.java]
 
         // Initialize TaskGroupDialogManager
         taskGroupDialogManager = TaskGroupDialogManager(requireContext())
