@@ -1,21 +1,24 @@
 package com.example.allinone.viewmodels
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.allinone.data.Task
 import com.example.allinone.data.TaskGroup
 import com.example.allinone.firebase.FirebaseIdManager
 import com.example.allinone.firebase.FirebaseRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.util.Date
+import javax.inject.Inject
 
-class TasksViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class TasksViewModel @Inject constructor(
+    private val repository: FirebaseRepository
+) : ViewModel() {
     
-    private val repository = FirebaseRepository(application)
     private val idManager = FirebaseIdManager()
     
     // LiveData for all tasks

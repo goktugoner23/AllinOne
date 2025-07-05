@@ -25,7 +25,7 @@ import com.example.allinone.databinding.ActivityEditNoteBinding
 import com.example.allinone.firebase.FirebaseStorageUtil
 import com.example.allinone.firebase.FirebaseIdManager
 import com.example.allinone.viewmodels.NotesViewModel
-import io.github.mthli.knife.KnifeText
+import android.widget.EditText
 import java.util.Date
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.app.Dialog
@@ -389,27 +389,25 @@ class EditNoteActivity : AppCompatActivity() {
     }
 
     private fun setupRichTextEditor() {
-        // Setup formatting buttons
+        // Simplified setup - disable all formatting for now
         binding.boldButton.setOnClickListener {
-            binding.editNoteContent.bold(!binding.editNoteContent.contains(KnifeText.FORMAT_BOLD))
+            Toast.makeText(this, "Rich text formatting disabled", Toast.LENGTH_SHORT).show()
         }
 
         binding.italicButton.setOnClickListener {
-            binding.editNoteContent.italic(!binding.editNoteContent.contains(KnifeText.FORMAT_ITALIC))
+            Toast.makeText(this, "Rich text formatting disabled", Toast.LENGTH_SHORT).show()
         }
 
         binding.underlineButton.setOnClickListener {
-            binding.editNoteContent.underline(!binding.editNoteContent.contains(KnifeText.FORMAT_UNDERLINED))
+            Toast.makeText(this, "Rich text formatting disabled", Toast.LENGTH_SHORT).show()
         }
 
         binding.bulletListButton.setOnClickListener {
-            // Apply custom bullet list formatting
-            insertBulletList()
+            Toast.makeText(this, "Rich text formatting disabled", Toast.LENGTH_SHORT).show()
         }
 
         binding.checkboxListButton.setOnClickListener {
-            // For checkbox lists, we'll insert checkboxes
-            insertCheckboxList()
+            Toast.makeText(this, "Rich text formatting disabled", Toast.LENGTH_SHORT).show()
         }
 
         // Setup drawing button
@@ -421,125 +419,9 @@ class EditNoteActivity : AppCompatActivity() {
         setupClickableElements()
     }
 
-    private fun insertBulletList() {
-        try {
-            val editor = binding.editNoteContent
-            val start = editor.selectionStart
-            val end = editor.selectionEnd
+    // Removed insertBulletList method - rich text formatting disabled
 
-            // If text is selected, apply to each line
-            if (start != end) {
-                val selectedText = editor.text.toString().substring(start, end)
-                val lines = selectedText.split("\n")
-                val builder = StringBuilder()
-
-                for (line in lines) {
-                    builder.append("• $line\n")
-                }
-
-                // Replace the selected text with bulleted lines
-                editor.text.replace(start, end, builder.toString())
-                editor.setSelection(start + builder.length)
-            } else {
-                // If no selection, apply to current line
-                val text = editor.text.toString()
-
-                // Find the beginning of the current line
-                var lineStart = start
-                while (lineStart > 0 && text[lineStart - 1] != '\n') {
-                    lineStart--
-                }
-
-                // Find the end of the current line
-                var lineEnd = start
-                while (lineEnd < text.length && text[lineEnd] != '\n') {
-                    lineEnd++
-                }
-
-                // Check if the line already has a bullet
-                val line = text.substring(lineStart, lineEnd)
-                val bulletPattern = "^•\\s*".toRegex()
-
-                if (bulletPattern.containsMatchIn(line)) {
-                    // If already bulleted, remove the bullet
-                    val unbulleted = line.replace(bulletPattern, "")
-                    editor.text.replace(lineStart, lineEnd, unbulleted)
-                    editor.setSelection(lineStart + unbulleted.length)
-                } else {
-                    // Add a bullet to the line
-                    val bulleted = "• $line"
-                    editor.text.replace(lineStart, lineEnd, bulleted)
-                    editor.setSelection(lineStart + bulleted.length)
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("EditNoteActivity", "Error applying bullet list: ${e.message}", e)
-            Toast.makeText(this, "Error formatting text", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun insertCheckboxList() {
-        try {
-            val editor = binding.editNoteContent
-            val start = editor.selectionStart
-            val end = editor.selectionEnd
-
-            // If text is selected, apply to each line
-            if (start != end) {
-                val selectedText = editor.text.toString().substring(start, end)
-                val lines = selectedText.split("\n")
-                val builder = StringBuilder()
-
-                for (line in lines) {
-                    if (line.isNotEmpty()) {
-                        builder.append("☐ $line\n")
-                    }
-                }
-
-                // Replace the selected text with checkbox lines
-                editor.text.replace(start, end, builder.toString())
-                editor.setSelection(start + builder.length)
-            } else {
-                // If no selection, apply to current line
-                val text = editor.text.toString()
-
-                // Find the beginning of the current line
-                var lineStart = start
-                while (lineStart > 0 && text[lineStart - 1] != '\n') {
-                    lineStart--
-                }
-
-                // Find the end of the current line
-                var lineEnd = start
-                while (lineEnd < text.length && text[lineEnd] != '\n') {
-                    lineEnd++
-                }
-
-                // Check if the line already has a checkbox
-                val line = text.substring(lineStart, lineEnd)
-                val checkboxPattern = "^[☐☑]\\s".toRegex()
-
-                if (checkboxPattern.containsMatchIn(line)) {
-                    // Toggle checkbox state
-                    val toggledLine = when {
-                        line.startsWith("☐ ") -> line.replace("☐ ", "☑ ")
-                        line.startsWith("☑ ") -> line.replace("☑ ", "☐ ")
-                        else -> line
-                    }
-                    editor.text.replace(lineStart, lineEnd, toggledLine)
-                    editor.setSelection(lineStart + toggledLine.length)
-                } else {
-                    // Add a checkbox to the line
-                    val checkboxLine = "☐ $line"
-                    editor.text.replace(lineStart, lineEnd, checkboxLine)
-                    editor.setSelection(lineStart + checkboxLine.length)
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("EditNoteActivity", "Error applying checkbox list: ${e.message}", e)
-            Toast.makeText(this, "Error formatting text", Toast.LENGTH_SHORT).show()
-        }
-    }
+    // Removed insertCheckboxList method - rich text formatting disabled
 
     private fun setupClickableElements() {
         // Add text change listener to make checkboxes and links clickable
@@ -560,8 +442,10 @@ class EditNoteActivity : AppCompatActivity() {
                 val x = event.x
                 val y = event.y
                 
-                val offset = binding.editNoteContent.getOffsetForPosition(x, y)
-                val text = binding.editNoteContent.text.toString()
+                val layout = binding.editNoteContent.layout ?: return@setOnTouchListener false
+                val line = layout.getLineForVertical(y.toInt())
+                val offset = layout.getOffsetForHorizontal(line, x)
+                val text = binding.editNoteContent.text?.toString() ?: ""
                 
                 // Check if the touched position is on a checkbox
                 if (offset < text.length && (text[offset] == '☐' || text[offset] == '☑')) {
@@ -623,7 +507,7 @@ class EditNoteActivity : AppCompatActivity() {
     private fun toggleCheckboxInEditor(position: Int) {
         try {
             val text = binding.editNoteContent.text
-            if (position < text.length) {
+            if (text != null && position < text.length) {
                 val currentChar = text[position]
                 val newChar = when (currentChar) {
                     '☐' -> '☑'
@@ -1063,7 +947,7 @@ class EditNoteActivity : AppCompatActivity() {
                                 // For new notes, we need to immediately save the note to Firestore
                                 // to ensure the voice note URL is properly stored
                                 val title = binding.editNoteTitle.text.toString().trim()
-                                val content = binding.editNoteContent.toHtml()
+                                val content = binding.editNoteContent.text?.toString() ?: ""
 
                                 if (title.isNotEmpty()) {
                                     // Get all voice note URLs
@@ -1244,7 +1128,7 @@ class EditNoteActivity : AppCompatActivity() {
                 note?.let { foundNote ->
                     // Pre-fill the form
                     binding.editNoteTitle.setText(foundNote.title)
-                    binding.editNoteContent.fromHtml(foundNote.content)
+                    binding.editNoteContent.setText(foundNote.content)
 
                     // Load images
                     selectedImages.clear()
@@ -1337,7 +1221,7 @@ class EditNoteActivity : AppCompatActivity() {
 
     private fun saveNote() {
         val title = binding.editNoteTitle.text.toString().trim()
-        val content = binding.editNoteContent.toHtml()
+        val content = binding.editNoteContent.text?.toString() ?: ""
 
         if (title.isBlank()) {
             Toast.makeText(this, getString(R.string.please_enter_title), Toast.LENGTH_SHORT).show()

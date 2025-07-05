@@ -57,6 +57,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.withTimeoutOrNull
 import com.google.firebase.FirebaseOptions
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedListener {
@@ -66,8 +67,10 @@ class MainActivity : AppCompatActivity(), NavController.OnDestinationChangedList
     private lateinit var toggle: ActionBarDrawerToggle
     private lateinit var navController: NavController
     private lateinit var themeSwitch: SwitchCompat
-    private val firebaseManager by lazy { FirebaseManager(this) }
-    private val firebaseRepository by lazy { FirebaseRepository(this) }
+    
+    // Inject dependencies using Hilt instead of manual instantiation
+    @Inject lateinit var firebaseManager: FirebaseManager
+    @Inject lateinit var firebaseRepository: FirebaseRepository
     private val offlineStatusHelper by lazy { OfflineStatusHelper(this, firebaseRepository, this) }
     private val backupHelper by lazy { BackupHelper(this, firebaseRepository) }
 

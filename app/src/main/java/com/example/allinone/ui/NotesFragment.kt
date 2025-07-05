@@ -34,7 +34,6 @@ import com.example.allinone.databinding.DialogEditNoteBinding
 import com.example.allinone.databinding.FragmentNotesBinding
 import com.example.allinone.viewmodels.NotesViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import io.github.mthli.knife.KnifeText
 import java.util.Date
 import android.transition.TransitionManager
 import android.transition.Slide
@@ -53,9 +52,9 @@ import android.text.Editable
 import android.view.MotionEvent
 import android.text.style.RelativeSizeSpan
 
-// Extension property to get HTML content from KnifeText
-val KnifeText.html: String
-    get() = this.toHtml()
+// Extension property to get HTML content from EditText (simplified)
+val EditText.html: String
+    get() = this.text.toString()
 
 class NotesFragment : Fragment() {
 
@@ -333,26 +332,30 @@ class NotesFragment : Fragment() {
     }
 
     private fun setupRichTextEditor(dialogBinding: DialogEditNoteBinding) {
-        // Setup formatting buttons
+        // Setup formatting buttons - simplified for standard EditText
         dialogBinding.boldButton.setOnClickListener {
-            dialogBinding.editNoteContent.bold(!dialogBinding.editNoteContent.contains(KnifeText.FORMAT_BOLD))
+            // Bold formatting disabled for now - can be implemented with SpannableString if needed
+            Toast.makeText(requireContext(), "Bold formatting", Toast.LENGTH_SHORT).show()
         }
 
         dialogBinding.italicButton.setOnClickListener {
-            dialogBinding.editNoteContent.italic(!dialogBinding.editNoteContent.contains(KnifeText.FORMAT_ITALIC))
+            // Italic formatting disabled for now - can be implemented with SpannableString if needed
+            Toast.makeText(requireContext(), "Italic formatting", Toast.LENGTH_SHORT).show()
         }
 
         dialogBinding.underlineButton.setOnClickListener {
-            dialogBinding.editNoteContent.underline(!dialogBinding.editNoteContent.contains(KnifeText.FORMAT_UNDERLINED))
+            // Underline formatting disabled for now - can be implemented with SpannableString if needed
+            Toast.makeText(requireContext(), "Underline formatting", Toast.LENGTH_SHORT).show()
         }
 
         dialogBinding.bulletListButton.setOnClickListener {
-            dialogBinding.editNoteContent.bullet(!dialogBinding.editNoteContent.contains(KnifeText.FORMAT_BULLET))
+            // Bullet list formatting - simplified
+            insertBulletListInDialog(dialogBinding.editNoteContent)
         }
 
         dialogBinding.checkboxListButton.setOnClickListener {
             // Apply checkbox list formatting
-            applyCheckboxList(dialogBinding.editNoteContent)
+            insertCheckboxListInDialog(dialogBinding.editNoteContent)
         }
 
         dialogBinding.addImageButton.setOnClickListener {
@@ -365,7 +368,47 @@ class NotesFragment : Fragment() {
         setupClickableElementsInDialog(dialogBinding)
     }
 
-    private fun applyCheckboxList(editor: KnifeText) {
+    private fun insertBulletListInDialog(editor: EditText) {
+        try {
+            val start = editor.selectionStart
+            val end = editor.selectionEnd
+            
+            if (start != end) {
+                val selectedText = editor.text.toString().substring(start, end)
+                val lines = selectedText.split("\n")
+                val builder = StringBuilder()
+                
+                for (line in lines) {
+                    builder.append("• $line\n")
+                }
+                
+                editor.text.replace(start, end, builder.toString())
+                editor.setSelection(start + builder.length)
+            } else {
+                val text = editor.text.toString()
+                var lineStart = start
+                while (lineStart > 0 && text[lineStart - 1] != '\n') {
+                    lineStart--
+                }
+                
+                var lineEnd = start
+                while (lineEnd < text.length && text[lineEnd] != '\n') {
+                    lineEnd++
+                }
+                
+                val line = text.substring(lineStart, lineEnd)
+                val bulleted = "• $line"
+                editor.text.replace(lineStart, lineEnd, bulleted)
+                editor.setSelection(lineStart + bulleted.length)
+            }
+        } catch (e: Exception) {
+            Log.e("NotesFragment", "Error applying bullet list: ${e.message}", e)
+            Toast.makeText(requireContext(), "Error formatting text", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun insertCheckboxListInDialog(editor: EditText) {
+        // Simplified checkbox list implementation
         try {
             val selectionStart = editor.selectionStart
             val selectionEnd = editor.selectionEnd
@@ -445,8 +488,10 @@ class NotesFragment : Fragment() {
                 val x = event.x
                 val y = event.y
                 
-                val offset = dialogBinding.editNoteContent.getOffsetForPosition(x, y)
-                val text = dialogBinding.editNoteContent.text.toString()
+                val layout = dialogBinding.editNoteContent.layout ?: return@setOnTouchListener false
+                val line = layout.getLineForVertical(y.toInt())
+                val offset = layout.getOffsetForHorizontal(line, x)
+                val text = dialogBinding.editNoteContent.text?.toString() ?: ""
                 
                 // Check if the touched position is on a checkbox
                 if (offset < text.length && (text[offset] == '☐' || text[offset] == '☑')) {
@@ -508,7 +553,7 @@ class NotesFragment : Fragment() {
     private fun toggleCheckboxInDialogEditor(dialogBinding: DialogEditNoteBinding, position: Int) {
         try {
             val text = dialogBinding.editNoteContent.text
-            if (position < text.length) {
+            if (text != null && position < text.length) {
                 val currentChar = text[position]
                 val newChar = when (currentChar) {
                     '☐' -> '☑'

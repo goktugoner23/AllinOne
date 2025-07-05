@@ -109,7 +109,7 @@
         </HorizontalScrollView>
 
         <!-- Rich Text Editor -->
-        <io.github.mthli.knife.KnifeText
+        <EditText
             android:id="@+id/editNoteContent"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

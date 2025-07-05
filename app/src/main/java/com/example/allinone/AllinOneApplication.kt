@@ -5,6 +5,7 @@ import android.content.Context
 import android.util.Log
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.work.Configuration
+import androidx.work.WorkManager
 import com.example.allinone.cache.CacheManager
 import com.example.allinone.utils.GooglePlayServicesHelper
 import com.example.allinone.utils.LogcatHelper
@@ -19,6 +20,11 @@ import javax.inject.Inject
 
 @HiltAndroidApp
 class AllinOneApplication : Application(), Configuration.Provider {
+    
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setMinimumLoggingLevel(android.util.Log.INFO)
+            .build()
     
     @Inject lateinit var networkUtils: NetworkUtils
     
@@ -108,11 +114,7 @@ class AllinOneApplication : Application(), Configuration.Provider {
         }
     }
     
-    override fun getWorkManagerConfiguration(): Configuration {
-        return Configuration.Builder()
-            .setMinimumLoggingLevel(Log.INFO)
-            .build()
-    }
+
     
     /**
      * Custom Timber tree for crash reporting in production
