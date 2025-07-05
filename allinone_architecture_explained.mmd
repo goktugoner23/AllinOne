@@ -1,0 +1,1282 @@
+classDiagram
+    %% Main Application Components - The Brain of the App
+    class AllinOneApplication {
+        %% This is like the main control center of the entire app
+        +Starts up the app when user opens it
+        +Connects all the different parts of the app together
+        +Manages the database connection and internet connectivity
+        +Handles user authentication and security
+        +Coordinates data sharing between different screens
+        +Manages app settings and user preferences
+        +Handles background tasks and notifications
+    }
+
+    class MainActivity {
+        %% This is like the main lobby of a building - where users start and navigate
+        +Shows the main navigation menu (bottom tabs)
+        +Handles switching between different sections of the app
+        +Manages the overall app layout and structure
+        +Shows network status and connection warnings
+        +Handles app permissions and security checks
+        +Coordinates between different screens and features
+        +Manages the app's lifecycle (start, pause, stop)
+    }
+
+    %% Core Data Models - The Information Storage
+    class Transaction {
+        %% Records of money coming in and going out
+        +Stores amount of money (income or expense)
+        +Records what the money was for (description)
+        +Tracks when the transaction happened (date)
+        +Categorizes the transaction (food, transport, etc.)
+        +Links to student payments if it's a Wing Tzun payment
+        +Shows if it's money earned or money spent
+    }
+
+    class Investment {
+        %% Records of money invested in various opportunities
+        +Stores investment name and type (stocks, crypto, etc.)
+        +Tracks how much money was invested initially
+        +Records current value and profit/loss
+        +Stores images of investment documents
+        +Tracks when the investment was made
+        +Shows if it's an active or completed investment
+    }
+
+    class Note {
+        %% Digital notes and documents
+        +Stores text content and titles
+        +Can include multiple images and videos
+        +Supports voice recordings and audio notes
+        +Tracks when notes were created and last edited
+        +Supports rich text formatting
+        +Can be organized and searched
+    }
+
+    class WTStudent {
+        %% Student information for Wing Tzun martial arts school
+        +Stores student's personal information (name, phone, email)
+        +Tracks if student is currently active
+        +Records profile pictures and contact details
+        +Stores course registration information
+        +Tracks payment status and amounts
+        +Records course start and end dates
+        +Stores additional notes about the student
+    }
+
+    class WTRegistration {
+        %% Course registration records for students
+        +Links to specific student
+        +Records course fees and payment amounts
+        +Stores course start and end dates
+        +Tracks payment status (paid/unpaid)
+        +Can include attachment documents
+        +Records payment dates
+        +Stores additional notes about the registration
+    }
+
+    class WTLesson {
+        %% Martial arts lesson schedules
+        +Records lesson titles and descriptions
+        +Stores lesson dates and times
+        +Tracks lesson types and categories
+        +Records lesson locations
+        +Stores instructor information
+        +Manages lesson scheduling
+    }
+
+    class WTSeminar {
+        %% Special martial arts events and seminars
+        +Records seminar titles and descriptions
+        +Stores event dates and locations
+        +Tracks instructor information
+        +Records pricing and participant limits
+        +Manages participant registrations
+        +Tracks if seminar is active or completed
+    }
+
+    class Task {
+        %% Personal and business tasks
+        +Stores task names and descriptions
+        +Tracks completion status
+        +Records due dates and creation dates
+        +Groups tasks into categories
+        +Manages task priorities
+        +Tracks task progress
+    }
+
+    class TaskGroup {
+        %% Categories for organizing tasks
+        +Groups related tasks together
+        +Uses color coding for visual organization
+        +Tracks group completion status
+        +Records creation dates
+        +Manages task organization
+    }
+
+    class Event {
+        %% Calendar events and appointments
+        +Stores event titles and descriptions
+        +Records event dates and times
+        +Tracks event types and categories
+        +Manages event scheduling
+        +Supports recurring events
+    }
+
+    class HistoryItem {
+        %% Historical records of all activities
+        +Shows past transactions, investments, notes
+        +Records dates and amounts
+        +Categorizes historical items by type
+        +Provides searchable history
+        +Tracks all app activities over time
+    }
+
+    class Program {
+        %% Workout exercise programs
+        +Stores program names and descriptions
+        +Contains lists of exercises for each program
+        +Tracks program creation and modification dates
+        +Manages exercise sequences
+        +Stores workout instructions
+    }
+
+    class Workout {
+        %% Individual workout sessions
+        +Records workout start and end times
+        +Tracks which program was followed
+        +Stores exercise performance data
+        +Records sets, reps, and weights
+        +Tracks workout duration
+        +Stores workout notes and observations
+    }
+
+    class Exercise {
+        %% Individual exercises in workout programs
+        +Stores exercise names and descriptions
+        +Records muscle groups targeted
+        +Provides exercise instructions
+        +Tracks exercise categories
+        +Manages exercise database
+    }
+
+    class VoiceNote {
+        %% Audio recordings and voice memos
+        +Stores audio file paths
+        +Records audio duration
+        +Tracks creation dates
+        +Links to related notes
+        +Manages audio playback
+    }
+
+    %% Firebase Layer - The Cloud Storage and Sync System
+    class FirebaseRepository {
+        %% The main data manager that handles all information
+        +Manages all data storage and retrieval
+        +Synchronizes data between device and cloud
+        +Handles offline data storage when internet is unavailable
+        +Manages data updates and changes
+        +Provides real-time data synchronization
+        +Handles data backup and recovery
+        +Manages user data security and privacy
+        +Coordinates data sharing between app features
+        +Handles data validation and error checking
+        +Manages data caching for faster access
+    }
+
+    class FirebaseManager {
+        %% The technical interface to cloud storage
+        +Connects to Google's cloud storage (Firebase)
+        +Uploads and downloads files and data
+        +Manages user authentication
+        +Handles data encryption and security
+        +Manages file storage (images, documents)
+        +Coordinates with other cloud services
+        +Handles data synchronization conflicts
+        +Manages backup and restore operations
+        +Provides real-time data updates
+        +Handles network connectivity issues
+    }
+
+    class FirebaseIdManager {
+        %% Creates unique identifiers for all data items
+        +Generates unique IDs for new records
+        +Ensures no duplicate IDs are created
+        +Manages ID sequences for different data types
+        +Tracks ID usage across the app
+        +Prevents data conflicts
+    }
+
+    class FirebaseStorageUtil {
+        %% Manages file uploads and downloads
+        +Handles image and document uploads
+        +Manages file organization in cloud storage
+        +Provides secure file access
+        +Handles file deletion and cleanup
+        +Manages file sharing and permissions
+        +Optimizes file storage and retrieval
+    }
+
+    class DataChangeNotifier {
+        %% Notifies different parts of the app when data changes
+        +Alerts screens when data is updated
+        +Triggers UI refreshes when needed
+        +Coordinates data updates across features
+        +Manages real-time data synchronization
+        +Ensures all screens show current information
+        +Handles data change conflicts
+    }
+
+    class OfflineQueue {
+        %% Stores actions when internet is unavailable
+        +Queues data changes when offline
+        +Synchronizes data when connection returns
+        +Prevents data loss during connectivity issues
+        +Manages offline data storage
+        +Handles sync conflicts when reconnecting
+        +Provides offline functionality
+    }
+
+    %% Cache Layer - Local Storage for Faster Access
+    class CacheManager {
+        %% Stores frequently used data locally for quick access
+        +Keeps recent data on the device for fast loading
+        +Reduces internet usage by storing data locally
+        +Provides offline access to recent data
+        +Manages storage space efficiently
+        +Synchronizes with cloud data when online
+        +Handles cache cleanup and updates
+        +Improves app performance and speed
+    }
+
+    %% Utility Classes - Helper Functions
+    class NetworkUtils {
+        %% Monitors internet connectivity
+        +Checks if device is connected to internet
+        +Monitors connection quality and stability
+        +Alerts app when connection is lost
+        +Manages different network types (WiFi, mobile)
+        +Handles network switching
+        +Provides connection status updates
+    }
+
+    class BackupHelper {
+        %% Manages data backup and restore
+        +Creates backup files of all app data
+        +Exports data to external storage
+        +Imports data from backup files
+        +Validates backup file integrity
+        +Manages backup scheduling
+        +Provides disaster recovery options
+    }
+
+    class LogcatHelper {
+        %% Records app activity for troubleshooting
+        +Captures app logs and error messages
+        +Stores debugging information
+        +Helps identify and fix problems
+        +Provides technical support information
+        +Manages log file storage
+        +Assists in app maintenance
+    }
+
+    class ApiKeyManager {
+        %% Securely stores API keys and credentials
+        +Manages external service access keys
+        +Securely stores sensitive credentials
+        +Handles key rotation and updates
+        +Validates key authenticity
+        +Manages access permissions
+        +Protects user data security
+    }
+
+    class TradingUtils {
+        %% Calculates trading and investment metrics
+        +Calculates profit and loss for investments
+        +Computes portfolio total values
+        +Provides investment summaries
+        +Validates trading parameters
+        +Formats currency displays
+        +Analyzes investment performance
+    }
+
+    %% ViewModels - Business Logic Controllers
+    class HomeViewModel {
+        %% Manages the home screen data and calculations
+        +Shows recent financial transactions
+        +Calculates total income and expenses
+        +Displays current account balance
+        +Shows spending by category
+        +Provides financial overview
+        +Updates data in real-time
+        +Manages home screen interactions
+    }
+
+    class InvestmentsViewModel {
+        %% Manages investment portfolio and data
+        +Tracks all investment holdings
+        +Calculates total portfolio value
+        +Shows profit and loss for each investment
+        +Separates active and completed investments
+        +Provides investment performance metrics
+        +Manages investment data updates
+        +Handles investment calculations
+    }
+
+    class NotesViewModel {
+        %% Manages note-taking functionality
+        +Handles note creation and editing
+        +Manages note organization and search
+        +Coordinates note data operations
+        +Handles note sharing and export
+        +Manages note attachments
+        +Provides note search functionality
+    }
+
+    class TasksViewModel {
+        %% Manages task and project organization
+        +Handles task creation and management
+        +Organizes tasks into groups
+        +Tracks task completion status
+        +Manages task priorities and due dates
+        +Provides task filtering and search
+        +Coordinates task data operations
+    }
+
+    class WTRegisterViewModel {
+        %% Manages Wing Tzun school operations
+        +Handles student registration and management
+        +Tracks course enrollments and payments
+        +Manages student status and information
+        +Calculates course end dates
+        +Handles payment processing
+        +Coordinates student data operations
+        +Manages lesson scheduling
+    }
+
+    class WTLessonsViewModel {
+        %% Manages martial arts lesson scheduling
+        +Handles lesson creation and scheduling
+        +Manages lesson types and categories
+        +Tracks lesson attendance
+        +Coordinates lesson data operations
+        +Provides lesson filtering and search
+        +Manages instructor assignments
+    }
+
+    class WTSeminarsViewModel {
+        %% Manages special martial arts events
+        +Handles seminar planning and organization
+        +Manages participant registrations
+        +Tracks seminar attendance and payments
+        +Coordinates seminar data operations
+        +Provides seminar management tools
+        +Handles event logistics
+    }
+
+    class CalendarViewModel {
+        %% Manages calendar and scheduling
+        +Handles event creation and management
+        +Coordinates calendar data operations
+        +Manages date selection and navigation
+        +Provides calendar filtering and search
+        +Handles recurring events
+        +Coordinates with other scheduling systems
+    }
+
+    class HistoryViewModel {
+        %% Manages historical data and records
+        +Provides access to historical transactions
+        +Offers data filtering and search
+        +Generates historical reports
+        +Manages data export functionality
+        +Provides data analysis tools
+        +Coordinates historical data operations
+    }
+
+    class WorkoutViewModel {
+        %% Manages fitness and workout tracking
+        +Handles workout program management
+        +Tracks workout sessions and progress
+        +Manages exercise database
+        +Calculates workout statistics
+        +Coordinates workout data operations
+        +Provides fitness tracking tools
+    }
+
+    class LogErrorViewModel {
+        %% Manages error logging and troubleshooting
+        +Handles error capture and logging
+        +Manages log file operations
+        +Provides debugging information
+        +Coordinates error reporting
+        +Manages technical support data
+        +Handles log analysis
+    }
+
+    %% UI Fragments - User Interface Screens
+    class HomeFragment {
+        %% The main dashboard showing financial overview
+        +Displays financial summary and recent activity
+        +Shows account balance and spending overview
+        +Provides quick access to main features
+        +Shows recent transactions and investments
+        +Displays spending categories and trends
+        +Offers navigation to detailed views
+    }
+
+    class TransactionsOverviewFragment {
+        %% Detailed view of all financial transactions
+        +Shows complete transaction history
+        +Provides transaction filtering and search
+        +Displays transaction details and categories
+        +Offers transaction editing and management
+        +Shows spending patterns and trends
+        +Provides transaction export functionality
+    }
+
+    class TransactionReportFragment {
+        %% Generates financial reports and analytics
+        +Creates detailed financial reports
+        +Shows spending analysis and trends
+        +Provides chart and graph visualizations
+        +Offers report export and sharing
+        +Generates category spending breakdowns
+        +Provides financial insights and recommendations
+    }
+
+    class InvestmentsFragment {
+        %% Manages investment portfolio interface
+        +Displays all investment holdings
+        +Shows investment performance and metrics
+        +Provides investment management tools
+        +Offers investment analysis and charts
+        +Handles investment data entry and editing
+        +Shows portfolio diversification
+    }
+
+    class InvestmentsTabFragment {
+        %% Tab view for different investment types
+        +Organizes investments by type
+        +Provides filtered investment views
+        +Shows investment categories and groups
+        +Offers investment comparison tools
+        +Manages investment organization
+    }
+
+    class FuturesFragment {
+        %% Manages cryptocurrency and futures trading
+        +Displays cryptocurrency positions
+        +Shows real-time trading data
+        +Provides trading interface and tools
+        +Manages trading account information
+        +Shows profit/loss for crypto positions
+        +Handles trading operations
+    }
+
+    class UsdMFuturesFragment {
+        %% USD-margined futures trading interface
+        +Shows USD futures positions
+        +Displays real-time price data
+        +Provides leverage and margin information
+        +Manages futures trading operations
+        +Shows position sizing and risk
+        +Handles futures order management
+    }
+
+    class CoinMFuturesFragment {
+        %% Coin-margined futures trading interface
+        +Shows coin futures positions
+        +Displays cryptocurrency futures data
+        +Provides coin-margined trading tools
+        +Manages futures position tracking
+        +Shows coin-based profit/loss
+        +Handles crypto futures operations
+    }
+
+    class ExternalFuturesFragment {
+        %% External trading platform integration
+        +Connects to external trading platforms
+        +Shows external account data
+        +Provides cross-platform trading view
+        +Manages external API connections
+        +Shows external position data
+        +Handles external trading operations
+    }
+
+    class NotesFragment {
+        %% Digital note-taking interface
+        +Provides note creation and editing
+        +Supports rich text formatting
+        +Handles image and video attachments
+        +Offers voice note recording
+        +Provides note organization and search
+        +Supports note sharing and export
+    }
+
+    class TasksFragment {
+        %% Task and project management interface
+        +Provides task creation and management
+        +Offers task grouping and organization
+        +Shows task completion tracking
+        +Provides task filtering and search
+        +Offers drag-and-drop task organization
+        +Shows task progress and deadlines
+    }
+
+    class HistoryFragment {
+        %% Historical data and records interface
+        +Shows complete activity history
+        +Provides historical data filtering
+        +Offers data search and analysis
+        +Shows historical trends and patterns
+        +Provides data export functionality
+        +Offers historical insights
+    }
+
+    class CalendarFragment {
+        %% Calendar and scheduling interface
+        +Shows calendar view with events
+        +Provides event creation and management
+        +Shows lesson and seminar schedules
+        +Offers date navigation and selection
+        +Provides event filtering and search
+        +Shows recurring events and reminders
+    }
+
+    class DatabaseManagementFragment {
+        %% Database management and maintenance interface
+        +Shows data overview and statistics
+        +Provides backup and restore functionality
+        +Offers data export and import tools
+        +Shows storage usage and optimization
+        +Provides data cleanup tools
+        +Offers database maintenance options
+    }
+
+    class LogErrorsFragment {
+        %% Error logging and troubleshooting interface
+        +Shows app logs and error messages
+        +Provides log capture and storage
+        +Offers log analysis and filtering
+        +Provides debugging information
+        +Offers log export and sharing
+        +Shows technical support data
+    }
+
+    %% WT (Wing Tzun) UI Components - Martial Arts School Management
+    class WTRegistryFragment {
+        %% Main Wing Tzun school management interface
+        +Provides navigation between school features
+        +Shows network status for school operations
+        +Manages school data synchronization
+        +Coordinates between student and lesson management
+        +Provides school overview and statistics
+        +Handles school-wide settings
+    }
+
+    class WTStudentsFragment {
+        %% Student management interface
+        +Shows all registered students
+        +Provides student registration and editing
+        +Handles student profile management
+        +Shows student status and information
+        +Provides student search and filtering
+        +Handles student photo and document management
+    }
+
+    class WTRegisterFragment {
+        %% Course registration interface
+        +Shows students available for course registration
+        +Provides course enrollment functionality
+        +Handles payment processing and tracking
+        +Shows registration status and details
+        +Provides course scheduling tools
+        +Handles registration document management
+    }
+
+    class WTRegisterContentFragment {
+        %% Detailed registration management
+        +Shows detailed registration information
+        +Provides registration editing and management
+        +Handles payment status updates
+        +Shows registration history and records
+        +Provides document attachment management
+        +Handles registration data export
+    }
+
+    class WTLessonsFragment {
+        %% Lesson scheduling and management interface
+        +Shows lesson schedules and calendars
+        +Provides lesson creation and editing
+        +Handles lesson type and category management
+        +Shows instructor assignments
+        +Provides lesson attendance tracking
+        +Handles lesson data management
+    }
+
+    class WTSeminarsFragment {
+        %% Seminar and event management interface
+        +Shows upcoming and past seminars
+        +Provides seminar creation and management
+        +Handles participant registration
+        +Shows seminar attendance and payments
+        +Provides seminar logistics management
+        +Handles seminar data and reporting
+    }
+
+    %% Workout UI Components - Fitness Tracking
+    class WorkoutFragment {
+        %% Main fitness and workout interface
+        +Provides navigation between workout features
+        +Shows workout overview and statistics
+        +Coordinates workout program management
+        +Provides fitness tracking tools
+        +Shows workout history and progress
+        +Handles workout data management
+    }
+
+    class WorkoutDashboardFragment {
+        %% Workout overview and statistics
+        +Shows workout statistics and progress
+        +Displays recent workout sessions
+        +Provides quick workout actions
+        +Shows fitness goals and achievements
+        +Provides workout recommendations
+        +Shows workout performance trends
+    }
+
+    class WorkoutProgramFragment {
+        %% Workout program management interface
+        +Shows available workout programs
+        +Provides program creation and editing
+        +Handles exercise selection and organization
+        +Shows program details and instructions
+        +Provides program sharing and export
+        +Handles program data management
+    }
+
+    class WorkoutExerciseFragment {
+        %% Exercise database and management interface
+        +Shows exercise database and categories
+        +Provides exercise creation and editing
+        +Handles muscle group organization
+        +Shows exercise instructions and videos
+        +Provides exercise search and filtering
+        +Handles exercise data management
+    }
+
+    class ActiveWorkoutFragment {
+        %% Active workout session interface
+        +Shows current workout session
+        +Provides exercise navigation and tracking
+        +Handles set and rep counting
+        +Shows workout timer and progress
+        +Provides workout notes and observations
+        +Handles workout completion and saving
+    }
+
+    class WorkoutStatsFragment {
+        %% Workout statistics and analytics
+        +Shows workout performance statistics
+        +Provides progress charts and graphs
+        +Shows fitness trends and improvements
+        +Provides workout analysis and insights
+        +Offers statistics export and sharing
+        +Shows fitness goals and achievements
+    }
+
+    %% Instagram UI Components - Social Media Management
+    class InstagramBusinessFragment {
+        %% Instagram business management interface
+        +Provides navigation between Instagram features
+        +Shows Instagram account overview
+        +Coordinates Instagram content management
+        +Provides Instagram analytics access
+        +Shows Instagram business tools
+        +Handles Instagram integration
+    }
+
+    class InstagramPostsFragment {
+        %% Instagram post management interface
+        +Shows Instagram posts and content
+        +Provides post creation and scheduling
+        +Handles post analytics and performance
+        +Shows post engagement metrics
+        +Provides content calendar management
+        +Handles Instagram content planning
+    }
+
+    class InstagramInsightsFragment {
+        %% Instagram analytics and insights interface
+        +Shows Instagram account analytics
+        +Provides performance metrics and trends
+        +Shows audience insights and demographics
+        +Provides engagement analysis
+        +Offers analytics reporting and export
+        +Shows content performance insights
+    }
+
+    class InstagramAskAIFragment {
+        %% AI-powered Instagram assistance
+        +Provides AI-powered content suggestions
+        +Offers automated Instagram management
+        +Shows AI-generated content ideas
+        +Provides automated posting capabilities
+        +Offers Instagram optimization tips
+        +Handles AI-powered analytics
+    }
+
+    %% Drawing UI Components - Creative Tools
+    class DrawingActivity {
+        %% Digital drawing and sketching interface
+        +Provides digital drawing canvas
+        +Offers various drawing tools and brushes
+        +Handles color selection and palette
+        +Provides drawing save and export
+        +Offers drawing sharing capabilities
+        +Handles drawing file management
+    }
+
+    %% Base Components - Foundation Elements
+    class BaseFragment {
+        %% Common functionality for all screens
+        +Provides common UI elements and styling
+        +Handles error display and user feedback
+        +Shows loading indicators and progress
+        +Manages network status display
+        +Provides common navigation patterns
+        +Handles common user interactions
+    }
+
+    class EditNoteActivity {
+        %% Advanced note editing interface
+        +Provides rich text editing capabilities
+        +Handles multimedia content (images, videos, audio)
+        +Offers advanced formatting options
+        +Provides auto-save functionality
+        +Handles note sharing and export
+        +Offers collaborative editing features
+    }
+
+    %% Adapters - Data Display Components
+    class TransactionAdapter {
+        %% Displays transaction lists and details
+        +Shows transaction information in lists
+        +Handles transaction item interactions
+        +Provides transaction filtering and sorting
+        +Shows transaction categories and amounts
+        +Handles transaction editing and deletion
+        +Provides transaction search functionality
+    }
+
+    class InvestmentAdapter {
+        %% Displays investment portfolio information
+        +Shows investment details in lists
+        +Handles investment item interactions
+        +Displays investment performance metrics
+        +Shows investment images and documents
+        +Handles investment editing and management
+        +Provides investment filtering and search
+    }
+
+    class NotesAdapter {
+        %% Displays note lists and content
+        +Shows note titles and previews in lists
+        +Handles note item interactions
+        +Displays note attachments and media
+        +Shows note creation and modification dates
+        +Handles note editing and deletion
+        +Provides note search and filtering
+    }
+
+    class TasksAdapter {
+        %% Displays task lists and management
+        +Shows task information in lists
+        +Handles task completion status
+        +Provides task filtering and sorting
+        +Shows task priorities and due dates
+        +Handles task editing and deletion
+        +Provides task search functionality
+    }
+
+    class GroupedTasksAdapter {
+        %% Displays tasks organized in groups
+        +Shows tasks grouped by categories
+        +Handles group expansion and collapse
+        +Provides task reordering within groups
+        +Shows group completion status
+        +Handles group editing and management
+        +Provides group-based filtering
+    }
+
+    class WTStudentAdapter {
+        %% Displays student lists and information
+        +Shows student profiles in lists
+        +Handles student status indicators
+        +Displays student profile pictures
+        +Shows student contact information
+        +Handles student editing and management
+        +Provides student search and filtering
+    }
+
+    class WTRegistrationAdapter {
+        %% Displays registration information
+        +Shows course registration details
+        +Handles payment status display
+        +Shows registration dates and amounts
+        +Displays student profile information
+        +Handles registration editing
+        +Provides registration filtering
+    }
+
+    class HistoryAdapter {
+        %% Displays historical data and records
+        +Shows historical items in lists
+        +Handles different item types (transactions, notes, etc.)
+        +Displays historical dates and amounts
+        +Shows item categories and types
+        +Handles historical item interactions
+        +Provides historical data filtering
+    }
+
+    class EventAdapter {
+        %% Displays calendar events and appointments
+        +Shows event information in lists
+        +Handles event date and time display
+        +Shows event types and categories
+        +Displays event descriptions
+        +Handles event editing and management
+        +Provides event filtering and search
+    }
+
+    class BinanceFuturesAdapter {
+        %% Displays cryptocurrency futures positions
+        +Shows futures position information
+        +Displays profit/loss for positions
+        +Shows position sizes and leverage
+        +Handles position management
+        +Displays real-time price data
+        +Provides position filtering
+    }
+
+    class BinancePositionAdapter {
+        %% Displays cryptocurrency trading positions
+        +Shows trading position details
+        +Displays leverage and margin information
+        +Shows position profit/loss
+        +Handles position management
+        +Displays position sizes
+        +Provides position filtering
+    }
+
+    class InvestmentImageAdapter {
+        %% Displays investment-related images
+        +Shows investment document images
+        +Handles image viewing and zooming
+        +Provides fullscreen image viewing
+        +Handles image sharing and export
+        +Shows image thumbnails
+        +Provides image management
+    }
+
+    class NoteImageAdapter {
+        %% Displays note-related images
+        +Shows note attachment images
+        +Handles image viewing and zooming
+        +Provides fullscreen image viewing
+        +Handles image sharing and export
+        +Shows image thumbnails
+        +Provides image management
+    }
+
+    class NoteVideoAdapter {
+        %% Displays note-related videos
+        +Shows note video attachments
+        +Handles video playback
+        +Provides video thumbnail display
+        +Handles video sharing and export
+        +Shows video duration and information
+        +Provides video management
+    }
+
+    class VoiceNoteAdapter {
+        %% Displays voice note recordings
+        +Shows voice note information
+        +Handles audio playback controls
+        +Displays recording duration
+        +Provides voice note management
+        +Shows recording dates
+        +Handles voice note sharing
+    }
+
+    class SeminarAdapter {
+        %% Displays seminar and event information
+        +Shows seminar details in lists
+        +Displays participant counts
+        +Shows seminar pricing information
+        +Handles seminar registration
+        +Displays seminar dates and locations
+        +Provides seminar filtering
+    }
+
+    class CategorySummaryAdapter {
+        %% Displays spending category summaries
+        +Shows spending by category
+        +Displays percentage breakdowns
+        +Provides color-coded categories
+        +Shows category totals
+        +Handles category filtering
+        +Provides category analysis
+    }
+
+    class CategorySpendingAdapter {
+        %% Displays detailed category spending
+        +Shows spending trends by category
+        +Displays spending amounts and percentages
+        +Shows spending trend indicators
+        +Handles category comparison
+        +Provides spending analysis
+        +Shows category breakdowns
+    }
+
+    class TransactionReportAdapter {
+        %% Displays transaction report data
+        +Shows transaction report information
+        +Displays transaction categories
+        +Shows formatted amounts and dates
+        +Handles report filtering
+        +Provides report export
+        +Shows transaction summaries
+    }
+
+    class InvestmentSelectionAdapter {
+        %% Displays investment selection interface
+        +Shows available investments for selection
+        +Handles investment selection state
+        +Displays investment information
+        +Provides investment filtering
+        +Handles multi-selection
+        +Shows selection status
+    }
+
+    class InvestmentDropdownAdapter {
+        %% Displays investment dropdown selection
+        +Shows investment options in dropdown
+        +Handles investment filtering
+        +Displays investment names and types
+        +Provides search functionality
+        +Handles selection events
+        +Shows filtered results
+    }
+
+    class CategoryDropdownAdapter {
+        %% Displays category dropdown selection
+        +Shows category options in dropdown
+        +Displays category names and colors
+        +Handles category filtering
+        +Provides search functionality
+        +Handles selection events
+        +Shows category organization
+    }
+
+    class InvestmentPagerAdapter {
+        %% Displays investment images in pager view
+        +Shows investment images in swipeable view
+        +Handles image navigation
+        +Provides fullscreen image viewing
+        +Handles image zooming
+        +Shows image captions
+        +Provides image sharing
+    }
+
+    class FullscreenImageAdapter {
+        %% Displays fullscreen image viewing
+        +Shows images in fullscreen mode
+        +Handles image zooming and panning
+        +Provides swipe navigation
+        +Handles image sharing
+        +Shows image information
+        +Provides image controls
+    }
+
+    class LogEntryAdapter {
+        %% Displays log entries and error messages
+        +Shows log entries in lists
+        +Displays log levels and timestamps
+        +Handles log filtering
+        +Shows error messages
+        +Provides log search
+        +Handles log export
+    }
+
+    class WTEventAdapter {
+        %% Displays Wing Tzun events and activities
+        +Shows event information in lists
+        +Displays event types and categories
+        +Shows event dates and times
+        +Handles event filtering
+        +Provides event search
+        +Shows event details
+    }
+
+    %% API Components - External Service Integration
+    class ExternalBinanceRepository {
+        %% Manages Binance cryptocurrency exchange integration
+        +Connects to Binance trading platform
+        +Retrieves account information and balances
+        +Fetches trading positions and orders
+        +Handles cryptocurrency trading operations
+        +Manages API authentication and security
+        +Provides real-time market data
+        +Handles trading order placement and cancellation
+        +Manages WebSocket connections for live data
+        +Coordinates with Binance trading services
+        +Handles trading account management
+    }
+
+    class ExternalBinanceApiClient {
+        %% Technical interface to Binance API
+        +Makes HTTP requests to Binance servers
+        +Handles API authentication and signatures
+        +Manages API rate limiting and quotas
+        +Processes API responses and data
+        +Handles API error responses
+        +Manages API versioning and updates
+        +Provides secure API communication
+        +Handles API request formatting
+    }
+
+    class BinanceWebSocketClient {
+        %% Manages real-time data connections
+        +Establishes WebSocket connections to Binance
+        +Receives real-time market data updates
+        +Handles connection management and reconnection
+        +Processes streaming data and updates
+        +Manages subscription to data feeds
+        +Handles connection errors and recovery
+        +Provides real-time price and trade data
+        +Manages multiple data stream subscriptions
+    }
+
+    class BinanceExternalService {
+        %% Defines API endpoints and operations
+        +Defines trading API endpoints
+        +Specifies account information endpoints
+        +Defines order management endpoints
+        +Specifies market data endpoints
+        +Defines authentication requirements
+        +Specifies API response formats
+        +Defines error handling procedures
+        +Specifies rate limiting requirements
+    }
+
+    %% Workers - Background Task Management
+    class BackupWorker {
+        %% Handles automatic data backup operations
+        +Performs scheduled data backups
+        +Uploads backup files to cloud storage
+        +Notifies users of backup completion
+        +Handles backup error recovery
+        +Manages backup scheduling
+        +Provides backup status updates
+        +Handles backup file management
+        +Ensures data safety and recovery
+    }
+
+    class ExpirationNotificationWorker {
+        %% Manages expiration notifications and reminders
+        +Checks for expiring items and subscriptions
+        +Sends notification reminders to users
+        +Manages notification scheduling
+        +Handles notification delivery
+        +Tracks notification history
+        +Provides notification customization
+        +Manages notification preferences
+        +Ensures timely user notifications
+    }
+
+    class LogcatCaptureWorker {
+        %% Captures and manages app logs
+        +Captures system and app logs
+        +Saves logs to files for analysis
+        +Manages log file storage and cleanup
+        +Provides log analysis tools
+        +Handles log export and sharing
+        +Manages log retention policies
+        +Provides debugging information
+        +Assists in troubleshooting
+    }
+
+    %% Relationships - How Components Work Together
+    AllinOneApplication --> FirebaseRepository : "Coordinates all data operations"
+    AllinOneApplication --> CacheManager : "Manages local data storage"
+    AllinOneApplication --> NetworkUtils : "Monitors connectivity"
+    AllinOneApplication --> FirebaseIdManager : "Manages unique identifiers"
+    AllinOneApplication --> FirebaseStorageUtil : "Handles file storage"
+    AllinOneApplication --> DataChangeNotifier : "Coordinates data updates"
+
+    MainActivity --> HomeFragment : "Shows financial dashboard"
+    MainActivity --> InvestmentsFragment : "Shows investment portfolio"
+    MainActivity --> NotesFragment : "Shows note management"
+    MainActivity --> TasksFragment : "Shows task management"
+    MainActivity --> HistoryFragment : "Shows activity history"
+    MainActivity --> CalendarFragment : "Shows calendar and events"
+    MainActivity --> WTRegistryFragment : "Shows martial arts school"
+    MainActivity --> WorkoutFragment : "Shows fitness tracking"
+    MainActivity --> InstagramBusinessFragment : "Shows social media management"
+    MainActivity --> DrawingActivity : "Shows drawing tools"
+    MainActivity --> EditNoteActivity : "Shows advanced note editing"
+    MainActivity --> DatabaseManagementFragment : "Shows data management"
+    MainActivity --> LogErrorsFragment : "Shows error logging"
+    MainActivity --> BackupWorker : "Manages automatic backups"
+    MainActivity --> ExpirationNotificationWorker : "Manages notifications"
+    MainActivity --> LogcatCaptureWorker : "Manages log capture"
+
+    %% Fragment Relationships - Screen Navigation
+    HomeFragment --> TransactionsOverviewFragment : "Shows detailed transactions"
+    HomeFragment --> HomeViewModel : "Manages home screen data"
+    HomeViewModel --> FirebaseRepository : "Retrieves financial data"
+
+    InvestmentsFragment --> InvestmentsTabFragment : "Shows investment tabs"
+    InvestmentsFragment --> FuturesFragment : "Shows trading interface"
+    InvestmentsFragment --> ExternalFuturesFragment : "Shows external trading"
+    InvestmentsTabFragment --> InvestmentsViewModel : "Manages investment data"
+    FuturesFragment --> UsdMFuturesFragment : "Shows USD futures"
+    FuturesFragment --> CoinMFuturesFragment : "Shows coin futures"
+    UsdMFuturesFragment --> InvestmentsViewModel : "Manages futures data"
+    UsdMFuturesFragment --> ExternalBinanceRepository : "Connects to Binance"
+    UsdMFuturesFragment --> BinanceWebSocketClient : "Gets real-time data"
+    CoinMFuturesFragment --> InvestmentsViewModel : "Manages crypto data"
+    CoinMFuturesFragment --> ExternalBinanceRepository : "Connects to Binance"
+    CoinMFuturesFragment --> BinanceWebSocketClient : "Gets real-time data"
+    ExternalFuturesFragment --> ExternalBinanceRepository : "Connects to external platforms"
+    InvestmentsViewModel --> FirebaseRepository : "Manages investment storage"
+
+    NotesFragment --> NotesViewModel : "Manages note data"
+    NotesViewModel --> FirebaseRepository : "Stores and retrieves notes"
+    EditNoteActivity --> FirebaseRepository : "Saves edited notes"
+
+    TasksFragment --> TasksViewModel : "Manages task data"
+    TasksViewModel --> FirebaseRepository : "Stores and retrieves tasks"
+
+    HistoryFragment --> HistoryViewModel : "Manages historical data"
+    HistoryViewModel --> FirebaseRepository : "Retrieves historical records"
+
+    CalendarFragment --> CalendarViewModel : "Manages calendar data"
+    CalendarViewModel --> FirebaseRepository : "Stores and retrieves events"
+
+    %% WT (Wing Tzun) Relationships - Martial Arts School Management
+    WTRegistryFragment --> WTStudentsFragment : "Shows student management"
+    WTRegistryFragment --> WTRegisterFragment : "Shows course registration"
+    WTRegistryFragment --> WTRegisterContentFragment : "Shows detailed registration"
+    WTRegistryFragment --> WTLessonsFragment : "Shows lesson scheduling"
+    WTRegistryFragment --> WTSeminarsFragment : "Shows event management"
+    WTStudentsFragment --> WTRegisterViewModel : "Manages student data"
+    WTRegisterFragment --> WTRegisterViewModel : "Manages registration data"
+    WTRegisterContentFragment --> WTRegisterViewModel : "Manages detailed registration"
+    WTLessonsFragment --> WTLessonsViewModel : "Manages lesson data"
+    WTSeminarsFragment --> WTSeminarsViewModel : "Manages seminar data"
+    WTRegisterViewModel --> FirebaseRepository : "Stores school data"
+    WTRegisterViewModel --> FirebaseIdManager : "Creates student IDs"
+    WTRegisterViewModel --> FirebaseStorageUtil : "Handles student documents"
+    WTLessonsViewModel --> FirebaseRepository : "Stores lesson data"
+    WTSeminarsViewModel --> FirebaseRepository : "Stores seminar data"
+
+    %% Workout Relationships - Fitness Tracking
+    WorkoutFragment --> WorkoutDashboardFragment : "Shows fitness overview"
+    WorkoutFragment --> WorkoutProgramFragment : "Shows program management"
+    WorkoutFragment --> WorkoutExerciseFragment : "Shows exercise database"
+    WorkoutFragment --> WorkoutStatsFragment : "Shows fitness statistics"
+    WorkoutFragment --> WorkoutViewModel : "Manages workout data"
+    WorkoutViewModel --> FirebaseRepository : "Stores fitness data"
+    WorkoutDashboardFragment --> WorkoutViewModel : "Shows workout stats"
+    WorkoutProgramFragment --> WorkoutViewModel : "Manages programs"
+    WorkoutExerciseFragment --> WorkoutViewModel : "Manages exercises"
+    ActiveWorkoutFragment --> WorkoutViewModel : "Tracks active workout"
+    ActiveWorkoutFragment --> WorkoutFragment : "Returns to workout menu"
+    ActiveWorkoutFragment --> FirebaseRepository : "Saves workout data"
+
+    %% Instagram Relationships - Social Media Management
+    InstagramBusinessFragment --> InstagramPostsFragment : "Shows post management"
+    InstagramBusinessFragment --> InstagramInsightsFragment : "Shows analytics"
+    InstagramBusinessFragment --> InstagramAskAIFragment : "Shows AI assistance"
+    InstagramBusinessFragment --> BaseFragment : "Provides common functionality"
+    InstagramPostsFragment --> InstagramViewModel : "Manages post data"
+    InstagramInsightsFragment --> InstagramViewModel : "Manages analytics data"
+    InstagramAskAIFragment --> InstagramViewModel : "Manages AI interactions"
+
+    %% Firebase Layer Relationships - Data Management
+    FirebaseRepository --> FirebaseManager : "Coordinates data operations"
+    FirebaseRepository --> OfflineQueue : "Handles offline operations"
+    FirebaseRepository --> CacheManager : "Manages local caching"
+    FirebaseRepository --> NetworkUtils : "Checks connectivity"
+    FirebaseRepository --> FirebaseIdManager : "Creates unique IDs"
+    FirebaseRepository --> DataChangeNotifier : "Notifies data changes"
+    FirebaseRepository --> FirebaseStorageUtil : "Handles file storage"
+
+    FirebaseManager --> FirebaseIdManager : "Creates document IDs"
+    FirebaseManager --> FirebaseStorageUtil : "Manages file uploads"
+
+    %% API Relationships - External Service Integration
+    ExternalBinanceRepository --> ExternalBinanceApiClient : "Makes API calls"
+    ExternalBinanceRepository --> BinanceWebSocketClient : "Gets real-time data"
+    ExternalBinanceRepository --> BackupWorker : "Backs up trading data"
+    ExternalBinanceRepository --> FirebaseRepository : "Stores trading data"
+    ExternalBinanceApiClient --> BinanceExternalService : "Defines API endpoints"
+    ExternalBinanceApiClient --> BinanceWebSocketClient : "Manages connections"
+
+    %% Utility Relationships - Helper Functions
+    OfflineQueue --> CacheManager : "Stores offline data"
+    CacheManager --> NetworkUtils : "Checks connectivity"
+    LogcatHelper --> BackupHelper : "Backs up log files"
+    LogErrorsFragment --> LogErrorViewModel : "Shows error data"
+    LogErrorViewModel --> LogcatHelper : "Captures logs"
+    MainActivity --> BackupWorker : "Schedules backups"
+    MainActivity --> ExpirationNotificationWorker : "Schedules notifications"
+    MainActivity --> LogcatCaptureWorker : "Captures logs"
+    BackupWorker --> FirebaseRepository : "Backs up data"
+    ExpirationNotificationWorker --> FirebaseRepository : "Checks expiring items"
+    ExpirationNotificationWorker --> NotificationManager : "Sends notifications"
+    LogcatCaptureWorker --> LogcatHelper : "Captures system logs"
+
+    %% Data Flow Relationships - How Information Moves
+    FirebaseRepository ..> Transaction : "Stores and retrieves financial records"
+    FirebaseRepository ..> Investment : "Stores and retrieves investment data"
+    FirebaseRepository ..> Note : "Stores and retrieves notes and documents"
+    FirebaseRepository ..> Task : "Stores and retrieves task information"
+    FirebaseRepository ..> TaskGroup : "Stores and retrieves task categories"
+    FirebaseRepository ..> WTStudent : "Stores and retrieves student information"
+    FirebaseRepository ..> WTRegistration : "Stores and retrieves course registrations"
+    FirebaseRepository ..> Event : "Stores and retrieves calendar events"
+    FirebaseRepository ..> WTLesson : "Stores and retrieves lesson schedules"
+    FirebaseRepository ..> Program : "Stores and retrieves workout programs"
+    FirebaseRepository ..> Workout : "Stores and retrieves workout sessions"
+
+    %% Adapter Relationships - Data Display
+    HomeFragment --> TransactionAdapter : "Shows recent transactions"
+    TransactionsOverviewFragment --> TransactionAdapter : "Shows all transactions"
+    TransactionReportFragment --> TransactionReportAdapter : "Shows transaction reports"
+    InvestmentsFragment --> InvestmentAdapter : "Shows investment portfolio"
+    InvestmentsTabFragment --> InvestmentAdapter : "Shows filtered investments"
+    UsdMFuturesFragment --> BinanceFuturesAdapter : "Shows USD futures positions"
+    CoinMFuturesFragment --> BinancePositionAdapter : "Shows coin futures positions"
+    NotesFragment --> NotesAdapter : "Shows note list"
+    TasksFragment --> GroupedTasksAdapter : "Shows grouped tasks"
+    HistoryFragment --> HistoryAdapter : "Shows historical data"
+    CalendarFragment --> EventAdapter : "Shows calendar events"
+    WTStudentsFragment --> WTStudentAdapter : "Shows student list"
+    WTRegisterFragment --> WTRegistrationAdapter : "Shows registrations"
+    WTLessonsFragment --> WTEventAdapter : "Shows lesson events"
+    WorkoutProgramFragment --> InvestmentSelectionAdapter : "Shows exercise selection"
+
+    %% Data Model Relationships - How Data Connects
+    WTRegistration --> WTStudent : "Links registration to student"
+    Workout --> Program : "Links workout to program"
+    Program --> Exercise : "Links program to exercises"
+    Note --> VoiceNote : "Links note to voice recordings"
+    Task --> TaskGroup : "Links task to category"
+    HistoryItem --> Transaction : "Records transaction history"
+    HistoryItem --> Investment : "Records investment history"
+    HistoryItem --> Note : "Records note history"
+    HistoryItem --> WTStudent : "Records student history" 
